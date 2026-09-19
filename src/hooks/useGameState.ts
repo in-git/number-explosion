@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { GameState, UpgradeId } from '../types';
+import { GameState, UpgradeId, UserAccountData } from '../types';
 import { SettleType } from '../components/FunShop';
 import {
   UPGRADE_METADATA,
@@ -14,13 +14,17 @@ import {
   getRebirthPointUpgradeCost,
   getExtraRebirthPoints,
   getRebirthToCollapseCost,
+  getGoodsSellPrice,
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
 import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { formatDuration, syncServerTime } from '../utils/serverTime';
 import {
   ACHIEVEMENTS,
+  GOODS_CATEGORIES,
   GOODS_SHOP_UNLOCK_COST,
+  INVENTORY_UNLOCK_COST,
+  RANKING_UNLOCK_COST,
   INITIAL_REBIRTH_BASE_ATTRS,
   INITIAL_STATE,
   OFFLINE_MAX_MS,
@@ -44,7 +48,7 @@ const MAX_BATCH_CLICKS = 100;
 const PLAY_TIME_TICK_MS = 5_000;
 
 /**
- * 游戏核心状态与全部玩法逻辑（数值、点击、升级、商店、重生、坍缩）
+ * 游戏核心状态与全部玩法逻辑（数值、点击、升级、商店、永劫、坍缩）
  */
 export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   const [state, setState] = useState<GameState>(loadGameState);
@@ -89,12 +93,18 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     };
   }, []);
 
-  /** 提交数值：任何途径获得的数值都不得突破「数值上限」 */
+  /** 提交数值：任何途径获得的数值都不得突破「数值上限」，同时刷新最高数值纪录 */
   const commitValue = useCallback((val: BigNum) => {
     const cap = getValueCap(stateRef.current.valueCapLevel || 0);
     const next = val.gt(cap) ? cap : val;
     setCurrentBigNum(next);
-    setState((prev) => ({ ...prev, currentValue: next.toData() }));
+    setState((prev) => ({
+      ...prev,
+      currentValue: next.toData(),
+      highestValue: next.gt(BigNum.fromData(prev.highestValue))
+        ? next.toData()
+        : prev.highestValue,
+    }));
     return next;
   }, []);
 
@@ -119,7 +129,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       let unlockRebirth = false;
       if (val.gte(REBIRTH_THRESHOLD) && !stateRef.current.rebirthUnlocked && markNotified('rebirth')) {
         unlockRebirth = true;
-        addToast('解锁重生', '');
+        addToast('解锁永劫', '');
       }
 
       if (freshNotified.length > 0) {
@@ -208,7 +218,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         unlocked.add(a.id);
         const reward = a.critMultiplier
           ? `暴击效果 +${a.critMultiplier}`
-          : `重生初始数值 +${a.rebirthStartValue.toLocaleString('zh-CN')}`;
+          : `永劫初始数值 +${a.rebirthStartValue.toLocaleString('zh-CN')}`;
         addToast('成就达成', `成就「${a.name}」· ${a.desc} · ${reward}`);
       });
 
@@ -345,7 +355,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       if (currentState.upgrades.autoClickUnlock.unlocked && delta > 0) {
         const autoFreq = currentState.upgrades.autoFrequency;
-        // 功法等级 + 重生商店购买的永久频率等级加成
+        // 功法等级 + 永劫商店购买的永久频率等级加成
         const autoFreqLevel =
           (autoFreq.unlocked ? autoFreq.level : 0) +
           (currentState.rebirthBaseAttrs?.autoFrequency || 0);
@@ -410,7 +420,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast, commitValue]
   );
 
-  /** 坍缩商店：消耗 1 点坍缩点数，为指定功法 +50 级上限（由重生商店迁移而来） */
+  /** 坍缩商店：消耗 1 点坍缩点数，为指定功法 +50 级上限（由永劫商店迁移而来） */
   const handleBuyLevelCap = useCallback(
     (id: UpgradeId) => {
       setState((prev) => {
@@ -435,7 +445,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 重生商店：消耗 1 点重生点数，单独提升某一重生基础属性 */
+  /** 永劫商店：消耗 1 点永劫点数，单独提升某一永劫基础属性 */
   const handleBuyRebirthBaseAttr = useCallback(
     (key: keyof typeof REBIRTH_BASE_ATTR_PURCHASE_GAINS) => {
       setState((prev) => {
@@ -450,12 +460,12 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       });
       const gain = REBIRTH_BASE_ATTR_PURCHASE_GAINS[key];
       const gainText = key === 'autoFrequency' ? `+${gain} 级` : `+${gain}`;
-      addToast('道基淬炼', `重生基础属性「${REBIRTH_BASE_ATTR_LABELS[key]}」提升 ${gainText}`);
+      addToast('道基淬炼', `永劫基础属性「${REBIRTH_BASE_ATTR_LABELS[key]}」提升 ${gainText}`);
     },
     [addToast]
   );
 
-  /** 重生商店：消耗 5 点重生值解锁坍缩 */
+  /** 永劫商店：消耗 5 点永劫值解锁坍缩 */
   const handleUnlockCollapse = useCallback(() => {
     setState((prev) => {
       if (prev.collapseUnlocked || prev.rebirthPoints < COLLAPSE_COST) return prev;
@@ -465,7 +475,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         collapseUnlocked: true,
       };
     });
-    addToast('坍缩觉醒', `消耗 ${COLLAPSE_COST} 点重生值 · 太虚坍缩已开启`);
+    addToast('坍缩觉醒', `消耗 ${COLLAPSE_COST} 点永劫值 · 太虚坍缩已开启`);
   }, [addToast]);
 
   /** 坍缩商店：消耗 1 点坍缩点数，数值上限翻倍 */
@@ -482,7 +492,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('天道扩容', `数值上限翻倍 → ${getValueCap(nextLevel).formatChinese(2)}`);
   }, [addToast]);
 
-  /** 坍缩商店：购买「重生点数获取」，消耗按斐波拉契递增的坍缩点数 */
+  /** 坍缩商店：购买「永劫点数获取」，消耗按斐波拉契递增的坍缩点数 */
   const handleBuyRebirthPointLevel = useCallback(() => {
     const prev = stateRef.current;
     const level = prev.rebirthPointLevel || 0;
@@ -500,11 +510,11 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
     addToast(
       '天命加身',
-      `重生时额外 +1 点重生点数（当前 +${level + 1}）· 消耗 ${cost.formatChinese(0)} 点坍缩点数`
+      `永劫时额外 +1 点永劫点数（当前 +${level + 1}）· 消耗 ${cost.formatChinese(0)} 点坍缩点数`
     );
   }, [addToast]);
 
-  /** 重生商店：消耗 1 点重生点数解锁万物店 */
+  /** 永劫商店：消耗 1 点永劫点数解锁万物店 */
   const handleUnlockGoodsShop = useCallback(() => {
     let done = false;
     setState((prev) => {
@@ -517,13 +527,70 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       };
     });
     if (done) {
-      addToast('万物洞开', `消耗 ${GOODS_SHOP_UNLOCK_COST} 点重生点数 · 万物店已开张`);
+      addToast('万物洞开', `消耗 ${GOODS_SHOP_UNLOCK_COST} 点永劫点数 · 万物店已开张`);
     }
   }, [addToast]);
 
-  /** 万物店：花费当前数值购置商品（价格随拥有数按斐波拉契递增） */
+  /** 永劫商店：消耗 3 点永劫点数解锁背包（未解锁不可购置商品） */
+  const handleUnlockInventory = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.inventoryUnlocked || prev.rebirthPoints < INVENTORY_UNLOCK_COST) return prev;
+      done = true;
+      return {
+        ...prev,
+        rebirthPoints: prev.rebirthPoints - INVENTORY_UNLOCK_COST,
+        inventoryUnlocked: true,
+      };
+    });
+    if (done) {
+      addToast('行囊开启', `消耗 ${INVENTORY_UNLOCK_COST} 点永劫点数 · 背包已开，可购置万物`);
+    }
+  }, [addToast]);
+
+  /** 排行·登顶：注册/登录成功，记录账号 */
+  const handleLogin = useCallback(
+    (account: UserAccountData) => {
+      setState((prev) => ({ ...prev, account }));
+      addToast('天道留名', `账号「${account.userName}」已注册登录`);
+    },
+    [addToast]
+  );
+
+  /** 排行·登顶：入驻大区（信息已由接口层上报后台） */
+  const handleSelectRegion = useCallback(
+    (regionId: string, regionName: string) => {
+      setState((prev) =>
+        prev.account
+          ? { ...prev, account: { ...prev.account, regionId, regionName } }
+          : prev
+      );
+      addToast('界域已定', `入驻 ${regionName} · 信息已上报`);
+    },
+    [addToast]
+  );
+
+  /** 永劫商店：消耗 1 点永劫点数解锁排行 */
+  const handleUnlockRanking = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.rankingUnlocked || prev.rebirthPoints < RANKING_UNLOCK_COST) return prev;
+      done = true;
+      return {
+        ...prev,
+        rebirthPoints: prev.rebirthPoints - RANKING_UNLOCK_COST,
+        rankingUnlocked: true,
+      };
+    });
+    if (done) {
+      addToast('天榜开启', `消耗 ${RANKING_UNLOCK_COST} 点永劫点数 · 天道有榜，各归其位`);
+    }
+  }, [addToast]);
+
+  /** 万物店：花费当前数值购置商品（价格随拥有数按斐波拉契递增，需已解锁背包） */
   const handleBuyGoods = useCallback(
     (id: string, name: string, cost: BigNum) => {
+      if (!stateRef.current.inventoryUnlocked) return;
       const currentVal = bigNumRef.current;
       const price = cost;
       if (!currentVal.gte(price)) return;
@@ -536,6 +603,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
           ...(prev.goodsPurchases || {}),
           [id]: (prev.goodsPurchases?.[id] || 0) + 1,
         },
+        // 累计购置花费（永不清零）
+        goodsTotalSpent: BigNum.fromData(prev.goodsTotalSpent).add(price).toData(),
       }));
 
       addToast('购置万物', `${name} · 花费 ${price.formatChinese(2)}`);
@@ -543,7 +612,52 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast, commitValue]
   );
 
-  /** 坍缩商店：消耗重生点数兑换坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
+  /** 背包：变卖已购商品，按原价 10% 回收数值 */
+  const handleSellGoods = useCallback(
+    (id: string, name: string, price: BigNum) => {
+      if ((stateRef.current.goodsPurchases?.[id] || 0) <= 0) return;
+
+      let removed = false;
+      setState((prev) => {
+        const owned = prev.goodsPurchases?.[id] || 0;
+        if (owned <= 0) return prev;
+        removed = true;
+        const next = { ...(prev.goodsPurchases || {}) };
+        if (owned <= 1) delete next[id];
+        else next[id] = owned - 1;
+        return { ...prev, goodsPurchases: next };
+      });
+      if (!removed) return;
+
+      commitValue(bigNumRef.current.add(price));
+      addToast('变卖万物', `${name} · 回收 ${price.formatChinese(2)}`);
+    },
+    [addToast, commitValue]
+  );
+
+  /** 背包：一键变卖全部已购商品 */
+  const handleSellAllGoods = useCallback(() => {
+    const purchases = stateRef.current.goodsPurchases || {};
+    let total = new BigNum(0, 0);
+    let count = 0;
+
+    GOODS_CATEGORIES.forEach((cat) => {
+      cat.items.forEach((item) => {
+        const owned = purchases[item.id] || 0;
+        if (owned <= 0) return;
+        total = total.add(getGoodsSellPrice(item.cost).mulScalar(owned));
+        count += owned;
+      });
+    });
+
+    if (count === 0) return;
+
+    setState((prev) => ({ ...prev, goodsPurchases: {} }));
+    commitValue(bigNumRef.current.add(total));
+    addToast('尽数变卖', `${count} 件 · 回收 ${total.formatChinese(2)}`);
+  }, [addToast, commitValue]);
+
+  /** 坍缩商店：消耗永劫点数兑换坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
   const handleExchangeRebirthToCollapse = useCallback(() => {
     const prev = stateRef.current;
     const times = prev.rebirthToCollapseCount || 0;
@@ -561,15 +675,15 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
     addToast(
       '点化坍缩',
-      `消耗 ${cost.formatChinese(0)} 点重生点数 · 换得 1 点坍缩点数（累计 ${times + 1} 次）`
+      `消耗 ${cost.formatChinese(0)} 点永劫点数 · 换得 1 点坍缩点数（累计 ${times + 1} 次）`
     );
   }, [addToast]);
 
-  /** 重生：数值达百万即可（无次数限制），基础 +1 点，再加上「重生点数获取」的加成 */
+  /** 永劫：数值达百万即可（无次数限制），基础 +1 点，再加上「永劫点数获取」的加成 */
   const confirmRebirth = useCallback(() => {
     // 起始数值 = 成就奖励之和（可与其他数值来源累加）
     const startValue = getRebirthStartValue(stateRef.current);
-    // 基础 1 点 + 「重生点数获取」升级的额外点数
+    // 基础 1 点 + 「永劫点数获取」升级的额外点数
     const gain = 1 + getExtraRebirthPoints(stateRef.current.rebirthPointLevel || 0);
 
     setState((prev) => ({
@@ -580,19 +694,21 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthCount: prev.rebirthCount + 1,
       rebirthPoints: prev.rebirthPoints + gain,
       upgrades: resetUpgradeLevels(prev.upgrades),
+      // 背包为永久财产：永劫不清空已购商品
+      goodsPurchases: prev.goodsPurchases || {},
     }));
 
     setCurrentBigNum(startValue);
 
     addToast(
-      '重生圆满',
+      '永劫圆满',
       startValue.m === 0
-        ? `+${gain} 点重生点数`
-        : `+${gain} 点重生点数 · 起始数值 ${startValue.formatChinese(2)}`
+        ? `+${gain} 点永劫点数`
+        : `+${gain} 点永劫点数 · 起始数值 ${startValue.formatChinese(2)}`
     );
   }, [addToast]);
 
-  /** 坍缩：献祭 5 点重生值，坍缩层数以 2 为等差递增 */
+  /** 坍缩：献祭 5 点永劫值，坍缩层数以 2 为等差递增 */
   const confirmCollapse = useCallback(() => {
     if (stateRef.current.rebirthPoints < COLLAPSE_COST) return;
 
@@ -608,6 +724,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthPoints: prev.rebirthPoints - COLLAPSE_COST,
       collapsePoints: prev.collapsePoints + collapseGain,
       upgrades: resetUpgradeLevels(prev.upgrades),
+      // 背包为永久财产：坍缩同样不清空已购商品
+      goodsPurchases: prev.goodsPurchases || {},
     }));
 
     setCurrentBigNum(startValue);
@@ -621,7 +739,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     setState((prev) => ({ ...prev, currentValue: val.toData() }));
   }, []);
 
-  /** 调试：直接设置重生点数 */
+  /** 调试：直接设置永劫点数 */
   const debugSetRebirthPoints = useCallback((n: number) => {
     setState((prev) => ({
       ...prev,
@@ -667,7 +785,13 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
     handleUnlockGoodsShop,
+    handleUnlockInventory,
+    handleUnlockRanking,
+    handleLogin,
+    handleSelectRegion,
     handleBuyGoods,
+    handleSellGoods,
+    handleSellAllGoods,
     confirmRebirth,
     confirmCollapse,
     resetProgress,

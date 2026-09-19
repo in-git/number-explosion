@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { GameState } from '../types';
-import { GOODS_CATEGORIES } from '../config';
+import { GOODS_CATEGORIES, INVENTORY_UNLOCK_COST } from '../config';
 import { getGoodsPrice } from '../utils/gameMath';
 
 interface GoodsShopProps {
@@ -18,6 +18,8 @@ type FilterId = 'all' | string;
 export const GoodsShop: React.FC<GoodsShopProps> = ({ state, currentValue, onBuy }) => {
   const [filter, setFilter] = useState<FilterId>('all');
   const purchases = state.goodsPurchases || {};
+  // 未解锁背包：不可购置任何商品
+  const unlocked = !!state.inventoryUnlocked;
 
   const tabs: { id: FilterId; label: string }[] = [
     { id: 'all', label: '全部' },
@@ -38,6 +40,13 @@ export const GoodsShop: React.FC<GoodsShopProps> = ({ state, currentValue, onBuy
           {currentValue.formatChinese(2)}
         </span>
       </div>
+
+      {/* 未解锁背包的简单提示 */}
+      {!unlocked && (
+        <div className="rounded-lg border border-[#5a2f2f] bg-[#261b1b] px-2.5 py-2 text-center text-[11px] font-serif text-[#d99797]">
+          未解锁背包 · 暂不可购置（永劫商店消耗 {INVENTORY_UNLOCK_COST} 点永劫点数解锁）
+        </div>
+      )}
 
       {/* tabbar：分类筛选 */}
       <div className="grid grid-cols-5 gap-1.5">
@@ -64,7 +73,7 @@ export const GoodsShop: React.FC<GoodsShopProps> = ({ state, currentValue, onBuy
           const owned = purchases[item.id] || 0;
           // 每购一次，售价按斐波拉契递增
           const price = getGoodsPrice(item.cost, owned);
-          const canBuy = currentValue.gte(price);
+          const canBuy = unlocked && currentValue.gte(price);
 
           return (
             <button

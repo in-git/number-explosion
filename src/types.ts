@@ -24,7 +24,7 @@ export interface UpgradeConfig {
 export interface UpgradeState {
   unlocked: boolean;
   level: number;
-  /** 在重生商店中用重生点数购买的等级上限加成次数（每次 +50 级上限） */
+  /** 在永劫商店中用永劫点数购买的等级上限加成次数（每次 +50 级上限） */
   capBonus: number;
 }
 
@@ -45,7 +45,7 @@ export interface ToastMessage {
 }
 
 /**
- * 重生基础属性：每次重生永久累加，与基础值叠加参与计算
+ * 永劫基础属性：每次永劫永久累加，与基础值叠加参与计算
  * - baseValue: 直接加到单次点击的基础数值上
  * - critMultiplier / comboMultiplier: 加到倍数基数（1.0 = 100%）上
  * - critChance / comboChance: 加到概率上（0.05 = 5%），合计上限 100%
@@ -60,10 +60,25 @@ export interface RebirthBaseAttrs {
   comboMultiplier: number;
 }
 
+/** 登录账号（排行榜登顶用） */
+export interface UserAccountData {
+  userId: string;
+  userName: string;
+  /** 昵称：展示在排行榜上 */
+  nickname: string;
+  password: string;
+  token: string;
+  /** 已入驻大区 */
+  regionId: string | null;
+  regionName: string | null;
+}
+
 export interface GameState {
   // 核心数值
   currentValue: BigNumData;
-  /** 本世（本次重生后）的用户点击次数：用于解锁功法，重生/坍缩时清零 */
+  /** 历世最高数值纪录（达到过的最高值，永不清零） */
+  highestValue: BigNumData;
+  /** 本世（本次永劫后）的用户点击次数：用于解锁功法，永劫/坍缩时清零 */
   clickCount: number;
   /** 历世累计的用户点击次数：永不清零，用于解锁成就 */
   totalClickCount: number;
@@ -75,28 +90,36 @@ export interface GameState {
   // 升级状态
   upgrades: Record<UpgradeId, UpgradeState>;
 
-  // 重生与坍缩
-  rebirthCount: number;     // 累计重生次数（无上限）
-  rebirthPoints: number;    // 重生点数（当前拥有）
+  // 永劫与坍缩
+  rebirthCount: number;     // 累计永劫次数（无上限）
+  rebirthPoints: number;    // 永劫点数（当前拥有）
   collapsePoints: number;   // 坍缩点数（当前拥有）
   rebirthUnlocked: boolean;
   collapseUnlocked: boolean;
-  /** 万物店是否已解锁（消耗 1 点重生点数，默认不显示） */
+  /** 万物店是否已解锁（消耗 1 点永劫点数，默认不显示） */
   goodsShopUnlocked: boolean;
+  /** 背包是否已解锁（消耗 3 点永劫点数，未解锁则无法购置商品） */
+  inventoryUnlocked: boolean;
+  /** 排行是否已解锁（消耗 1 点永劫点数，默认不显示） */
+  rankingUnlocked: boolean;
+  /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
+  account: UserAccountData | null;
   /** 万物店已购商品：商品 id → 拥有数量 */
   goodsPurchases: Record<string, number>;
-  /** 重生基础属性（永久累加，重生/坍缩均不清除） */
+  /** 购置商品累计花费的数值总额（永不清零） */
+  goodsTotalSpent: BigNumData;
+  /** 永劫基础属性（永久累加，永劫/坍缩均不清除） */
   rebirthBaseAttrs: RebirthBaseAttrs;
   /** 数值上限的翻倍次数（坍缩商店购买，0 = 默认 500万） */
   valueCapLevel: number;
   /**
-   * 「重生点数获取」的升级次数（坍缩商店购买，消耗按斐波拉契递增的坍缩点数）
-   * 每级在重生时额外 +1 点重生点数
+   * 「永劫点数获取」的升级次数（坍缩商店购买，消耗按斐波拉契递增的坍缩点数）
+   * 每级在永劫时额外 +1 点永劫点数
    */
   rebirthPointLevel: number;
   /**
-   * 坍缩商店中「重生点数 → 坍缩点数」的累计兑换次数
-   * 前 50 次每次 3 点重生点数；第 51 次起消耗按 50 + 斐波拉契 递增
+   * 坍缩商店中「永劫点数 → 坍缩点数」的累计兑换次数
+   * 前 50 次每次 3 点永劫点数；第 51 次起消耗按 50 + 斐波拉契 递增
    */
   rebirthToCollapseCount: number;
 

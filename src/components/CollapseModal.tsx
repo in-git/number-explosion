@@ -39,7 +39,7 @@ export const CollapseModal: React.FC<CollapseModalProps> = ({
         {/* Status */}
         <div className="bg-[#1e1724] border border-[#3b2747] rounded-lg p-3 mb-4 flex items-center justify-around text-center">
           <div>
-            <div className="text-[11px] text-[#8e749c] font-serif">消耗重生值</div>
+            <div className="text-[11px] text-[#8e749c] font-serif">消耗永劫值</div>
             <div className="text-lg font-bold font-mono text-[#e3a8fa]">
               {COLLAPSE_COST} 点 (拥有:{' '}
               <span className="text-[#5fa8e6]">{currentRebirthPoints}</span>)
@@ -83,8 +83,8 @@ export const CollapseModal: React.FC<CollapseModalProps> = ({
             </div>
             <ul className="space-y-1.5 text-[#e8a2b2] list-disc list-inside">
               <li>
-                <span className="font-bold">献祭 {COLLAPSE_COST} 点重生值</span>
-                ：作为开启太虚坍缩的祭品，{COLLAPSE_COST} 点珍贵的重生点数将悉数消耗。
+                <span className="font-bold">献祭 {COLLAPSE_COST} 点永劫值</span>
+                ：作为开启太虚坍缩的祭品，{COLLAPSE_COST} 点珍贵的永劫点数将悉数消耗。
               </li>
               <li>
                 <span className="font-bold">当前数值全部归零</span>：一切元气回归太虚奇点，从初生之态再起征程。

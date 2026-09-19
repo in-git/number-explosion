@@ -37,6 +37,13 @@ export default defineConfig(() => {
     },
     port: 8989,
     server: {
+      // 排行/账号接口转发到后端（/api/time 仍由本地中间件提供，不做代理）
+      proxy: {
+        '/api/leaderboard': 'http://localhost:3001',
+        '/api/auth': 'http://localhost:3001',
+        '/api/regions': 'http://localhost:3001',
+        '/api/user': 'http://localhost:3001',
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

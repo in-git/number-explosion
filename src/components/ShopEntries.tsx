@@ -1,8 +1,10 @@
 import React from 'react';
 import {
+  BarChart3,
   Dices,
   Infinity as InfinityIcon,
   Orbit,
+  Package,
   RefreshCw,
   Settings,
   ShoppingBag,
@@ -21,7 +23,11 @@ interface ShopEntriesProps {
   onOpenCollapseShop: () => void;
   /** 万物店入口：解锁后开放 */
   onOpenGoodsShop: () => void;
-  /** 重生入口：弹窗内可继续转入坍缩 */
+  /** 背包入口：变卖已购商品 */
+  onOpenInventory: () => void;
+  /** 排行入口：永劫后解锁 */
+  onOpenRanking: () => void;
+  /** 永劫入口：弹窗内可继续转入坍缩 */
   onOpenRebirthModal: () => void;
   /** 成就面板入口（累计点击成就） */
   onOpenAchievementsModal: () => void;
@@ -52,13 +58,17 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   onOpenFunShop,
   onOpenCollapseShop,
   onOpenGoodsShop,
+  onOpenInventory,
+  onOpenRanking,
   onOpenRebirthModal,
   onOpenAchievementsModal,
   onOpenSettingsModal,
 }) => {
-  // 重生商店：重生之道开启后才出现；坍缩商店：解锁坍缩后即出现（无需先坍缩一次）
+  // 永劫商店：永劫之道开启后才出现；坍缩商店：解锁坍缩后即出现（无需先坍缩一次）
   const rebirthShopUnlocked = state.rebirthUnlocked || state.rebirthPoints > 0;
   const collapseShopUnlocked = state.collapseUnlocked || state.collapsePoints > 0;
+  // 排行：消耗 1 点永劫点数解锁后显示
+  const rankingUnlocked = !!state.rankingUnlocked;
   const canOpenRebirth = canRebirth || canCollapse;
 
   return (
@@ -75,7 +85,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           <div className={SHOP_TITLE}>数 值 店</div>
         </button>
 
-        {/* 重生商店：解锁后才显示 */}
+        {/* 永劫商店：解锁后才显示 */}
         {rebirthShopUnlocked && (
           <button
             id="btn-open-rebirth-shop"
@@ -83,7 +93,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             className={`${SHOP_CARD} bg-[#1a1816] border-[#3a3226] hover:border-[#6b5a3f] active:translate-y-0.5 cursor-pointer`}
           >
             <RefreshCw size={18} className="text-[#8c8273] flex-shrink-0" />
-            <div className={SHOP_TITLE}>重 生 店</div>
+            <div className={SHOP_TITLE}>永 劫 店</div>
           </button>
         )}
 
@@ -122,9 +132,9 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         )}
       </div>
 
-      {/* 重生 / 成就 / 设置：依旧是列表，一行一个 */}
+      {/* 永劫 / 成就 / 设置：依旧是列表，一行一个 */}
       <div className="flex flex-col gap-2">
-        {/* 重生（内含坍缩入口） */}
+        {/* 永劫（内含坍缩入口） */}
         <button
           id="btn-open-rebirth"
           onClick={onOpenRebirthModal}
@@ -140,10 +150,34 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
               canOpenRebirth ? 'text-[#ded7cb]' : 'text-[#6b6455]'
             }`}
           >
-            重 生
+            永 劫
           </div>
           <InfinityIcon size={18} className="text-[#8c8273] flex-shrink-0" />
         </button>
+
+        {/* 背包（变卖已购商品）：解锁后才显示 */}
+        {state.inventoryUnlocked && (
+          <button
+            id="btn-open-inventory"
+            onClick={onOpenInventory}
+            className={`${LIST_CARD} bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
+          >
+            <div className={LIST_TITLE}>背 包</div>
+            <Package size={18} className="text-[#8c8273] flex-shrink-0" />
+          </button>
+        )}
+
+        {/* 排行（消耗 1 点永劫点数解锁后显示） */}
+        {rankingUnlocked && (
+          <button
+            id="btn-open-ranking"
+            onClick={onOpenRanking}
+            className={`${LIST_CARD} bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
+          >
+            <div className={LIST_TITLE}>排 行</div>
+            <BarChart3 size={18} className="text-[#8c8273] flex-shrink-0" />
+          </button>
+        )}
 
         {/* 成就（累计点击成就） */}
         <button

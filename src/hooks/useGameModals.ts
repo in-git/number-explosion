@@ -3,15 +3,19 @@ import { useDisclosure, Disclosure } from './useDisclosure';
 export interface GameModalsState {
   /** 数值商店（功法升级） */
   upgradeShop: Disclosure;
-  /** 重生商店（等级上限 / 解锁坍缩） */
+  /** 永劫商店（等级上限 / 解锁坍缩） */
   rebirthShop: Disclosure;
   /** 坍缩商店（数值上限翻倍） */
   collapseShop: Disclosure;
   /** 万物店（消耗数值购置万物） */
   goodsShop: Disclosure;
+  /** 背包（变卖已购商品） */
+  inventory: Disclosure;
+  /** 排行榜（永劫后解锁） */
+  ranking: Disclosure;
   /** 奇趣商店（博弈） */
   funShop: Disclosure;
-  /** 重生确认 */
+  /** 永劫确认 */
   rebirth: Disclosure;
   /** 坍缩确认 */
   collapse: Disclosure;
@@ -27,6 +31,8 @@ export function useGameModals(): GameModalsState {
     rebirthShop: useDisclosure(),
     collapseShop: useDisclosure(),
     goodsShop: useDisclosure(),
+    inventory: useDisclosure(),
+    ranking: useDisclosure(),
     funShop: useDisclosure(),
     rebirth: useDisclosure(),
     collapse: useDisclosure(),

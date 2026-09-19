@@ -62,7 +62,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
-  /** 重生点数 / 坍缩点数：输入框默认 100，设置后立即生效并关闭 */
+  /** 永劫点数 / 坍缩点数：输入框默认 100，设置后立即生效并关闭 */
   const applyRebirth = () => {
     const n = parsePoints(rebirthInput);
     if (n === null) return;
@@ -82,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const pointFields = [
     {
       id: 'rebirth',
-      title: '重生点数',
+      title: '永劫点数',
       value: rebirthInput,
       onChange: setRebirthInput,
       onApply: applyRebirth,
@@ -149,7 +149,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        {/* 重生点数 / 坍缩点数：仅标题 + 输入框（默认 100） */}
+        {/* 永劫点数 / 坍缩点数：仅标题 + 输入框（默认 100） */}
         <div className="space-y-2 mb-3">
           {pointFields.map((f) => (
             <div

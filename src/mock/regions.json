@@ -1,0 +1,34 @@
+{
+  "regions": [
+    {
+      "id": "tianshu-1",
+      "name": "天枢·一区",
+      "desc": "初开之地 · 群雄并起",
+      "online": 1286
+    },
+    {
+      "id": "tianxuan-2",
+      "name": "天璇·二区",
+      "desc": "灵气渐盛 · 宗门林立",
+      "online": 974
+    },
+    {
+      "id": "tianji-3",
+      "name": "天玑·三区",
+      "desc": "新秀云集 · 后起之秀",
+      "online": 1523
+    },
+    {
+      "id": "tianquan-4",
+      "name": "天权·四区",
+      "desc": "群仙争霸 · 强者为尊",
+      "online": 2088
+    },
+    {
+      "id": "yuheng-5",
+      "name": "玉衡·五区",
+      "desc": "最新大区 · 百废待兴",
+      "online": 642
+    }
+  ]
+}

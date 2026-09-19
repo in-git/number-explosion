@@ -16,11 +16,11 @@ import { UpgradeButton } from './UpgradeButton';
 interface CollapseShopProps {
   state: GameState;
   onBuyValueCap: () => void;
-  /** 购买「重生点数获取」：消耗按斐波拉契递增的坍缩点数，每次重生额外 +1 点 */
+  /** 购买「永劫点数获取」：消耗按斐波拉契递增的坍缩点数，每次永劫额外 +1 点 */
   onBuyRebirthPointLevel: () => void;
-  /** 消耗 1 点坍缩点数，为指定功法 +50 级上限（由重生商店迁移而来） */
+  /** 消耗 1 点坍缩点数，为指定功法 +50 级上限（由永劫商店迁移而来） */
   onBuyLevelCap: (id: UpgradeId) => void;
-  /** 消耗重生点数兑换 1 点坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
+  /** 消耗永劫点数兑换 1 点坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
   onExchangeRebirthToCollapse: () => void;
 }
 
@@ -36,14 +36,14 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
   const nextCap = getValueCap(level + 1);
   const canBuy = state.collapsePoints >= 1;
 
-  // 重生点数 → 坍缩点数兑换
+  // 永劫点数 → 坍缩点数兑换
   const exchanged = state.rebirthToCollapseCount || 0;
   const exchangeCost = getRebirthToCollapseCost(exchanged);
   const exchangeCostNum = exchangeCost.toNumber();
   const canExchange = Number.isFinite(exchangeCostNum) && state.rebirthPoints >= exchangeCostNum;
   const cheapLeft = Math.max(0, REBIRTH_TO_COLLAPSE_FREE_TIMES - exchanged);
 
-  // 重生点数获取：当前等级 + 下一级消耗（斐波拉契）
+  // 永劫点数获取：当前等级 + 下一级消耗（斐波拉契）
   const rpLevel = state.rebirthPointLevel || 0;
   const rpCost = getRebirthPointUpgradeCost(rpLevel);
   const canBuyRp = BigNum.fromNumber(state.collapsePoints).gte(rpCost);
@@ -55,12 +55,12 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
           左侧为功效 · 右侧为消耗（点击整行购买）
         </div>
         <div className="text-[10px] font-mono text-[#8a7a63]">
-          重生点数 <span className="text-[#5fa8e6]">{state.rebirthPoints}</span> · 坍缩点数{' '}
+          永劫点数 <span className="text-[#5fa8e6]">{state.rebirthPoints}</span> · 坍缩点数{' '}
           <span className="text-[#d897fa]">{state.collapsePoints}</span>
         </div>
       </div>
 
-      {/* 兑换：重生点数 → 坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */}
+      {/* 兑换：永劫点数 → 坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */}
       <div
         id="shop-item-exchange-collapse"
         onClick={() => {
@@ -80,7 +80,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
             </span>
           </div>
           <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
-            {exchangeCost.formatChinese(0)} 重生点数 → 1 点坍缩点数
+            {exchangeCost.formatChinese(0)} 永劫点数 → 1 点坍缩点数
             {cheapLeft > 0
               ? ` · 前 ${REBIRTH_TO_COLLAPSE_FREE_TIMES} 次不加价，还剩 ${cheapLeft} 次`
               : ' · 消耗按斐波拉契递增'}
@@ -92,7 +92,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
         </UpgradeButton>
       </div>
 
-      {/* 重生点数获取：每次重生额外 +1 点，消耗斐波拉契递增的坍缩点数 */}
+      {/* 永劫点数获取：每次永劫额外 +1 点，消耗斐波拉契递增的坍缩点数 */}
       <div
         id="shop-item-rebirth-point"
         onClick={() => {
@@ -105,11 +105,11 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
-              重生爆炸
+              永劫爆炸
             </span>
           </div>
           <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
-            每次重生点额外 +1
+            每次永劫点额外 +1
           </div>
         </div>
 
@@ -148,7 +148,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
         </UpgradeButton>
       </div>
 
-      {/* 功法等级上限（由重生商店迁移而来，消耗坍缩点） */}
+      {/* 功法等级上限（由永劫商店迁移而来，消耗坍缩点） */}
       <div className="flex flex-col gap-1.5 pt-1.5 border-t border-[#2d2822]">
         <div className="text-[10px] font-serif text-[#6f6656] px-1">
           —— 功法等级上限（消耗坍缩点）——

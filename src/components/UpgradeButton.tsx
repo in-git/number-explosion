@@ -23,7 +23,7 @@ const ACTIVE_GREEN =
   'text-[#76d18c] underline decoration-1 underline-offset-4 cursor-pointer hover:text-[#a3e8b3]';
 const DISABLED = 'text-[#5b5548] cursor-default';
 
-/** 通用升级 / 购买按钮：无背景色、无前置图标，供功法列表与各商店共用 */
+/** 通用升级 / 购买按钮：无背景色、无前置图标*/
 export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
   children,
   id,

@@ -28,7 +28,7 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
             —— 兵 解 转 世 ——
           </div>
           <h3 className="text-lg sm:text-xl font-bold font-serif text-[#ebdcc5] tracking-wider">
-            确 认 重 生
+            确 认 永 劫
           </h3>
         </div>
 
@@ -36,7 +36,7 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
         <div className="space-y-1.5 text-[11px] font-serif mb-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[#7a6f5e]">所得</span>
-            <span className="font-mono text-[#5fa8e6]">+1 点重生值（永久）</span>
+            <span className="font-mono text-[#5fa8e6]">+1 点永劫值（永久）</span>
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-[#7a6f5e]">代价</span>
@@ -46,17 +46,17 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-[#7a6f5e]">次数</span>
-            <span className="font-mono text-[#d1c6b4]">已重生 {currentRebirthCount} 次</span>
+            <span className="font-mono text-[#d1c6b4]">已永劫 {currentRebirthCount} 次</span>
           </div>
         </div>
 
-        {/* 说明：重生不再改变基础属性 */}
+        {/* 说明：永劫不再改变基础属性 */}
         <div className="rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2 mb-4">
           <div className="text-[11px] font-serif text-[#8fa6bd] mb-1">须知</div>
           <div className="text-[11px] font-mono text-[#cbbfa9] leading-relaxed">
-            重生获得 1 点重生值
+            永劫获得 1 点永劫值
             <br />
-            基础属性只可在重生商店中购买提升
+            基础属性只可在永劫商店中购买提升
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
             onClick={onConfirm}
             className="px-5 py-2 rounded text-xs font-serif font-bold text-[#f5ebd7] bg-[#543b23] hover:bg-[#694a2c] border border-[#8a653f] shadow-[0_4px_16px_rgba(0,0,0,0.6)] cursor-pointer active:translate-y-0.5 transition-all"
           >
-            转世重生
+            转世永劫
           </button>
         </div>
       </div>

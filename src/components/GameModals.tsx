@@ -1,6 +1,6 @@
 import React from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { GameState, UpgradeId } from '../types';
+import { GameState, UpgradeId, UserAccountData } from '../types';
 import { GameModalsState } from '../hooks/useGameModals';
 import { REBIRTH_BASE_ATTR_PURCHASE_GAINS } from '../config';
 import { FunShop, SettleType } from './FunShop';
@@ -9,6 +9,8 @@ import { UpgradesList } from './UpgradesList';
 import { RebirthShop } from './RebirthShop';
 import { CollapseShop } from './CollapseShop';
 import { GoodsShop } from './GoodsShop';
+import { Inventory } from './Inventory';
+import { Ranking } from './Ranking';
 import { AchievementsModal } from './AchievementsModal';
 import { RebirthModal } from './RebirthModal';
 import { CollapseModal } from './CollapseModal';
@@ -24,27 +26,39 @@ interface GameModalsProps {
   onBuyLevelCap: (id: UpgradeId) => void;
   onBuyRebirthBaseAttr: (key: keyof typeof REBIRTH_BASE_ATTR_PURCHASE_GAINS) => void;
   onUnlockCollapse: () => void;
-  /** 消耗 1 点重生点数解锁万物店 */
+  /** 消耗 1 点永劫点数解锁万物店 */
   onUnlockGoodsShop: () => void;
+  /** 消耗 3 点永劫点数解锁背包 */
+  onUnlockInventory: () => void;
+  /** 消耗 1 点永劫点数解锁排行 */
+  onUnlockRanking: () => void;
+  /** 排行·登顶：注册/登录 */
+  onLogin: (account: UserAccountData) => void;
+  /** 排行·登顶：入驻大区 */
+  onRegionSelected: (regionId: string, regionName: string) => void;
   onBuyValueCap: () => void;
-  /** 购买「重生点数获取」 */
+  /** 购买「永劫点数获取」 */
   onBuyRebirthPointLevel: () => void;
-  /** 重生点数兑换坍缩点数 */
+  /** 永劫点数兑换坍缩点数 */
   onExchangeRebirthToCollapse: () => void;
   /** 万物店：花费当前数值购置商品 */
   onBuyGoods: (id: string, name: string, cost: BigNum) => void;
+  /** 背包：变卖 1 件已购商品 */
+  onSellGoods: (id: string, name: string, price: BigNum) => void;
+  /** 背包：变卖全部已购商品 */
+  onSellAllGoods: () => void;
   onGambleSettle: (type: SettleType, amount: BigNum) => void;
   onConfirmRebirth: () => void;
   onConfirmCollapse: () => void;
   onSetDebugValue: (val: BigNum) => void;
-  /** 调试：直接设置重生点数 */
+  /** 调试：直接设置永劫点数 */
   onSetRebirthPoints: (n: number) => void;
   /** 调试：直接设置坍缩点数 */
   onSetCollapsePoints: (n: number) => void;
   onResetProgress: () => void;
 }
 
-/** 全部弹窗：数值商店 / 重生商店 / 坍缩商店 / 奇趣商店 / 重生 / 坍缩 */
+/** 全部弹窗：数值商店 / 永劫商店 / 坍缩商店 / 奇趣商店 / 永劫 / 坍缩 */
 export const GameModals: React.FC<GameModalsProps> = ({
   modals,
   state,
@@ -56,10 +70,16 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyRebirthBaseAttr,
   onUnlockCollapse,
   onUnlockGoodsShop,
+  onUnlockInventory,
+  onUnlockRanking,
+  onLogin,
+  onRegionSelected,
   onBuyValueCap,
   onBuyRebirthPointLevel,
   onExchangeRebirthToCollapse,
   onBuyGoods,
+  onSellGoods,
+  onSellAllGoods,
   onGambleSettle,
   onConfirmRebirth,
   onConfirmCollapse,
@@ -84,11 +104,11 @@ export const GameModals: React.FC<GameModalsProps> = ({
       />
     </ModalShell>
 
-    {/* 重生商店 Modal */}
+    {/* 永劫商店 Modal */}
     <ModalShell
       isOpen={modals.rebirthShop.isOpen}
       onClose={modals.rebirthShop.close}
-      title="重 生 店"
+      title="永 劫 店"
     >
       <RebirthShop
         state={state}
@@ -96,6 +116,8 @@ export const GameModals: React.FC<GameModalsProps> = ({
         onBuyRebirthBaseAttr={onBuyRebirthBaseAttr}
         onUnlockCollapse={onUnlockCollapse}
         onUnlockGoodsShop={onUnlockGoodsShop}
+        onUnlockInventory={onUnlockInventory}
+        onUnlockRanking={onUnlockRanking}
         onOpenCollapse={() => {
           modals.rebirthShop.close();
           modals.collapse.open();
@@ -129,6 +151,32 @@ export const GameModals: React.FC<GameModalsProps> = ({
       <GoodsShop state={state} currentValue={currentValue} onBuy={onBuyGoods} />
     </ModalShell>
 
+    {/* 背包 Modal */}
+    <ModalShell
+      isOpen={modals.inventory.isOpen}
+      onClose={modals.inventory.close}
+      title="背 包"
+      subtitle="—— 万 物 入 囊 · 变 卖 折 现 ——"
+    >
+      <Inventory
+        state={state}
+        currentValue={currentValue}
+        onSell={onSellGoods}
+        onSellAll={onSellAllGoods}
+      />
+    </ModalShell>
+
+    {/* 排行 Modal */}
+    <ModalShell
+      isOpen={modals.ranking.isOpen}
+      onClose={modals.ranking.close}
+      title="排 行"
+      subtitle="—— 天 道 有 榜 · 各 归 其 位 ——"
+      hideFooterClose
+    >
+      <Ranking state={state} onLogin={onLogin} onRegionSelected={onRegionSelected} />
+    </ModalShell>
+
     {/* 奇趣商店 Modal */}
     <ModalShell
       isOpen={modals.funShop.isOpen}
@@ -142,7 +190,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
       />
     </ModalShell>
 
-    {/* 重生 Modal */}
+    {/* 永劫 Modal */}
     <RebirthModal
       isOpen={modals.rebirth.isOpen}
       onClose={modals.rebirth.close}

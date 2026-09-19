@@ -3,7 +3,7 @@ import { GameState, RebirthBaseAttrs, UpgradeId, UpgradeState } from '../types';
 import { ACHIEVEMENTS, INITIAL_REBIRTH_BASE_ATTRS } from '../config';
 
 /**
- * 成就奖励累加出的「重生初始数值」：所有已达成成就的奖励之和
+ * 成就奖励累加出的「永劫初始数值」：所有已达成成就的奖励之和
  * 与其他数值来源（点击收益、基础数值等）叠加，参与后续一切计算
  */
 export function getRebirthStartValue(state: GameState): BigNum {
@@ -17,7 +17,7 @@ export function getRebirthStartValue(state: GameState): BigNum {
 
 /**
  * 成就奖励累加出的「暴击效果」（暴击倍数基数加成）：
- * 游玩时长成就达成后永久累加，与重生基础属性、功法等级叠加计算
+ * 游玩时长成就达成后永久累加，与永劫基础属性、功法等级叠加计算
  */
 export function getAchievementCritBonus(state: GameState): number {
   const unlocked = new Set(state.unlockedAchievements || []);
@@ -67,21 +67,21 @@ export function getFibonacciBonus(level: number): BigNum {
 }
 
 /**
- * 「重生点数获取」升级
+ * 「永劫点数获取」升级
  * - 购买下一级（当前等级 L）消耗 F(L+1) 点坍缩点：1, 1, 2, 3, 5, 8 ...（斐波拉契数列）
- * - 每级在重生时额外 +1 点重生点数
+ * - 每级在永劫时额外 +1 点永劫点数
  */
 export function getRebirthPointUpgradeCost(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   return getFibonacciBig(lv + 1);
 }
 
-/** 该升级带来的额外重生点数（每级 +1） */
+/** 该升级带来的额外永劫点数（每级 +1） */
 export function getExtraRebirthPoints(level: number): number {
   return Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
 }
 
-/** 兑换：每次消耗 3 点重生点数换 1 点坍缩点数 */
+/** 兑换：每次消耗 3 点永劫点数换 1 点坍缩点数 */
 export const REBIRTH_TO_COLLAPSE_BASE_COST = 3;
 /** 兑换：前 50 次维持基础消耗，不加价 */
 export const REBIRTH_TO_COLLAPSE_FREE_TIMES = 50;
@@ -89,7 +89,7 @@ export const REBIRTH_TO_COLLAPSE_FREE_TIMES = 50;
 export const REBIRTH_TO_COLLAPSE_RAISE_BASE = 50;
 
 /**
- * 「重生点数 → 坍缩点数」第 (n+1) 次兑换所需的重生点数（n = 已兑换次数）
+ * 「永劫点数 → 坍缩点数」第 (n+1) 次兑换所需的永劫点数（n = 已兑换次数）
  * - 前 50 次：恒定 3 点
  * - 第 51 次起：50 + F(n - 50)，即 50, 51, 51, 52, 53, 55, 58 ...
  */
@@ -109,6 +109,12 @@ export function getGoodsPrice(baseCost: number, owned: number): BigNum {
   const base = BigNum.fromNumber(baseCost);
   const n = Number.isFinite(owned) && owned > 0 ? Math.floor(owned) : 0;
   return base.add(getFibonacciBig(n));
+}
+
+/** 背包回收价：原价 × 10% */
+export const GOODS_SELL_RATE = 0.1;
+export function getGoodsSellPrice(baseCost: number): BigNum {
+  return BigNum.fromNumber(baseCost).mulScalar(GOODS_SELL_RATE);
 }
 
 /** 数值升级收益系数：斐波那契加成 ×0.9，即每次升级收益降低 10% */
@@ -170,7 +176,7 @@ export const UPGRADE_METADATA: Record<UpgradeId, { name: string; requiredClicks:
   },
 };
 
-/** 坍缩所需消耗的重生点数 */
+/** 坍缩所需消耗的永劫点数 */
 export const COLLAPSE_COST = 5;
 
 /** 数值上限：默认 500万，每消耗 1 点坍缩点数翻倍 */
@@ -192,11 +198,11 @@ export const CRIT_CHANCE_STEP = 0.05;
 
 /** 所有功法的默认等级上限 */
 export const BASE_MAX_LEVEL = 20;
-/** 每消耗 1 点重生点数，可提升的等级上限 */
+/** 每消耗 1 点永劫点数，可提升的等级上限 */
 export const LEVEL_CAP_PER_POINT = 50;
 
 /**
- * 某功法当前的等级上限 = 默认 20 级 + 重生商店中购买的次数 × 50 级
+ * 某功法当前的等级上限 = 默认 20 级 + 永劫商店中购买的次数 × 50 级
  * - 自动点击: 不可升级，上限恒为 0
  */
 export function getUpgradeMaxLevel(id: UpgradeId, up: UpgradeState): number {
@@ -302,7 +308,7 @@ export function getAutoClickRate(level: number): AutoClickRate {
   return { intervalMs: 20, clicksPerMs, clicksPerSec: clicksPerMs * AUTO_FREQ_INTERVAL_BASE };
 }
 
-/** 累加两套重生基础属性 */
+/** 累加两套永劫基础属性 */
 export function addRebirthBaseAttrs(
   base: RebirthBaseAttrs,
   gain: RebirthBaseAttrs
@@ -329,10 +335,10 @@ export function calculateGameAttributes(state: GameState) {
   const comboMultUp = state.upgrades.comboMultiplier;
   const critChanceUp = state.upgrades.critChance;
 
-  // 0. 重生基础属性：永久累加，功法未解锁时同样生效
+  // 0. 永劫基础属性：永久累加，功法未解锁时同样生效
   const rebirthBase = state.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
 
-  // 1. 基础数值: 默认 BASE_VALUE_INITIAL + 重生基础数值，数值升级提升值: 斐波拉契数列 × 0.9
+  // 1. 基础数值: 默认 BASE_VALUE_INITIAL + 永劫基础数值，数值升级提升值: 斐波拉契数列 × 0.9
   const baseBonus = baseValueUp.unlocked
     ? getBaseValueBonus(baseValueUp.level)
     : new BigNum(0, 0);
@@ -349,7 +355,7 @@ export function calculateGameAttributes(state: GameState) {
   let autoClicksPerMs = 0;
 
   if (autoClickUp.unlocked) {
-    // 自动点击频率等级 + 重生商店购买的永久等级加成
+    // 自动点击频率等级 + 永劫商店购买的永久等级加成
     const autoFreqLevel =
       (autoFreqUp.unlocked ? autoFreqUp.level : 0) + (rebirthBase.autoFrequency || 0);
     const rate = getAutoClickRate(autoFreqLevel);
@@ -358,26 +364,26 @@ export function calculateGameAttributes(state: GameState) {
     autoClicksPerSec = rate.clicksPerSec;
   }
 
-  // 4. 连击概率: 重生基础 + 每次+0.05，最高100%
+  // 4. 连击概率: 永劫基础 + 每次+0.05，最高100%
   let comboChance = Math.min(1.0, rebirthBase.comboChance);
   if (comboChanceUp.unlocked) {
     comboChance = Math.min(1.0, rebirthBase.comboChance + comboChanceUp.level * 0.05);
   }
 
-  // 5. 连击倍数: 基础100% + 重生基础，等差数列+0.5 (即 1.0 + 0.5 * level)
+  // 5. 连击倍数: 基础100% + 永劫基础，等差数列+0.5 (即 1.0 + 0.5 * level)
   let comboMultiplier = 1.0 + rebirthBase.comboMultiplier;
   if (comboMultUp.unlocked) {
     comboMultiplier += comboMultUp.level * 0.5;
   }
 
-  // 6. 暴击倍数: 基础100% + 重生基础 + 成就奖励（游玩时长），等差数列+0.5 (即 1.0 + 0.5 * level)
+  // 6. 暴击倍数: 基础100% + 永劫基础 + 成就奖励（游玩时长），等差数列+0.5 (即 1.0 + 0.5 * level)
   const achievementCritBonus = getAchievementCritBonus(state);
   let critMultiplier = 1.0 + rebirthBase.critMultiplier + achievementCritBonus;
   if (critMultUp.unlocked) {
     critMultiplier += critMultUp.level * 0.5;
   }
 
-  // 7. 暴击概率: 基础20% + 重生基础，暴击概率升级每级 +5%，上限100%
+  // 7. 暴击概率: 基础20% + 永劫基础，暴击概率升级每级 +5%，上限100%
   let critChance = Math.min(1.0, state.baseCritRate + rebirthBase.critChance);
   if (critChanceUp.unlocked) {
     critChance = Math.min(
@@ -386,7 +392,7 @@ export function calculateGameAttributes(state: GameState) {
     );
   }
 
-  // 8. 重生点数
+  // 8. 永劫点数
   const rebirthPoints = state.rebirthPoints;
 
   // 9. 坍缩
@@ -396,10 +402,10 @@ export function calculateGameAttributes(state: GameState) {
   const clickCount = state.clickCount;
   const totalClickCount = state.totalClickCount || 0;
 
-  // 12. 成就奖励累计出的重生初始数值（与其他数值累加）
+  // 12. 成就奖励累计出的永劫初始数值（与其他数值累加）
   const rebirthStartValue = getRebirthStartValue(state);
 
-  // 13. 「重生点数获取」升级带来的额外重生点数
+  // 13. 「永劫点数获取」升级带来的额外永劫点数
   const rebirthPointBonus = getExtraRebirthPoints(state.rebirthPointLevel || 0);
 
   return {
@@ -460,7 +466,7 @@ export function getOfflineGain(state: GameState, seconds: number): BigNum {
 
 /**
  * 每次点击数值=基础数值*数值倍率+基础数值*连击倍数(判断触发)+基础数值*暴击倍数(判断触发)
- * 与重生点数、坍缩点数无关
+ * 与永劫点数、坍缩点数无关
  * 自动点击与用户点击共享一个算法
  */
 export function executeClickCalculation(state: GameState): ClickResult {

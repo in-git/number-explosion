@@ -41,6 +41,8 @@ export default function App() {
           onOpenFunShop={modals.funShop.open}
           onOpenCollapseShop={modals.collapseShop.open}
           onOpenGoodsShop={modals.goodsShop.open}
+          onOpenInventory={modals.inventory.open}
+          onOpenRanking={modals.ranking.open}
           onOpenRebirthModal={modals.rebirth.open}
           onOpenAchievementsModal={modals.achievements.open}
           onOpenSettingsModal={modals.settings.open}
@@ -58,10 +60,16 @@ export default function App() {
         onBuyRebirthBaseAttr={game.handleBuyRebirthBaseAttr}
         onUnlockCollapse={game.handleUnlockCollapse}
         onUnlockGoodsShop={game.handleUnlockGoodsShop}
+        onUnlockInventory={game.handleUnlockInventory}
+        onUnlockRanking={game.handleUnlockRanking}
+        onLogin={game.handleLogin}
+        onRegionSelected={game.handleSelectRegion}
         onBuyValueCap={game.handleBuyValueCap}
         onBuyRebirthPointLevel={game.handleBuyRebirthPointLevel}
         onExchangeRebirthToCollapse={game.handleExchangeRebirthToCollapse}
         onBuyGoods={game.handleBuyGoods}
+        onSellGoods={game.handleSellGoods}
+        onSellAllGoods={game.handleSellAllGoods}
         onGambleSettle={game.handleGambleSettle}
         onConfirmRebirth={game.confirmRebirth}
         onConfirmCollapse={game.confirmCollapse}

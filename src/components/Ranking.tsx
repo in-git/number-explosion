@@ -1,0 +1,338 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { BigNum } from '../utils/bigNumber';
+import { BigNumData, GameState, UserAccountData } from '../types';
+import { AuthPanel } from './AuthPanel';
+import { RANKS } from '../config';
+import { calculateGameAttributes } from '../utils/gameMath';
+import { formatDuration } from '../utils/serverTime';
+import {
+  LEADERBOARD_LIMIT,
+  LeaderboardEntry,
+  LeaderboardId,
+  LeaderboardResponse,
+  PlayerProfile,
+  SELF_USER_ID,
+  fetchLeaderboard,
+} from '../utils/leaderboardApi';
+import { fetchRegions } from '../utils/authApi';
+
+interface RankingProps {
+  state: GameState;
+  /** 注册/登录成功 */
+  onLogin: (account: UserAccountData) => void;
+  /** 入驻大区成功 */
+  onRegionSelected: (regionId: string, regionName: string) => void;
+}
+
+/** tabbar：数值排行 / 富豪排行 在前，其后时长、重生 */
+const BOARD_TABS: { id: LeaderboardId; label: string }[] = [
+  { id: 'value', label: '数值排行' },
+  { id: 'wealth', label: '富豪排行' },
+  { id: 'playTime', label: '时长排行' },
+  { id: 'rebirth', label: '重生排行' },
+];
+
+/** 前三名序号配色：金 / 银 / 铜 */
+const rankColor = (rank: number) =>
+  rank === 1
+    ? 'text-[#e8c46a]'
+    : rank === 2
+      ? 'text-[#cbd5e1]'
+      : rank === 3
+        ? 'text-[#d08a4a]'
+        : 'text-[#8a7a63]';
+
+/** 成绩格式化 */
+function formatScore(board: LeaderboardId, value: BigNumData): string {
+  const n = BigNum.fromData(value);
+  if (board === 'value' || board === 'wealth') return n.formatChinese(2);
+  if (board === 'playTime') return formatDuration(n.toNumber());
+  return `${Math.floor(n.toNumber()).toLocaleString('zh-CN')} 次`;
+}
+
+/** 本人成绩 */
+function selfScore(board: LeaderboardId, state: GameState): BigNumData {
+  if (board === 'value') return state.highestValue;
+  if (board === 'wealth') return state.goodsTotalSpent;
+  if (board === 'playTime') return BigNum.fromNumber(state.playTimeMs || 0).toData();
+  return BigNum.fromNumber(state.rebirthCount || 0).toData();
+}
+
+/** 本地阶位（练气 ~ 真仙） */
+function selfTier(board: LeaderboardId, state: GameState): string {
+  const def = RANKS.find((r) => r.id === board);
+  if (!def) return '凡尘';
+  const raw = selfScore(board, state);
+  const cur =
+    def.scale === 'log'
+      ? BigNum.fromData(raw).m === 0
+        ? 0
+        : Math.log10(BigNum.fromData(raw).m) + BigNum.fromData(raw).e
+      : BigNum.fromData(raw).toNumber();
+
+  let index = -1;
+  def.tiers.forEach((t, i) => {
+    const tier = def.scale === 'log' ? Math.log10(t) : t;
+    if (cur >= tier) index = i;
+  });
+  return index >= 0 ? `${def.titles[index]} · 第 ${index + 1} 阶` : '凡尘 · 未入榜';
+}
+
+/** 档案条目 */
+const ProfileItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="flex items-center justify-between gap-2">
+    <span className="text-[#7d7364]">{label}</span>
+    <span className="font-mono text-[#cbbfa9]">{value}</span>
+  </div>
+);
+
+/** 玩家详情卡 */
+const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name, profile }) => (
+  <div className="rounded-lg border border-[#6b5a3f] bg-[#241f16] p-2.5">
+    <div className="flex items-center justify-between mb-1.5">
+      <span className="font-serif font-bold text-xs text-[#e8cf9a] truncate">{name} · 道体详情</span>
+    </div>
+    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-serif">
+      <ProfileItem label="暴击率" value={`${(profile.critChance * 100).toFixed(1)}%`} />
+      <ProfileItem label="暴击倍数" value={`${(profile.critMultiplier * 100).toFixed(0)}%`} />
+      <ProfileItem label="连击率" value={`${(profile.comboChance * 100).toFixed(1)}%`} />
+      <ProfileItem label="连击倍数" value={`${(profile.comboMultiplier * 100).toFixed(0)}%`} />
+      <ProfileItem label="重生次数" value={`${profile.rebirthCount.toLocaleString('zh-CN')} 次`} />
+      <ProfileItem label="坍缩重数" value={`${profile.collapsePoints} 重`} />
+      <ProfileItem label="游玩时长" value={formatDuration(profile.playTimeMs)} />
+      <ProfileItem label="最高数值" value={BigNum.fromData(profile.highestValue).formatChinese(2)} />
+    </div>
+    <div className="mt-1 pt-1 border-t border-[#3a3228]">
+      <ProfileItem
+        label="购置总额"
+        value={BigNum.fromData(profile.totalSpent).formatChinese(2)}
+      />
+    </div>
+  </div>
+);
+
+/** 排行榜：联网榜单（当前由本地 mock 兜底，接口已预留） */
+export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelected }) => {
+  const [board, setBoard] = useState<LeaderboardId>('value');
+  const [showAuth, setShowAuth] = useState(false);
+  const [data, setData] = useState<LeaderboardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<LeaderboardEntry | null>(null);
+  // 进入排行即确定默认大区：取最新（最后一个）大区
+  const [defaultRegion, setDefaultRegion] = useState<{ id: string; name: string } | null>(null);
+
+  const attrs = calculateGameAttributes(state);
+  const myScore = selfScore(board, state);
+
+  const selfEntry = useMemo<Omit<LeaderboardEntry, 'rank'>>(
+    () => ({
+      userId: state.account?.userId ?? SELF_USER_ID,
+      userName: state.account?.nickname || state.account?.userName || '我',
+      value: myScore,
+      profile: {
+        userId: state.account?.userId ?? SELF_USER_ID,
+        userName: state.account?.nickname || state.account?.userName || '我',
+        critChance: attrs.critChance,
+        critMultiplier: attrs.critMultiplier,
+        comboChance: attrs.comboChance,
+        comboMultiplier: attrs.comboMultiplier,
+        rebirthCount: state.rebirthCount || 0,
+        collapsePoints: state.collapsePoints || 0,
+        playTimeMs: state.playTimeMs || 0,
+        highestValue: state.highestValue,
+        totalSpent: state.goodsTotalSpent,
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      attrs.critChance,
+      attrs.critMultiplier,
+      attrs.comboChance,
+      attrs.comboMultiplier,
+      state.rebirthCount,
+      state.collapsePoints,
+      state.playTimeMs,
+      state.highestValue.m,
+      state.highestValue.e,
+      state.goodsTotalSpent.m,
+      state.goodsTotalSpent.e,
+    ]
+  );
+
+  // 点入排行：拉取大区并默认加入最新大区
+  useEffect(() => {
+    let cancelled = false;
+    fetchRegions()
+      .then((list) => {
+        if (cancelled || list.length === 0) return;
+        const last = list[list.length - 1];
+        setDefaultRegion({ id: last.id, name: last.name });
+      })
+      .catch(() => {
+        /* 大区拉取失败时保持未选区状态 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 成绩变化的标记：仅在自身成绩变动时重新拉取
+  const scoreKey = `${board}|${myScore.m}|${myScore.e}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    fetchLeaderboard(board, selfEntry)
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setSelected(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError('天榜未通 · 暂无法取得榜单');
+        setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoreKey]);
+
+  // 登录注册 / 选择大区流程
+  if (showAuth) {
+    return (
+      <AuthPanel
+        state={state}
+        defaultRegionId={defaultRegion?.id ?? null}
+        defaultRegionName={defaultRegion?.name ?? null}
+        onLogin={onLogin}
+        onRegionSelected={onRegionSelected}
+        onBack={() => setShowAuth(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* tabbar：数值 / 富豪 / 时长 / 重生 */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {BOARD_TABS.map((t) => (
+          <button
+            key={t.id}
+            id={`btn-rank-tab-${t.id}`}
+            onClick={() => setBoard(t.id)}
+            aria-pressed={board === t.id}
+            className={`py-1.5 rounded border text-[10px] font-serif font-bold text-center leading-tight transition-colors cursor-pointer ${
+              board === t.id
+                ? 'bg-[#3d3428] border-[#736450] text-[#f2ede4]'
+                : 'bg-[#1a1816] border-[#2b2721] text-[#7d7364] hover:border-[#453a2d] hover:text-[#b8aa98]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 本人成绩 */}
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-[#3d372e] bg-[#211e1a] px-2.5 py-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-serif text-[#6f6656] truncate">
+            我的成绩 · {selfTier(board, state)}
+          </div>
+          <div className="text-[11px] font-mono font-bold text-[#e8b56f] truncate">
+            {formatScore(board, myScore)}
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-[10px] font-serif text-[#6f6656]">
+            {loading ? '榜单刷新中' : error ? '未上榜' : `第 ${data?.selfRank ?? '-'} 名`}
+          </div>
+          <div className="text-[10px] font-serif text-[#6f6656]">榜上前 {LEADERBOARD_LIMIT} 名</div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-[#5a2f2f] bg-[#261b1b] px-2.5 py-2 text-center text-[11px] font-serif text-[#d99797]">
+          {error}
+        </div>
+      )}
+
+      {/* 榜单列表：最多 LEADERBOARD_LIMIT 条，点击查看详情 */}
+      <div className="flex flex-col gap-1.5">
+        {data?.entries.map((entry) => {
+          const selfId = state.account?.userId ?? SELF_USER_ID;
+          const isSelf = entry.userId === selfId;
+          const active = selected?.userId === entry.userId;
+
+          return (
+            <button
+              key={entry.userId}
+              id={`rank-entry-${entry.userId}`}
+              onClick={() => setSelected(active ? null : entry)}
+              className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
+                isSelf
+                  ? 'bg-[#241f16] border-[#6b5a3f]'
+                  : active
+                    ? 'bg-[#2a2620] border-[#5b5142]'
+                    : 'bg-[#211f1c] border-[#383229] hover:bg-[#2a2620] hover:border-[#5b5142]'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`font-mono font-bold text-sm w-5 text-left ${rankColor(entry.rank)}`}>
+                  {entry.rank}
+                </span>
+                <span
+                  className={`font-serif font-bold text-xs sm:text-sm truncate ${
+                    isSelf ? 'text-[#e8cf9a]' : 'text-[#ded7cb]'
+                  }`}
+                >
+                  {entry.userName}
+                </span>
+                {isSelf && (
+                  <span className="text-[10px] font-mono px-1 py-px rounded bg-[#3b3327] border border-[#6b5a3f] text-[#c9a86a] flex-shrink-0">
+                    我
+                  </span>
+                )}
+              </div>
+              <span className="font-mono text-[11px] font-bold text-[#e8b56f] flex-shrink-0">
+                {formatScore(board, entry.value)}
+              </span>
+            </button>
+          );
+        })}
+
+        {!loading && !error && (data?.entries.length ?? 0) === 0 && (
+          <div className="text-[11px] text-[#7d7364] font-serif text-center py-4">
+            —— 榜上无名 · 静待来者 ——
+          </div>
+        )}
+      </div>
+
+      {/* 选中玩家的详情 */}
+      {selected && <ProfileCard name={selected.userName} profile={selected.profile} />}
+
+      {/* 底部悬浮：登顶 */}
+      <div className="sticky bottom-0 pt-2 -mx-1 px-1 pb-1">
+        <button
+          id="btn-rank-ascend"
+          onClick={() => setShowAuth(true)}
+          className="w-full py-3 rounded-xl border-2 border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c] text-sm font-serif font-bold tracking-[0.2em] text-[#f5ebd7] shadow-[0_6px_18px_rgba(0,0,0,0.7)] cursor-pointer active:translate-y-0.5 transition-all"
+        >
+          {state.account
+            ? state.account.regionName
+              ? `已登顶 · ${state.account.regionName}`
+              : '选择大区入驻'
+            : '登 顶'}
+        </button>
+      </div>
+    </div>
+  );
+};

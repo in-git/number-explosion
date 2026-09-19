@@ -161,7 +161,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
 
       {shownRows.length === 0 ? (
         <div className="text-[11px] text-[#7d7364] font-serif text-center py-4">
-          —— 诸法皆已臻圆满，可于重生商店提升等级上限 ——
+          —— 诸法皆已臻圆满，可于永劫商店提升等级上限 ——
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
@@ -194,7 +194,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                       </span>
                     </div>
                     <div className="text-[10px] text-[#7fa886] font-serif truncate">
-                      解锁消耗点击量 {meta.requiredClicks.toLocaleString('zh-CN')}
+                      消耗数值 {new BigNum(meta.baseUnlockCost, 0).formatChinese(0)}
                     </div>
                   </div>
 
@@ -205,13 +205,8 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     tone="green"
                   >
                     <span className="inline-flex items-center gap-1">
-                      {new BigNum(meta.baseUnlockCost, 0).formatChinese(0)}
-                      <span
-                        className={`font-mono ${
-                          row.canAffordUnlock ? 'text-[#9fd3ad]' : 'text-[#5c564e]'
-                        }`}
-                      >
-                        +{meta.requiredClicks.toLocaleString('zh-CN')}
+                      <span className="font-mono">
+                        {meta.requiredClicks.toLocaleString('zh-CN')}
                       </span>
                       <Unlock
                         size={11}
@@ -245,8 +240,11 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
                       {meta.name}
                     </span>
+                    {/* 数值升级直接显示加成值，其余显示等级 / 上限 */}
                     <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#a69b8b] flex-shrink-0">
-                      Lv.{upgradeState.level} / {maxLevel}
+                      {id === 'baseValue'
+                        ? `+${getBaseValueBonus(upgradeState.level).formatChinese(1)}`
+                        : `Lv.${upgradeState.level} / ${maxLevel}`}
                     </span>
                   </div>
                   <div className="text-[10px] text-[#998e7e] font-serif flex items-center gap-1.5">

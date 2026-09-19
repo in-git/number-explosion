@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { GameState } from '../types';
+import { BigNum } from '../utils/bigNumber';
 import { BASE_VALUE_INITIAL, calculateGameAttributes, getValueCap } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
 import { INITIAL_REBIRTH_BASE_ATTRS } from '../config';
@@ -55,7 +56,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     }
   }
 
-  // 重生基础属性：永久累加，与基础值叠加参与计算
+  // 永劫基础属性：永久累加，与基础值叠加参与计算
   const rebirthBase = state.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
   const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
   const rebirthAttrsList: AttributeItem[] = [
@@ -113,6 +114,20 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       detail: `当前单次基础: ${attrs.baseValue.formatChinese(1)}`,
     },
     {
+      id: 'attr-goods-total-spent',
+      label: '购置总额',
+      value: BigNum.fromData(state.goodsTotalSpent).formatChinese(2),
+      valueClass: 'text-[#c9a86a]',
+      detail: '万物店累计花费 · 永不清零',
+    },
+    {
+      id: 'attr-highest-value',
+      label: '最高数值',
+      value: BigNum.fromData(state.highestValue).formatChinese(2),
+      valueClass: 'text-[#e8b56f]',
+      detail: '历世最高纪录 · 永不清零',
+    },
+    {
       id: 'attr-value-mult',
       label: '数值倍率',
       value: `${attrs.valueMultiplier.toFixed(2)}x`,
@@ -150,10 +165,10 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     },
     {
       id: 'attr-rebirth-points',
-      label: '重生点数',
+      label: '永劫点数',
       value: `${attrs.rebirthPoints} 点`,
       valueClass: 'text-[#5fa8e6]',
-      detail: `累计重生: ${state.rebirthCount} 次`,
+      detail: `累计永劫: ${state.rebirthCount} 次`,
     },
     {
       id: 'attr-value-cap',
@@ -171,7 +186,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       id: 'attr-click-count',
       label: '点击量',
       value: `${attrs.clickCount} 次`,
-      detail: '重生后亲手点击次数 · 用于解锁功法（解锁时消耗）',
+      detail: '永劫后亲手点击次数 · 用于解锁功法（解锁时消耗）',
     },
     {
       id: 'attr-play-time',
@@ -195,15 +210,15 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     },
     {
       id: 'attr-rebirth-point-bonus',
-      label: '重生点数加成',
+      label: '永劫点数加成',
       value: `+${attrs.rebirthPointBonus} 点`,
-      detail: '「重生点数获取」升级 · 每次重生额外获得',
+      detail: '「永劫点数获取」升级 · 每次永劫额外获得',
     },
     {
       id: 'attr-rebirth-start-value',
-      label: '重生初始数值',
+      label: '永劫初始数值',
       value: attrs.rebirthStartValue.formatChinese(2),
-      detail: '成就奖励累加 · 重生/坍缩后的起始数值',
+      detail: '成就奖励累加 · 永劫/坍缩后的起始数值',
     },
   ];
 
@@ -245,12 +260,12 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
             <AttributeRow key={item.id} item={item} />
           ))}
 
-          {/* 重生基础属性（永久累加） */}
+          {/* 永劫基础属性（永久累加） */}
           <div className="pt-1.5 mt-1.5 border-t border-[#2d2822]">
             <div className="flex items-center gap-1.5 px-1 pb-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#5fa8e6]" />
               <span className="text-[10px] font-serif tracking-[0.2em] text-[#8fa6bd]">
-                重 生 基 础 属 性
+                永 劫 基 础 属 性
               </span>
               <span className="text-[10px] font-serif text-[#5f5749]">永久累加</span>
             </div>

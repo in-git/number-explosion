@@ -1,6 +1,7 @@
-import { BigNumData, GameState, RebirthBaseAttrs, UpgradeId } from '../types';
+import { BigNumData, GameState, RebirthBaseAttrs, UpgradeId, UserAccountData } from '../types';
 import {
   ACHIEVEMENTS,
+  DEFAULT_NICKNAME,
   GOODS_CATEGORIES,
   INITIAL_REBIRTH_BASE_ATTRS,
   INITIAL_STATE,
@@ -8,7 +9,7 @@ import {
 } from '../config';
 import { getServerNow } from './serverTime';
 
-/** 清洗重生基础属性：非法值归 0，缺失字段用初始值补齐 */
+/** 清洗永劫基础属性：非法值归 0，缺失字段用初始值补齐 */
 function sanitizeRebirthBaseAttrs(raw: unknown): RebirthBaseAttrs {
   const src = (raw || {}) as Partial<Record<keyof RebirthBaseAttrs, unknown>>;
   const pick = (key: keyof RebirthBaseAttrs) => {
@@ -25,6 +26,35 @@ function sanitizeRebirthBaseAttrs(raw: unknown): RebirthBaseAttrs {
     comboChance: pick('comboChance'),
     comboMultiplier: pick('comboMultiplier'),
   };
+}
+
+/** 清洗账号信息：非法则视为未登录 */
+function sanitizeAccount(raw: unknown): UserAccountData | null {
+  const src = raw as Partial<UserAccountData> | null | undefined;
+  if (!src || typeof src.userId !== 'string' || typeof src.userName !== 'string') return null;
+  return {
+    userId: src.userId,
+    userName: src.userName,
+    nickname:
+      typeof src.nickname === 'string' && src.nickname.trim() !== ''
+        ? src.nickname
+        : DEFAULT_NICKNAME,
+    password: typeof src.password === 'string' ? src.password : '',
+    token: typeof src.token === 'string' ? src.token : '',
+    regionId: typeof src.regionId === 'string' ? src.regionId : null,
+    regionName: typeof src.regionName === 'string' ? src.regionName : null,
+  };
+}
+
+/** 清洗 BigNumData：非法则回退到兜底值 */
+function sanitizeBigNumData(raw: unknown, fallback: BigNumData): BigNumData {
+  const src = raw as Partial<BigNumData> | null | undefined;
+  const m = src?.m;
+  const e = src?.e;
+  if (typeof m === 'number' && Number.isFinite(m) && m > 0 && typeof e === 'number' && Number.isFinite(e)) {
+    return { m, e };
+  }
+  return fallback;
 }
 
 /** 清洗万物店已购记录：只保留仍在售的商品，数量取整且非负 */
@@ -106,8 +136,16 @@ export function loadGameState(): GameState {
       rebirthPoints: Number.isFinite(parsed.rebirthPoints) ? parsed.rebirthPoints : 0,
       playTimeMs: Number.isFinite(parsed.playTimeMs) ? Math.max(0, parsed.playTimeMs) : 0,
       collapsePoints: Number.isFinite(parsed.collapsePoints) ? parsed.collapsePoints : 0,
+      highestValue: sanitizeBigNumData(parsed.highestValue, {
+        m: Number.isFinite(parsed.currentValue?.m) ? parsed.currentValue.m : 0,
+        e: Number.isFinite(parsed.currentValue?.e) ? parsed.currentValue.e : 0,
+      }),
       goodsPurchases: sanitizeGoodsPurchases(parsed.goodsPurchases),
+      goodsTotalSpent: sanitizeBigNumData(parsed.goodsTotalSpent, { m: 0, e: 0 }),
       goodsShopUnlocked: !!parsed.goodsShopUnlocked,
+      inventoryUnlocked: !!parsed.inventoryUnlocked,
+      rankingUnlocked: !!parsed.rankingUnlocked,
+      account: sanitizeAccount(parsed.account),
       valueCapLevel: Number.isFinite(parsed.valueCapLevel)
         ? Math.max(0, Math.floor(parsed.valueCapLevel))
         : 0,

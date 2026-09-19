@@ -7,6 +7,8 @@ interface ModalShellProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  /** 隐藏底部「关闭」按钮（顶栏 X 与遮罩点击仍可关闭） */
+  hideFooterClose?: boolean;
 }
 
 /** 通用模态框：宽 95%、高 90%，居中显示，顶栏 + 可滚动内容 + 底栏（关闭） */
@@ -16,6 +18,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   title,
   subtitle,
   children,
+  hideFooterClose = false,
 }) => {
   // ESC 关闭
   useEffect(() => {
@@ -62,15 +65,17 @@ export const ModalShell: React.FC<ModalShellProps> = ({
         {/* 内容区：超出即滚动 */}
         <div className="flex-1 min-h-0 modal-scroll px-4 py-3">{children}</div>
 
-        {/* 底栏 */}
-        <div className="flex items-center justify-end px-4 py-3 border-t border-[#362f25] bg-[#1a1715]">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded text-xs font-serif text-[#a69c8c] bg-[#241f1a] hover:bg-[#2e2821] border border-[#3b3429] cursor-pointer transition-colors"
-          >
-            关闭
-          </button>
-        </div>
+        {/* 底栏（可隐藏） */}
+        {!hideFooterClose && (
+          <div className="flex items-center justify-end px-4 py-3 border-t border-[#362f25] bg-[#1a1715]">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded text-xs font-serif text-[#a69c8c] bg-[#241f1a] hover:bg-[#2e2821] border border-[#3b3429] cursor-pointer transition-colors"
+            >
+              关闭
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
