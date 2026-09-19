@@ -5,7 +5,7 @@ export interface BigNumData {
   e: number;
 }
 
-export type LeaderboardId = 'value' | 'wealth' | 'playTime' | 'rebirth';
+export type LeaderboardId = 'value' | 'wealth' | 'playTime' | 'rebirth' | 'clicks';
 
 export interface Region {
   id: string;
@@ -24,6 +24,8 @@ export interface PlayerProfile {
   rebirthCount: number;
   collapsePoints: number;
   playTimeMs: number;
+  /** 连点榜：历世累计点击次数 */
+  clickCount: number;
   highestValue: BigNumData;
   totalSpent: BigNumData;
 }
@@ -65,6 +67,8 @@ export interface UserSyncPayload {
   rebirthCount: number;
   collapsePoints: number;
   playTimeMs: number;
+  /** 连点榜：历世累计点击次数 */
+  clickCount: number;
   highestValue: BigNumData;
   totalSpent: BigNumData;
 }

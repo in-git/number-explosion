@@ -43,12 +43,11 @@ function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
 
   if (id === 'autoFrequency') {
     const rate = getAutoClickRate(level);
-    if (rate.clicksPerMs > 0) {
-      return { currentDesc: `${rate.clicksPerMs.toFixed(1)} 次/ms`, nextDesc: '提速' };
-    }
+    const next = getAutoClickRate(level + 1);
+    const step = rate.intervalMs - next.intervalMs;
     return {
       currentDesc: `${rate.intervalMs}ms · ${rate.clicksPerSec.toFixed(1)}次/s`,
-      nextDesc: '间隔 -50ms',
+      nextDesc: step > 0 ? `间隔 -${step}ms` : '已至极速',
     };
   }
 
@@ -119,9 +118,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       desc,
       currentCost,
       isMaxed: isUpgradeMaxed(id, upgradeState),
-      canAffordUnlock:
-        currentValue.gte(new BigNum(meta.baseUnlockCost, 0)) &&
-        state.clickCount >= meta.requiredClicks,
+      canAffordUnlock: state.clickCount >= meta.requiredClicks,
       canAffordUpgrade: currentCost ? currentValue.gte(currentCost) : false,
     };
   });
@@ -194,7 +191,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                       </span>
                     </div>
                     <div className="text-[10px] text-[#7fa886] font-serif truncate">
-                      消耗数值 {new BigNum(meta.baseUnlockCost, 0).formatChinese(0)}
+                      仅消耗点击量 · 无需数值
                     </div>
                   </div>
 

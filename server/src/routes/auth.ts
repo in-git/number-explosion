@@ -5,9 +5,6 @@ import type { UserAccount } from '../types.js';
 
 const DEFAULT_NICKNAME = '数爆玩家';
 
-/** 榜单最多返回条数（与前端 LEADERBOARD_LIMIT 一致） */
-export const LEADERBOARD_LIMIT = 6;
-
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
   const hash = scryptSync(password, salt, 32).toString('hex');
@@ -86,7 +83,7 @@ authRouter.post('/register', (req, res) => {
 
   insertUser.run(id, userName, finalNickname, hashPassword(password), token, now, now);
 
-  const row = findById.get(id) as UserRow;
+  const row = findById.get(id) as unknown as UserRow;
   return res.json({ ...toAccount(row, regionNameOf(row.region_id)), password });
 });
 
@@ -98,7 +95,7 @@ authRouter.post('/login', (req, res) => {
     return res.status(400).json({ error: '账号或密码缺失' });
   }
 
-  const existing = findByName.get(userName) as UserRow | undefined;
+  const existing = findByName.get(userName) as unknown as UserRow | undefined;
 
   if (existing) {
     if (!verifyPassword(password, existing.password_hash)) {
@@ -106,7 +103,7 @@ authRouter.post('/login', (req, res) => {
     }
     const token = `tk-${randomBytes(12).toString('hex')}`;
     updateToken.run(token, Date.now(), existing.id);
-    const row = findById.get(existing.id) as UserRow;
+    const row = findById.get(existing.id) as unknown as UserRow;
     return res.json({ ...toAccount(row, regionNameOf(row.region_id)), password });
   }
 
@@ -116,6 +113,6 @@ authRouter.post('/login', (req, res) => {
 
   insertUser.run(id, userName, DEFAULT_NICKNAME, hashPassword(password), token, now, now);
 
-  const row = findById.get(id) as UserRow;
+  const row = findById.get(id) as unknown as UserRow;
   return res.json({ ...toAccount(row, regionNameOf(row.region_id)), password });
 });

@@ -16,6 +16,7 @@ const BOARDS: Record<LeaderboardId, { score: string; value: 'big' | 'num'; m?: s
   wealth: { score: 'total_spent_score', value: 'big', m: 'total_spent_m', e: 'total_spent_e' },
   playTime: { score: 'play_time_ms', value: 'num', num: 'play_time_ms' },
   rebirth: { score: 'rebirth_count', value: 'num', num: 'rebirth_count' },
+  clicks: { score: 'click_count', value: 'num', num: 'click_count' },
 };
 
 interface UserRow {
@@ -30,6 +31,7 @@ interface UserRow {
   rebirth_count: number;
   collapse_points: number;
   play_time_ms: number;
+  click_count: number;
   highest_value_m: number;
   highest_value_e: number;
   total_spent_m: number;
@@ -63,6 +65,7 @@ function toEntry(row: UserRow, board: LeaderboardId, rank: number): LeaderboardE
       rebirthCount: row.rebirth_count,
       collapsePoints: row.collapse_points,
       playTimeMs: row.play_time_ms,
+      clickCount: row.click_count,
       highestValue: { m: row.highest_value_m, e: row.highest_value_e },
       totalSpent: { m: row.total_spent_m, e: row.total_spent_e },
     },
@@ -89,6 +92,7 @@ function updateStats(
        rebirth_count = ?,
        collapse_points = ?,
        play_time_ms = ?,
+       click_count = ?,
        highest_value_m = ?,
        highest_value_e = ?,
        highest_value_score = ?,
@@ -107,6 +111,7 @@ function updateStats(
     Math.max(0, Math.floor(Number(body.rebirthCount) || 0)),
     Math.max(0, Math.floor(Number(body.collapsePoints) || 0)),
     Math.max(0, Math.floor(Number(body.playTimeMs) || 0)),
+    Math.max(0, Math.floor(Number(body.clickCount) || 0)),
     highest.m,
     highest.e,
     scoreOf(highest.m, highest.e),
@@ -134,7 +139,7 @@ leaderboardRouter.get('/', (req, res) => {
        ORDER BY ${col.score} DESC, updated_at ASC
        LIMIT ?`
     )
-    .all(LEADERBOARD_LIMIT) as UserRow[];
+    .all(LEADERBOARD_LIMIT) as unknown as UserRow[];
 
   const entries = rows.map((row, i) => toEntry(row, board, i + 1));
 

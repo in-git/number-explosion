@@ -1,4 +1,3 @@
-import regionsMock from '../mock/regions.json';
 import { DEFAULT_NICKNAME } from '../config';
 
 /** 服务器大区 */
@@ -36,20 +35,14 @@ export interface UserSyncPayload {
   rebirthCount: number;
   collapsePoints: number;
   playTimeMs: number;
+  /** 连点榜：历世累计点击次数 */
+  clickCount: number;
   highestValue: { m: number; e: number };
   totalSpent: { m: number; e: number };
 }
 
-/** 后端接口基址 */
+/** 后端接口基址（由 vite 代理转发到后端服务） */
 const API_BASE = '/api';
-
-/* ------------------------------------------------------------------ *
- * 对接说明（后端就绪后取消注释即可切换为真实请求）
- *   POST ${API_BASE}/auth/register  body: { userName, password } -> UserAccount
- *   POST ${API_BASE}/auth/login     body: { userName, password } -> UserAccount
- *   GET  ${API_BASE}/regions                                     -> { regions: Region[] }
- *   POST ${API_BASE}/user/region    body: UserSyncPayload        -> { ok: true }
- * ------------------------------------------------------------------ */
 
 /** 随机字符串：仅字母与数字，不含特殊符号 */
 const ALPHANUM = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -66,79 +59,42 @@ export function generateCredentials(): { userName: string; password: string } {
   return { userName: `道友${randomStr(6)}`, password: randomStr(10) };
 }
 
-/** 注册：后端就绪后走真实接口，当前本地生成账号 */
+/** 注册：POST /api/auth/register */
 export async function register(
   userName: string,
   password: string,
   nickname: string
 ): Promise<UserAccount> {
-  // 真实接口：POST /api/auth/register
-  try {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userName, password, nickname }),
-    });
-    if (res.ok) return (await res.json()) as UserAccount;
-  } catch {
-    // 后端未启动 → 回落本地生成
-  }
-
-  return {
-    userId: `u-${randomStr(8)}`,
-    userName,
-    nickname,
-    password,
-    token: `tk-${randomStr(12)}`,
-    regionId: null,
-    regionName: null,
-  };
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userName, password, nickname }),
+  });
+  if (!res.ok) throw new Error(`注册失败: ${res.status}`);
+  return (await res.json()) as UserAccount;
 }
 
-/** 登录：后端就绪后走真实接口，当前本地生成令牌 */
+/** 登录：POST /api/auth/login */
 export async function login(userName: string, password: string): Promise<UserAccount> {
-  // 真实接口：POST /api/auth/login
-  try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userName, password }),
-    });
-    if (res.ok) return (await res.json()) as UserAccount;
-  } catch {
-    // 后端未启动 → 回落本地生成
-  }
-
-  return {
-    userId: `u-${randomStr(8)}`,
-    userName,
-    nickname: DEFAULT_NICKNAME,
-    password,
-    token: `tk-${randomStr(12)}`,
-    regionId: null,
-    regionName: null,
-  };
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userName, password }),
+  });
+  if (!res.ok) throw new Error(`登录失败: ${res.status}`);
+  return (await res.json()) as UserAccount;
 }
 
-/** 拉取服务器大区（当前读取本地 JSON mock） */
+/** 拉取服务器大区：GET /api/regions */
 export async function fetchRegions(): Promise<Region[]> {
-  // 真实接口：GET /api/regions
-  try {
-    const res = await fetch(`${API_BASE}/regions`, { cache: 'no-store' });
-    if (res.ok) {
-      const data = (await res.json()) as { regions: Region[] };
-      if (Array.isArray(data.regions) && data.regions.length > 0) return data.regions;
-    }
-  } catch {
-    // 后端未启动 → 回落本地 JSON mock
-  }
-
-  return (regionsMock as { regions: Region[] }).regions;
+  const res = await fetch(`${API_BASE}/regions`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`大区拉取失败: ${res.status}`);
+  const data = (await res.json()) as { regions: Region[] };
+  return data.regions ?? [];
 }
 
-/** 选择大区并上报用户信息 */
+/** 选择大区并上报用户信息：POST /api/user/region */
 export async function selectRegion(payload: UserSyncPayload): Promise<{ ok: boolean }> {
-  // 真实接口：POST /api/user/region
   const res = await fetch(`${API_BASE}/user/region`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -147,3 +103,6 @@ export async function selectRegion(payload: UserSyncPayload): Promise<{ ok: bool
   if (!res.ok) throw new Error(`入驻失败: ${res.status}`);
   return (await res.json()) as { ok: boolean };
 }
+
+/** 昵称默认值（注册时兜底，与后端一致） */
+export { DEFAULT_NICKNAME };

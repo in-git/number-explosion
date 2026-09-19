@@ -145,6 +145,7 @@ export function loadGameState(): GameState {
       goodsShopUnlocked: !!parsed.goodsShopUnlocked,
       inventoryUnlocked: !!parsed.inventoryUnlocked,
       rankingUnlocked: !!parsed.rankingUnlocked,
+      upgradesAutoUnlocked: !!parsed.upgradesAutoUnlocked,
       account: sanitizeAccount(parsed.account),
       valueCapLevel: Number.isFinite(parsed.valueCapLevel)
         ? Math.max(0, Math.floor(parsed.valueCapLevel))

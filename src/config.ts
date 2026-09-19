@@ -460,6 +460,8 @@ export const GOODS_SHOP_UNLOCK_COST = 1;
 export const INVENTORY_UNLOCK_COST = 3;
 /** 解锁排行消耗的永劫点数 */
 export const RANKING_UNLOCK_COST = 1;
+/** 「功法无需解锁」特权消耗的永劫点数 */
+export const AUTO_UNLOCK_COST = 1;
 
 /** 排行昵称默认值（必填，用户可自行修改） */
 export const DEFAULT_NICKNAME = '数爆玩家';
@@ -493,6 +495,8 @@ export const INITIAL_STATE: GameState = {
   inventoryUnlocked: false,
   /** 排行：默认不显示，消耗 1 点永劫点数解锁 */
   rankingUnlocked: false,
+  /** 功法无需解锁特权：默认关闭 */
+  upgradesAutoUnlocked: false,
   /** 登录账号与已选大区（未登录为 null） */
   account: null,
   /** 万物店已购商品：商品 id → 拥有数量 */

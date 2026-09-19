@@ -1,13 +1,14 @@
 import cors from 'cors';
 import express from 'express';
-import { db, seedIfEmpty } from './db.js';
+import { db, seedRegions } from './db.js';
 import { authRouter } from './routes/auth.js';
 import { regionsRouter } from './routes/regions.js';
 import { leaderboardRouter, userRouter } from './routes/leaderboard.js';
 
-const PORT = Number(process.env.PORT ?? 3001);
+/** 后端端口（避开 3000/3001/8080 等常用端口） */
+const PORT = Number(process.env.PORT ?? 8731);
 
-seedIfEmpty();
+seedRegions();
 
 const app = express();
 app.use(cors());

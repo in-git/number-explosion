@@ -35,14 +35,16 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },/*  */
     },
-    port: 8989,
+    port: 5723,
     server: {
-      // 排行/账号接口转发到后端（/api/time 仍由本地中间件提供，不做代理）
+      // 统一代理：/api 全部转发后端；/api/time 例外，由本地中间件直接返回
       proxy: {
-        '/api/leaderboard': 'http://localhost:3001',
-        '/api/auth': 'http://localhost:3001',
-        '/api/regions': 'http://localhost:3001',
-        '/api/user': 'http://localhost:3001',
+        '/api': {
+          target: 'http://localhost:8731',
+          changeOrigin: true,
+          // 返回路径 = 不代理（交给 vite 本地中间件）；undefined = 正常代理
+          bypass: (req) => (req.url?.startsWith('/api/time') ? req.url : undefined),
+        },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.

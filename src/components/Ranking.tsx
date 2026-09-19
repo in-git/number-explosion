@@ -2,11 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { BigNumData, GameState, UserAccountData } from '../types';
 import { AuthPanel } from './AuthPanel';
-import { RANKS } from '../config';
 import { calculateGameAttributes } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
 import {
-  LEADERBOARD_LIMIT,
   LeaderboardEntry,
   LeaderboardId,
   LeaderboardResponse,
@@ -24,12 +22,13 @@ interface RankingProps {
   onRegionSelected: (regionId: string, regionName: string) => void;
 }
 
-/** tabbar：数值排行 / 富豪排行 在前，其后时长、重生 */
+/** tabbar：数值排行 / 富豪排行 在前，其后时长、重生、连点 */
 const BOARD_TABS: { id: LeaderboardId; label: string }[] = [
   { id: 'value', label: '数值排行' },
   { id: 'wealth', label: '富豪排行' },
   { id: 'playTime', label: '时长排行' },
   { id: 'rebirth', label: '重生排行' },
+  { id: 'clicks', label: '连点排行' },
 ];
 
 /** 前三名序号配色：金 / 银 / 铜 */
@@ -55,27 +54,8 @@ function selfScore(board: LeaderboardId, state: GameState): BigNumData {
   if (board === 'value') return state.highestValue;
   if (board === 'wealth') return state.goodsTotalSpent;
   if (board === 'playTime') return BigNum.fromNumber(state.playTimeMs || 0).toData();
+  if (board === 'clicks') return BigNum.fromNumber(state.totalClickCount || 0).toData();
   return BigNum.fromNumber(state.rebirthCount || 0).toData();
-}
-
-/** 本地阶位（练气 ~ 真仙） */
-function selfTier(board: LeaderboardId, state: GameState): string {
-  const def = RANKS.find((r) => r.id === board);
-  if (!def) return '凡尘';
-  const raw = selfScore(board, state);
-  const cur =
-    def.scale === 'log'
-      ? BigNum.fromData(raw).m === 0
-        ? 0
-        : Math.log10(BigNum.fromData(raw).m) + BigNum.fromData(raw).e
-      : BigNum.fromData(raw).toNumber();
-
-  let index = -1;
-  def.tiers.forEach((t, i) => {
-    const tier = def.scale === 'log' ? Math.log10(t) : t;
-    if (cur >= tier) index = i;
-  });
-  return index >= 0 ? `${def.titles[index]} · 第 ${index + 1} 阶` : '凡尘 · 未入榜';
 }
 
 /** 档案条目 */
@@ -111,7 +91,7 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
   </div>
 );
 
-/** 排行榜：联网榜单（当前由本地 mock 兜底，接口已预留） */
+/** 排行榜：数据全部来自后端接口（GET /api/leaderboard） */
 export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelected }) => {
   const [board, setBoard] = useState<LeaderboardId>('value');
   const [showAuth, setShowAuth] = useState(false);
@@ -222,8 +202,8 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
 
   return (
     <div className="flex flex-col gap-2">
-      {/* tabbar：数值 / 富豪 / 时长 / 重生 */}
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* tabbar：数值 / 富豪 / 时长 / 重生 / 连点 */}
+      <div className="grid grid-cols-5 gap-1.5">
         {BOARD_TABS.map((t) => (
           <button
             key={t.id}
@@ -241,24 +221,6 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
         ))}
       </div>
 
-      {/* 本人成绩 */}
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-[#3d372e] bg-[#211e1a] px-2.5 py-2">
-        <div className="min-w-0">
-          <div className="text-[10px] font-serif text-[#6f6656] truncate">
-            我的成绩 · {selfTier(board, state)}
-          </div>
-          <div className="text-[11px] font-mono font-bold text-[#e8b56f] truncate">
-            {formatScore(board, myScore)}
-          </div>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-[10px] font-serif text-[#6f6656]">
-            {loading ? '榜单刷新中' : error ? '未上榜' : `第 ${data?.selfRank ?? '-'} 名`}
-          </div>
-          <div className="text-[10px] font-serif text-[#6f6656]">榜上前 {LEADERBOARD_LIMIT} 名</div>
-        </div>
-      </div>
-
       {error && (
         <div className="rounded-lg border border-[#5a2f2f] bg-[#261b1b] px-2.5 py-2 text-center text-[11px] font-serif text-[#d99797]">
           {error}
@@ -273,39 +235,46 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
           const active = selected?.userId === entry.userId;
 
           return (
-            <button
-              key={entry.userId}
-              id={`rank-entry-${entry.userId}`}
-              onClick={() => setSelected(active ? null : entry)}
-              className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
-                isSelf
-                  ? 'bg-[#241f16] border-[#6b5a3f]'
-                  : active
-                    ? 'bg-[#2a2620] border-[#5b5142]'
-                    : 'bg-[#211f1c] border-[#383229] hover:bg-[#2a2620] hover:border-[#5b5142]'
-              }`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`font-mono font-bold text-sm w-5 text-left ${rankColor(entry.rank)}`}>
-                  {entry.rank}
-                </span>
-                <span
-                  className={`font-serif font-bold text-xs sm:text-sm truncate ${
-                    isSelf ? 'text-[#e8cf9a]' : 'text-[#ded7cb]'
-                  }`}
-                >
-                  {entry.userName}
-                </span>
-                {isSelf && (
-                  <span className="text-[10px] font-mono px-1 py-px rounded bg-[#3b3327] border border-[#6b5a3f] text-[#c9a86a] flex-shrink-0">
-                    我
+            <div key={entry.userId} className="flex flex-col gap-1.5">
+              <button
+                id={`rank-entry-${entry.userId}`}
+                onClick={() => setSelected(active ? null : entry)}
+                aria-expanded={active}
+                className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
+                  isSelf
+                    ? 'bg-[#241f16] border-[#6b5a3f]'
+                    : active
+                      ? 'bg-[#2a2620] border-[#5b5142]'
+                      : 'bg-[#211f1c] border-[#383229] hover:bg-[#2a2620] hover:border-[#5b5142]'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`font-mono font-bold text-sm w-5 text-left ${rankColor(entry.rank)}`}
+                  >
+                    {entry.rank}
                   </span>
-                )}
-              </div>
-              <span className="font-mono text-[11px] font-bold text-[#e8b56f] flex-shrink-0">
-                {formatScore(board, entry.value)}
-              </span>
-            </button>
+                  <span
+                    className={`font-serif font-bold text-xs sm:text-sm truncate ${
+                      isSelf ? 'text-[#e8cf9a]' : 'text-[#ded7cb]'
+                    }`}
+                  >
+                    {entry.userName}
+                  </span>
+                  {isSelf && (
+                    <span className="text-[10px] font-mono px-1 py-px rounded bg-[#3b3327] border border-[#6b5a3f] text-[#c9a86a] flex-shrink-0">
+                      我
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-[11px] font-bold text-[#e8b56f] flex-shrink-0">
+                  {formatScore(board, entry.value)}
+                </span>
+              </button>
+
+              {/* 手风琴：点击后在该条目下方展开详情，再次点击收起 */}
+              {active && <ProfileCard name={entry.userName} profile={entry.profile} />}
+            </div>
           );
         })}
 
@@ -315,9 +284,6 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
           </div>
         )}
       </div>
-
-      {/* 选中玩家的详情 */}
-      {selected && <ProfileCard name={selected.userName} profile={selected.profile} />}
 
       {/* 底部悬浮：登顶 */}
       <div className="sticky bottom-0 pt-2 -mx-1 px-1 pb-1">

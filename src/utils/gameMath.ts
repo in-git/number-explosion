@@ -236,7 +236,8 @@ export function isUpgradeMaxed(id: UpgradeId, up: UpgradeState): boolean {
 
   // 功能性上限：即便还能买等级，效果也已达顶点
   if (id === 'autoFrequency') {
-    return getAutoClickRate(up.level).clicksPerMs >= AUTO_FREQ_MAX_CLICKS_PER_MS;
+    // 已达最快间隔（10ms 一次），再快已无意义
+    return getAutoClickRate(up.level).intervalMs <= AUTO_FREQ_INTERVAL_MIN;
   }
   if (id === 'comboChance') {
     return Math.min(1.0, up.level * 0.05) >= 1.0;
@@ -248,12 +249,20 @@ export function isUpgradeMaxed(id: UpgradeId, up: UpgradeState): boolean {
 }
 
 /**
- * 升级消耗折扣（仅作用于「升级」成本，不影响解锁成本）
- * - 自动点击频率: 打八折，即降低 20%
+ * 自动点击频率：升级消耗按斐波拉契递增
+ * 第 n 次（n 从 1 起）= 100 × n + F(n - 1)，即 100, 201, 301, 402, 503, 605 ...
  */
-export const UPGRADE_COST_DISCOUNT: Partial<Record<UpgradeId, number>> = {
-  autoFrequency: 0.8,
-};
+export const AUTO_FREQ_COST_STEP = 100;
+export function getAutoFrequencyUpgradeCost(currentLevel: number): BigNum {
+  const n = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) + 1 : 1;
+  return new BigNum(AUTO_FREQ_COST_STEP * n, 0).add(getFibonacciBig(n - 1));
+}
+
+/**
+ * 升级消耗折扣（仅作用于「升级」成本，不影响解锁成本）
+ * 自动点击频率已改为斐波拉契消耗，不再享有折扣
+ */
+export const UPGRADE_COST_DISCOUNT: Partial<Record<UpgradeId, number>> = {};
 
 export function getUpgradeCost(
   id: UpgradeId,
@@ -264,6 +273,9 @@ export function getUpgradeCost(
 
   if (currentLevel >= maxLevel) return null; // 已臻圆满
 
+  // 自动点击频率：斐波拉契消耗（100, 201, 301 ...）
+  if (id === 'autoFrequency') return getAutoFrequencyUpgradeCost(currentLevel);
+
   const base = UPGRADE_METADATA[id].baseUnlockCost;
   const discount = UPGRADE_COST_DISCOUNT[id] ?? 1;
 
@@ -272,40 +284,44 @@ export function getUpgradeCost(
 }
 
 /**
- * 自动点击频率: 初始 1次/1000ms，每级减少间隔 50ms，最高 50次/ms
- * - Lv.0 ~ 19: 间隔 1000ms 递减至 50ms（20次/s）
- * - Lv.20 起: 进入极速态，按次/ms 递增，Lv.20 即达 50次/ms（天道极速）
+ * 自动点击频率: 初始 1次/1000ms（默认 1 次/s），逐级缩短间隔，最快 10ms 一次（100次/s）
+ * - Lv.0 ~ 19: 间隔 1000ms 每级 -50ms，递减至 50ms（1次/s → 20次/s）
+ * - Lv.20 起: 间隔每级 -2ms，Lv.39 达最快 10ms（100次/s）
+ *   等级上限默认 20，欲再提速须在坍缩商店购买等级上限
  */
 export const AUTO_FREQ_INTERVAL_BASE = 1000;
 export const AUTO_FREQ_INTERVAL_STEP = 50;
-export const AUTO_FREQ_INTERVAL_MIN = 50;
-export const AUTO_FREQ_MAX_CLICKS_PER_MS = 50;
+/** 常规态最短间隔（Lv.19） */
+export const AUTO_FREQ_SLOW_MIN = 50;
+/** 极速阶段每级缩短的间隔（ms） */
+export const AUTO_FREQ_INTERVAL_STEP_FAST = 2;
+/** 最快间隔：10ms 一次（100次/s），再快已无意义 */
+export const AUTO_FREQ_INTERVAL_MIN = 10;
 const AUTO_FREQ_MS_LEVEL = Math.floor(
-  (AUTO_FREQ_INTERVAL_BASE - AUTO_FREQ_INTERVAL_MIN) / AUTO_FREQ_INTERVAL_STEP
+  (AUTO_FREQ_INTERVAL_BASE - AUTO_FREQ_SLOW_MIN) / AUTO_FREQ_INTERVAL_STEP
 ); // 19
 
 export interface AutoClickRate {
-  intervalMs: number; // 常规态触发间隔
-  clicksPerMs: number; // 极速态：每毫秒点击次数（0 表示仍在常规态）
+  intervalMs: number; // 触发间隔（ms）
+  /** 每毫秒点击次数：恒为 0（已取消每毫秒多次点击的极速态） */
+  clicksPerMs: number;
   clicksPerSec: number;
 }
 
 export function getAutoClickRate(level: number): AutoClickRate {
-  if (level <= AUTO_FREQ_MS_LEVEL) {
-    const intervalMs = Math.max(
-      AUTO_FREQ_INTERVAL_MIN,
-      AUTO_FREQ_INTERVAL_BASE - level * AUTO_FREQ_INTERVAL_STEP
-    );
-    return { intervalMs, clicksPerMs: 0, clicksPerSec: AUTO_FREQ_INTERVAL_BASE / intervalMs };
-  }
-  // 极速态：自 0.05次/ms 起线性提升，Lv.20 恰为 50次/ms
-  const startRate = AUTO_FREQ_INTERVAL_MIN / AUTO_FREQ_INTERVAL_BASE;
-  const step = AUTO_FREQ_MAX_CLICKS_PER_MS - startRate;
-  const clicksPerMs = Math.min(
-    AUTO_FREQ_MAX_CLICKS_PER_MS,
-    AUTO_FREQ_INTERVAL_MIN / AUTO_FREQ_INTERVAL_BASE + (level - AUTO_FREQ_MS_LEVEL) * step
-  );
-  return { intervalMs: 20, clicksPerMs, clicksPerSec: clicksPerMs * AUTO_FREQ_INTERVAL_BASE };
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+
+  const intervalMs =
+    lv <= AUTO_FREQ_MS_LEVEL
+      ? // 常规段：1000ms 起每级 -50ms，至 50ms
+        Math.max(AUTO_FREQ_SLOW_MIN, AUTO_FREQ_INTERVAL_BASE - lv * AUTO_FREQ_INTERVAL_STEP)
+      : // 极速段：50ms 起每级 -2ms，最快 10ms（100次/s）
+        Math.max(
+          AUTO_FREQ_INTERVAL_MIN,
+          AUTO_FREQ_SLOW_MIN - (lv - AUTO_FREQ_MS_LEVEL) * AUTO_FREQ_INTERVAL_STEP_FAST
+        );
+
+  return { intervalMs, clicksPerMs: 0, clicksPerSec: AUTO_FREQ_INTERVAL_BASE / intervalMs };
 }
 
 /** 累加两套永劫基础属性 */

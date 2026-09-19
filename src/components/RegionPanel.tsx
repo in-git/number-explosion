@@ -67,6 +67,7 @@ export const RegionPanel: React.FC<RegionPanelProps> = ({
         rebirthCount: state.rebirthCount || 0,
         collapsePoints: state.collapsePoints || 0,
         playTimeMs: state.playTimeMs || 0,
+        clickCount: state.totalClickCount || 0,
         highestValue: state.highestValue,
         totalSpent: state.goodsTotalSpent,
       });

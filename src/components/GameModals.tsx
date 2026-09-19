@@ -32,6 +32,8 @@ interface GameModalsProps {
   onUnlockInventory: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
   onUnlockRanking: () => void;
+  /** 消耗 1 点永劫点数购买「功法无需解锁」特权 */
+  onBuyAutoUnlock: () => void;
   /** 排行·登顶：注册/登录 */
   onLogin: (account: UserAccountData) => void;
   /** 排行·登顶：入驻大区 */
@@ -72,6 +74,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onUnlockGoodsShop,
   onUnlockInventory,
   onUnlockRanking,
+  onBuyAutoUnlock,
   onLogin,
   onRegionSelected,
   onBuyValueCap,
@@ -118,6 +121,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
         onUnlockGoodsShop={onUnlockGoodsShop}
         onUnlockInventory={onUnlockInventory}
         onUnlockRanking={onUnlockRanking}
+        onBuyAutoUnlock={onBuyAutoUnlock}
         onOpenCollapse={() => {
           modals.rebirthShop.close();
           modals.collapse.open();

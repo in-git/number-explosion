@@ -2,6 +2,7 @@ import React from 'react';
 import { GameState } from '../types';
 import { COLLAPSE_COST } from '../utils/gameMath';
 import {
+  AUTO_UNLOCK_COST,
   GOODS_SHOP_UNLOCK_COST,
   INVENTORY_UNLOCK_COST,
   RANKING_UNLOCK_COST,
@@ -28,6 +29,8 @@ interface RebirthShopProps {
   onUnlockInventory: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
   onUnlockRanking: () => void;
+  /** 消耗 1 点永劫点数购买「功法无需解锁」特权 */
+  onBuyAutoUnlock: () => void;
 }
 
 /** 商店中每项基础的展示信息：当前值文案 + 单次提升文案 */
@@ -58,12 +61,14 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
   onUnlockGoodsShop,
   onUnlockInventory,
   onUnlockRanking,
+  onBuyAutoUnlock,
 }) => {
   const canBuy = state.rebirthPoints >= 1;
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
   const canCollapse = state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
   const canUnlockInventory = state.rebirthPoints >= INVENTORY_UNLOCK_COST;
   const canUnlockRanking = state.rebirthPoints >= RANKING_UNLOCK_COST;
+  const canBuyAutoUnlock = state.rebirthPoints >= AUTO_UNLOCK_COST;
 
   const rebirthBase = state.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
 
@@ -145,6 +150,39 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
 
             <UpgradeButton id="btn-shop-unlock-goods" disabled={!canBuy}>
               {GOODS_SHOP_UNLOCK_COST} 点
+            </UpgradeButton>
+          </div>
+        </div>
+      )}
+
+      {/* 功法无需解锁：购买后数值功法不必解锁即可直接升级 */}
+      {!state.upgradesAutoUnlocked && (
+        <div className="pt-1.5 border-t border-[#2d2822]">
+          <div
+            id="shop-item-auto-unlock"
+            onClick={() => {
+              if (canBuyAutoUnlock) onBuyAutoUnlock();
+            }}
+            className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
+              canBuyAutoUnlock ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+            }`}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
+                  功法通明
+                </span>
+                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
+                  未开启
+                </span>
+              </div>
+              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
+                功法无需解锁 · 永世可直接升级（重生亦不退回）
+              </div>
+            </div>
+
+            <UpgradeButton id="btn-shop-auto-unlock" disabled={!canBuyAutoUnlock}>
+              {AUTO_UNLOCK_COST} 点
             </UpgradeButton>
           </div>
         </div>

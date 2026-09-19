@@ -102,6 +102,8 @@ export interface GameState {
   inventoryUnlocked: boolean;
   /** 排行是否已解锁（消耗 1 点永劫点数，默认不显示） */
   rankingUnlocked: boolean;
+  /** 是否已购买「功法无需解锁」特权（消耗 1 点永劫点数，永久生效） */
+  upgradesAutoUnlocked: boolean;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
   account: UserAccountData | null;
   /** 万物店已购商品：商品 id → 拥有数量 */

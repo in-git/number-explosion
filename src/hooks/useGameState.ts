@@ -22,6 +22,7 @@ import { formatDuration, syncServerTime } from '../utils/serverTime';
 import {
   ACHIEVEMENTS,
   GOODS_CATEGORIES,
+  AUTO_UNLOCK_COST,
   GOODS_SHOP_UNLOCK_COST,
   INVENTORY_UNLOCK_COST,
   RANKING_UNLOCK_COST,
@@ -270,19 +271,22 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     const newTotalClickCount = (currentState.totalClickCount || 0) + 1;
 
     const result = executeClickCalculation(currentState);
-    const nextVal = currentVal.add(result.gainedValue);
+    const finalVal = commitValue(currentVal.add(result.gainedValue));
+    // 受数值上限截断后的实际入账
+    const actual = finalVal.sub(currentVal);
 
-    if (result.isCrit && result.isCombo) {
-      addFloatingText(`连击暴击 +${result.gainedValue.formatChinese(2)}`, 'crit-combo');
+    if (actual.m === 0) {
+      // 数值已达上限，本次点击不再入账
+      addFloatingText('已达上限', 'normal');
+    } else if (result.isCrit && result.isCombo) {
+      addFloatingText(`连击暴击 +${actual.formatChinese(2)}`, 'crit-combo');
     } else if (result.isCrit) {
-      addFloatingText(`暴击 +${result.gainedValue.formatChinese(2)}`, 'crit');
+      addFloatingText(`暴击 +${actual.formatChinese(2)}`, 'crit');
     } else if (result.isCombo) {
-      addFloatingText(`连击 +${result.gainedValue.formatChinese(2)}`, 'combo');
+      addFloatingText(`连击 +${actual.formatChinese(2)}`, 'combo');
     } else {
-      addFloatingText(`+${result.gainedValue.formatChinese(2)}`, 'normal');
+      addFloatingText(`+${actual.formatChinese(2)}`, 'normal');
     }
-
-    const finalVal = commitValue(nextVal);
 
     setState((prev) => ({
       ...prev,
@@ -295,15 +299,11 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     checkAchievements({ totalClicks: newTotalClickCount });
   }, [addFloatingText, checkAchievements, checkUnlockTriggers, commitValue]);
 
-  /** 解锁功法：消耗数值，并消耗对应的点击量 */
+  /** 解锁功法：仅消耗点击量，不消耗数值 */
   const handleUnlockUpgrade = useCallback(
-    (id: UpgradeId, cost: BigNum) => {
-      const currentVal = bigNumRef.current;
+    (id: UpgradeId, _cost: BigNum) => {
       const clickCost = UPGRADE_METADATA[id].requiredClicks;
-      if (!currentVal.gte(cost)) return;
       if (stateRef.current.clickCount < clickCost) return;
-
-      commitValue(currentVal.sub(cost));
 
       setState((prev) => ({
         ...prev,
@@ -363,6 +363,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         const clicksPerMs = rate.clicksPerMs > 0 ? rate.clicksPerMs : 1 / rate.intervalMs;
 
         accumulator += delta * clicksPerMs;
+        // 积压封顶：卡顿或切后台回来后不一次性暴补，避免速率失控
+        if (accumulator > MAX_BATCH_CLICKS * 2) accumulator = MAX_BATCH_CLICKS * 2;
 
         if (accumulator >= 1) {
           const clicksToRun = Math.min(MAX_BATCH_CLICKS, Math.floor(accumulator));
@@ -377,14 +379,20 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
             if (i === 0) sampleResult = res;
           }
 
+          let capped = false;
           if (batchGained.gt(0)) {
-            const nextVal = commitValue(bigNumRef.current.add(batchGained));
+            const before = bigNumRef.current;
+            const nextVal = commitValue(before.add(batchGained));
+            // 已达上限时本次无实际入账
+            capped = nextVal.sub(before).m === 0;
             checkUnlockTriggers(currentState.clickCount, nextVal);
           }
 
           // 抽样飘字，避免刷屏
           if (Math.random() < 0.25 && sampleResult) {
-            if (sampleResult.isCrit && sampleResult.isCombo) {
+            if (capped) {
+              addFloatingText('已达上限', 'normal');
+            } else if (sampleResult.isCrit && sampleResult.isCombo) {
               addFloatingText(`连击暴击 +${sampleResult.gainedValue.formatChinese(1)}`, 'crit-combo');
             } else if (sampleResult.isCrit) {
               addFloatingText(`暴击 +${sampleResult.gainedValue.formatChinese(1)}`, 'crit');
@@ -570,6 +578,34 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
+  /** 永劫商店：消耗 1 点永劫点数购买「功法无需解锁」特权（永久生效） */
+  const handleBuyAutoUnlock = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.upgradesAutoUnlocked || prev.rebirthPoints < AUTO_UNLOCK_COST) return prev;
+      done = true;
+
+      // 已购特权：全部功法即刻处于已解锁状态，重生后亦不再回退
+      const upgrades = { ...prev.upgrades };
+      (Object.keys(upgrades) as UpgradeId[]).forEach((id) => {
+        upgrades[id] = { ...upgrades[id], unlocked: true };
+      });
+
+      return {
+        ...prev,
+        rebirthPoints: prev.rebirthPoints - AUTO_UNLOCK_COST,
+        upgradesAutoUnlocked: true,
+        upgrades,
+      };
+    });
+    if (done) {
+      addToast(
+        '功法通明',
+        `消耗 ${AUTO_UNLOCK_COST} 点永劫点数 · 功法无需解锁，可直接升级`
+      );
+    }
+  }, [addToast]);
+
   /** 永劫商店：消耗 1 点永劫点数解锁排行 */
   const handleUnlockRanking = useCallback(() => {
     let done = false;
@@ -693,7 +729,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       clickCount: 0,
       rebirthCount: prev.rebirthCount + 1,
       rebirthPoints: prev.rebirthPoints + gain,
-      upgrades: resetUpgradeLevels(prev.upgrades),
+      // 已购「功法无需解锁」特权：重生后仍保持解锁态，可直接升级
+      upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
       // 背包为永久财产：永劫不清空已购商品
       goodsPurchases: prev.goodsPurchases || {},
     }));
@@ -723,7 +760,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       clickCount: 0,
       rebirthPoints: prev.rebirthPoints - COLLAPSE_COST,
       collapsePoints: prev.collapsePoints + collapseGain,
-      upgrades: resetUpgradeLevels(prev.upgrades),
+      upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
       // 背包为永久财产：坍缩同样不清空已购商品
       goodsPurchases: prev.goodsPurchases || {},
     }));
@@ -787,6 +824,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUnlockGoodsShop,
     handleUnlockInventory,
     handleUnlockRanking,
+    handleBuyAutoUnlock,
     handleLogin,
     handleSelectRegion,
     handleBuyGoods,

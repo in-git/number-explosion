@@ -62,6 +62,7 @@ export default function App() {
         onUnlockGoodsShop={game.handleUnlockGoodsShop}
         onUnlockInventory={game.handleUnlockInventory}
         onUnlockRanking={game.handleUnlockRanking}
+        onBuyAutoUnlock={game.handleBuyAutoUnlock}
         onLogin={game.handleLogin}
         onRegionSelected={game.handleSelectRegion}
         onBuyValueCap={game.handleBuyValueCap}
