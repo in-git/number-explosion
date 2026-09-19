@@ -106,7 +106,7 @@ export const CoreNumberDisplay: React.FC<CoreNumberDisplayProps> = ({
 
           <div className="mt-3 flex items-center gap-3 text-xs tracking-wider text-[#736a5c]">
             <span className="px-2 py-0.5 rounded bg-[#2a2621] border border-[#3e372e] text-[#a69b89]">
-              点击石碑参悟
+              点我
             </span>
           </div>
 

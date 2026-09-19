@@ -1,5 +1,11 @@
 import { BigNumData, GameState, RebirthBaseAttrs, UpgradeId } from '../types';
-import { ACHIEVEMENTS, INITIAL_REBIRTH_BASE_ATTRS, INITIAL_STATE, STORAGE_KEY } from '../config';
+import {
+  ACHIEVEMENTS,
+  GOODS_CATEGORIES,
+  INITIAL_REBIRTH_BASE_ATTRS,
+  INITIAL_STATE,
+  STORAGE_KEY,
+} from '../config';
 import { getServerNow } from './serverTime';
 
 /** 清洗重生基础属性：非法值归 0，缺失字段用初始值补齐 */
@@ -19,6 +25,19 @@ function sanitizeRebirthBaseAttrs(raw: unknown): RebirthBaseAttrs {
     comboChance: pick('comboChance'),
     comboMultiplier: pick('comboMultiplier'),
   };
+}
+
+/** 清洗万物店已购记录：只保留仍在售的商品，数量取整且非负 */
+function sanitizeGoodsPurchases(raw: unknown): Record<string, number> {
+  const src = (raw || {}) as Record<string, unknown>;
+  const validIds = new Set(GOODS_CATEGORIES.flatMap((c) => c.items.map((i) => i.id)));
+  const next: Record<string, number> = {};
+  Object.entries(src).forEach(([id, count]) => {
+    if (!validIds.has(id)) return;
+    const n = typeof count === 'number' && Number.isFinite(count) ? Math.floor(count) : 0;
+    if (n > 0) next[id] = n;
+  });
+  return next;
 }
 
 /**
@@ -85,13 +104,18 @@ export function loadGameState(): GameState {
           ]
         : [],
       rebirthPoints: Number.isFinite(parsed.rebirthPoints) ? parsed.rebirthPoints : 0,
+      playTimeMs: Number.isFinite(parsed.playTimeMs) ? Math.max(0, parsed.playTimeMs) : 0,
       collapsePoints: Number.isFinite(parsed.collapsePoints) ? parsed.collapsePoints : 0,
-      rebirthBaseAttrs: sanitizeRebirthBaseAttrs(parsed.rebirthBaseAttrs),
+      goodsPurchases: sanitizeGoodsPurchases(parsed.goodsPurchases),
+      goodsShopUnlocked: !!parsed.goodsShopUnlocked,
       valueCapLevel: Number.isFinite(parsed.valueCapLevel)
         ? Math.max(0, Math.floor(parsed.valueCapLevel))
         : 0,
       rebirthPointLevel: Number.isFinite(parsed.rebirthPointLevel)
         ? Math.max(0, Math.floor(parsed.rebirthPointLevel))
+        : 0,
+      rebirthToCollapseCount: Number.isFinite(parsed.rebirthToCollapseCount)
+        ? Math.max(0, Math.floor(parsed.rebirthToCollapseCount))
         : 0,
       upgrades,
       notifiedUnlocks,

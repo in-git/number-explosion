@@ -15,6 +15,19 @@ export function getRebirthStartValue(state: GameState): BigNum {
   return new BigNum(sum, 0);
 }
 
+/**
+ * 成就奖励累加出的「暴击效果」（暴击倍数基数加成）：
+ * 游玩时长成就达成后永久累加，与重生基础属性、功法等级叠加计算
+ */
+export function getAchievementCritBonus(state: GameState): number {
+  const unlocked = new Set(state.unlockedAchievements || []);
+  let sum = 0;
+  ACHIEVEMENTS.forEach((a) => {
+    if (a.critMultiplier && unlocked.has(a.id)) sum += a.critMultiplier;
+  });
+  return sum;
+}
+
 // Precomputed Fibonacci cache for quick lookup (仅用于小下标，大下标会溢出 double)
 const FIB_CACHE: number[] = [0, 1, 1];
 export function getFibonacci(n: number): number {
@@ -66,6 +79,36 @@ export function getRebirthPointUpgradeCost(level: number): BigNum {
 /** 该升级带来的额外重生点数（每级 +1） */
 export function getExtraRebirthPoints(level: number): number {
   return Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+}
+
+/** 兑换：每次消耗 3 点重生点数换 1 点坍缩点数 */
+export const REBIRTH_TO_COLLAPSE_BASE_COST = 3;
+/** 兑换：前 50 次维持基础消耗，不加价 */
+export const REBIRTH_TO_COLLAPSE_FREE_TIMES = 50;
+/** 兑换：50 次之后的消耗基数（50 + 斐波拉契） */
+export const REBIRTH_TO_COLLAPSE_RAISE_BASE = 50;
+
+/**
+ * 「重生点数 → 坍缩点数」第 (n+1) 次兑换所需的重生点数（n = 已兑换次数）
+ * - 前 50 次：恒定 3 点
+ * - 第 51 次起：50 + F(n - 50)，即 50, 51, 51, 52, 53, 55, 58 ...
+ */
+export function getRebirthToCollapseCost(exchangedTimes: number): BigNum {
+  const n = Number.isFinite(exchangedTimes) && exchangedTimes > 0 ? Math.floor(exchangedTimes) : 0;
+  if (n < REBIRTH_TO_COLLAPSE_FREE_TIMES) {
+    return new BigNum(REBIRTH_TO_COLLAPSE_BASE_COST, 0);
+  }
+  return getFibonacciBig(n - REBIRTH_TO_COLLAPSE_FREE_TIMES).add(REBIRTH_TO_COLLAPSE_RAISE_BASE);
+}
+
+/**
+ * 万物店：第 (owned+1) 件商品的售价 = 原价 + 斐波拉契数列
+ * 首件即原价（F(0)=0），此后每购一次累加 F(n)：0, 1, 1, 2, 3, 5, 8 ...
+ */
+export function getGoodsPrice(baseCost: number, owned: number): BigNum {
+  const base = BigNum.fromNumber(baseCost);
+  const n = Number.isFinite(owned) && owned > 0 ? Math.floor(owned) : 0;
+  return base.add(getFibonacciBig(n));
 }
 
 /** 数值升级收益系数：斐波那契加成 ×0.9，即每次升级收益降低 10% */
@@ -327,8 +370,9 @@ export function calculateGameAttributes(state: GameState) {
     comboMultiplier += comboMultUp.level * 0.5;
   }
 
-  // 6. 暴击倍数: 基础100% + 重生基础，等差数列+0.5 (即 1.0 + 0.5 * level)
-  let critMultiplier = 1.0 + rebirthBase.critMultiplier;
+  // 6. 暴击倍数: 基础100% + 重生基础 + 成就奖励（游玩时长），等差数列+0.5 (即 1.0 + 0.5 * level)
+  const achievementCritBonus = getAchievementCritBonus(state);
+  let critMultiplier = 1.0 + rebirthBase.critMultiplier + achievementCritBonus;
   if (critMultUp.unlocked) {
     critMultiplier += critMultUp.level * 0.5;
   }
@@ -375,6 +419,8 @@ export function calculateGameAttributes(state: GameState) {
     totalClickCount,
     rebirthStartValue,
     rebirthPointBonus,
+    achievementCritBonus,
+    playTimeMs: state.playTimeMs || 0,
   };
 }
 

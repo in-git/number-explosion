@@ -49,21 +49,34 @@ body {
   }
 }
 
-/* Custom scrollbar matching weathered stone aesthetic */
+/* Custom scrollbar matching weathered stone aesthetic（始终可见，便于辨识内容已溢出） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4a4439 #141312;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
   background: #141312;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #332f28;
-  border-radius: 3px;
+  background: #4a4439;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4439;
+  background: #6b5e4c;
+}
+
+/* 模态框滚动容器：内容超出时显示滚动条 */
+.modal-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }

@@ -5,6 +5,7 @@ import {
   Orbit,
   RefreshCw,
   Settings,
+  ShoppingBag,
   Store,
   Trophy,
 } from 'lucide-react';
@@ -18,6 +19,8 @@ interface ShopEntriesProps {
   onOpenRebirthShop: () => void;
   onOpenFunShop: () => void;
   onOpenCollapseShop: () => void;
+  /** 万物店入口：解锁后开放 */
+  onOpenGoodsShop: () => void;
   /** 重生入口：弹窗内可继续转入坍缩 */
   onOpenRebirthModal: () => void;
   /** 成就面板入口（累计点击成就） */
@@ -29,9 +32,10 @@ interface ShopEntriesProps {
 /** 商店卡片：同一排铺满，列宽自适应，内部为上下结构（图标在上、文字在下） */
 const SHOP_CARD =
   'flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-xl border-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all text-center';
-const SHOP_GRID = 'grid gap-2 grid-cols-[repeat(auto-fit,minmax(120px,1fr))]';
+/** 商店网格：固定一排三个，超出换行 */
+const SHOP_GRID = 'grid gap-2 grid-cols-3';
 const SHOP_TITLE =
-  'text-[11px] sm:text-sm font-serif font-bold tracking-[0.14em] sm:tracking-[0.2em] text-[#ded7cb] whitespace-nowrap';
+  'text-[11px] sm:text-sm font-serif font-bold tracking-[0.1em] sm:tracking-[0.2em] text-[#ded7cb] leading-tight';
 
 /** 功能卡片：列表排布，一行一个 */
 const LIST_CARD =
@@ -47,6 +51,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   onOpenRebirthShop,
   onOpenFunShop,
   onOpenCollapseShop,
+  onOpenGoodsShop,
   onOpenRebirthModal,
   onOpenAchievementsModal,
   onOpenSettingsModal,
@@ -67,7 +72,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           className={`${SHOP_CARD} bg-[#1a1816] border-[#332e27] hover:border-[#5b5142] active:translate-y-0.5 cursor-pointer`}
         >
           <Store size={18} className="text-[#8c8273] flex-shrink-0" />
-          <div className={SHOP_TITLE}>数 值 商 店</div>
+          <div className={SHOP_TITLE}>数 值 店</div>
         </button>
 
         {/* 重生商店：解锁后才显示 */}
@@ -78,7 +83,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             className={`${SHOP_CARD} bg-[#1a1816] border-[#3a3226] hover:border-[#6b5a3f] active:translate-y-0.5 cursor-pointer`}
           >
             <RefreshCw size={18} className="text-[#8c8273] flex-shrink-0" />
-            <div className={SHOP_TITLE}>重 生 商 店</div>
+            <div className={SHOP_TITLE}>重 生 店</div>
           </button>
         )}
 
@@ -89,7 +94,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           className={`${SHOP_CARD} bg-[#1a1816] border-[#332e27] hover:border-[#5b5142] active:translate-y-0.5 cursor-pointer`}
         >
           <Dices size={18} className="text-[#8c8273] flex-shrink-0" />
-          <div className={SHOP_TITLE}>奇 趣 商 店</div>
+          <div className={SHOP_TITLE}>奇 趣 店</div>
         </button>
 
         {/* 坍缩商店：解锁后才显示 */}
@@ -100,7 +105,19 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             className={`${SHOP_CARD} bg-[#1b1622] border-[#4a2e5e] hover:border-[#8938b8] active:translate-y-0.5 cursor-pointer`}
           >
             <Orbit size={18} className="text-[#8c8273] flex-shrink-0" />
-            <div className={SHOP_TITLE}>坍 缩 商 店</div>
+            <div className={SHOP_TITLE}>坍 缩 店</div>
+          </button>
+        )}
+
+        {/* 万物店：解锁后才显示 */}
+        {state.goodsShopUnlocked && (
+          <button
+            id="btn-open-goods-shop"
+            onClick={onOpenGoodsShop}
+            className={`${SHOP_CARD} bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
+          >
+            <ShoppingBag size={18} className="text-[#8c8273] flex-shrink-0" />
+            <div className={SHOP_TITLE}>万 物 店</div>
           </button>
         )}
       </div>

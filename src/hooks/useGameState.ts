@@ -13,12 +13,14 @@ import {
   getRebirthStartValue,
   getRebirthPointUpgradeCost,
   getExtraRebirthPoints,
+  getRebirthToCollapseCost,
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
 import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { formatDuration, syncServerTime } from '../utils/serverTime';
 import {
   ACHIEVEMENTS,
+  GOODS_SHOP_UNLOCK_COST,
   INITIAL_REBIRTH_BASE_ATTRS,
   INITIAL_STATE,
   OFFLINE_MAX_MS,
@@ -38,6 +40,8 @@ interface UseGameStateDeps {
 
 /** 单次自动点击最多补算的次数 */
 const MAX_BATCH_CLICKS = 100;
+/** 游玩时长写回存档的间隔（ms） */
+const PLAY_TIME_TICK_MS = 5_000;
 
 /**
  * 游戏核心状态与全部玩法逻辑（数值、点击、升级、商店、重生、坍缩）
@@ -56,6 +60,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   stateRef.current = state;
   const bigNumRef = useRef(currentBigNum);
   bigNumRef.current = currentBigNum;
+  // 累计游玩时长的最新值（供定时器精确累加，避免连续结算时读到旧 state）
+  const playTimeRef = useRef(state.playTimeMs || 0);
+  playTimeRef.current = state.playTimeMs || 0;
 
   // Auto-save
   useEffect(() => {
@@ -177,28 +184,73 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   }, [addToast, checkUnlockTriggers, commitValue]);
 
   /**
-   * 成就结算：以「历世累计点击次数」为门槛，达成就一次性写入存档并提示
+   * 成就结算：
+   * - click 类：以「历世累计点击次数」为门槛
+   * - playTime 类：以「累计游玩时长」为门槛
+   * 入参用于覆盖尚未写入 state 的最新进度
    */
   const checkAchievements = useCallback(
-    (totalClicks: number) => {
-      const unlocked = new Set(stateRef.current.unlockedAchievements || []);
-      const fresh = ACHIEVEMENTS.filter(
-        (a) => totalClicks >= a.requiredClicks && !unlocked.has(a.id)
-      );
+    (progress?: { totalClicks?: number; playTimeMs?: number }) => {
+      const cur = stateRef.current;
+      const totalClicks = progress?.totalClicks ?? cur.totalClickCount ?? 0;
+      const playTimeMs = progress?.playTimeMs ?? cur.playTimeMs ?? 0;
+      const unlocked = new Set(cur.unlockedAchievements || []);
+
+      const fresh = ACHIEVEMENTS.filter((a) => {
+        if (unlocked.has(a.id)) return false;
+        return a.type === 'playTime'
+          ? playTimeMs >= (a.requiredPlayMs || 0)
+          : totalClicks >= a.requiredClicks;
+      });
       if (fresh.length === 0) return;
 
       fresh.forEach((a) => {
         unlocked.add(a.id);
-        addToast(
-          '成就达成',
-          `成就「${a.name}」· ${a.desc} · 重生初始数值 +${a.rebirthStartValue.toLocaleString('zh-CN')}`
-        );
+        const reward = a.critMultiplier
+          ? `暴击效果 +${a.critMultiplier}`
+          : `重生初始数值 +${a.rebirthStartValue.toLocaleString('zh-CN')}`;
+        addToast('成就达成', `成就「${a.name}」· ${a.desc} · ${reward}`);
       });
 
       setState((prev) => ({ ...prev, unlockedAchievements: [...unlocked] }));
     },
     [addToast]
   );
+
+  /**
+   * 游玩时长累计：仅在页面可见（前台打开）时计时
+   * 页面隐藏 / 关闭时立即结算并停止，离线与后台挂机一律不计
+   */
+  useEffect(() => {
+    let lastAt = document.visibilityState === 'visible' ? Date.now() : 0;
+
+    /** 结算当前这段可见时长，并写回 state */
+    const flush = () => {
+      const now = Date.now();
+      if (lastAt > 0 && now > lastAt) {
+        const nextPlayTime = playTimeRef.current + (now - lastAt);
+        playTimeRef.current = nextPlayTime;
+        setState((prev) => ({ ...prev, playTimeMs: nextPlayTime }));
+        checkAchievements({ playTimeMs: nextPlayTime });
+      }
+      lastAt = document.visibilityState === 'visible' ? now : 0;
+    };
+
+    // 进入时按存档进度补判一次（例如上次已达门槛但未弹提示）
+    checkAchievements();
+
+    const timer = window.setInterval(flush, PLAY_TIME_TICK_MS);
+    const onVisibility = () => flush();
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+
+    return () => {
+      flush();
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [checkAchievements]);
 
   /** 用户手动点击 */
   const handleUserClick = useCallback(() => {
@@ -230,26 +282,29 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
     // 功法解锁看本世点击，成就看累计点击
     checkUnlockTriggers(newClickCount, finalVal);
-    checkAchievements(newTotalClickCount);
+    checkAchievements({ totalClicks: newTotalClickCount });
   }, [addFloatingText, checkAchievements, checkUnlockTriggers, commitValue]);
 
-  /** 解锁功法 */
+  /** 解锁功法：消耗数值，并消耗对应的点击量 */
   const handleUnlockUpgrade = useCallback(
     (id: UpgradeId, cost: BigNum) => {
       const currentVal = bigNumRef.current;
+      const clickCost = UPGRADE_METADATA[id].requiredClicks;
       if (!currentVal.gte(cost)) return;
+      if (stateRef.current.clickCount < clickCost) return;
 
       commitValue(currentVal.sub(cost));
 
       setState((prev) => ({
         ...prev,
+        clickCount: Math.max(0, prev.clickCount - clickCost),
         upgrades: {
           ...prev.upgrades,
           [id]: { ...prev.upgrades[id], unlocked: true },
         },
       }));
 
-      addToast(`解锁 ${UPGRADE_METADATA[id].name}`, '');
+      addToast(`解锁 ${UPGRADE_METADATA[id].name}`, `消耗点击量 ${clickCost.toLocaleString('zh-CN')}`);
     },
     [addToast, commitValue]
   );
@@ -449,6 +504,67 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     );
   }, [addToast]);
 
+  /** 重生商店：消耗 1 点重生点数解锁万物店 */
+  const handleUnlockGoodsShop = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.goodsShopUnlocked || prev.rebirthPoints < GOODS_SHOP_UNLOCK_COST) return prev;
+      done = true;
+      return {
+        ...prev,
+        rebirthPoints: prev.rebirthPoints - GOODS_SHOP_UNLOCK_COST,
+        goodsShopUnlocked: true,
+      };
+    });
+    if (done) {
+      addToast('万物洞开', `消耗 ${GOODS_SHOP_UNLOCK_COST} 点重生点数 · 万物店已开张`);
+    }
+  }, [addToast]);
+
+  /** 万物店：花费当前数值购置商品（价格随拥有数按斐波拉契递增） */
+  const handleBuyGoods = useCallback(
+    (id: string, name: string, cost: BigNum) => {
+      const currentVal = bigNumRef.current;
+      const price = cost;
+      if (!currentVal.gte(price)) return;
+
+      commitValue(currentVal.sub(price));
+
+      setState((prev) => ({
+        ...prev,
+        goodsPurchases: {
+          ...(prev.goodsPurchases || {}),
+          [id]: (prev.goodsPurchases?.[id] || 0) + 1,
+        },
+      }));
+
+      addToast('购置万物', `${name} · 花费 ${price.formatChinese(2)}`);
+    },
+    [addToast, commitValue]
+  );
+
+  /** 坍缩商店：消耗重生点数兑换坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
+  const handleExchangeRebirthToCollapse = useCallback(() => {
+    const prev = stateRef.current;
+    const times = prev.rebirthToCollapseCount || 0;
+    const cost = getRebirthToCollapseCost(times);
+    const costNum = cost.toNumber();
+
+    if (!Number.isFinite(costNum) || prev.rebirthPoints < costNum) return;
+
+    setState((p) => ({
+      ...p,
+      rebirthPoints: Math.max(0, p.rebirthPoints - costNum),
+      collapsePoints: p.collapsePoints + 1,
+      rebirthToCollapseCount: times + 1,
+    }));
+
+    addToast(
+      '点化坍缩',
+      `消耗 ${cost.formatChinese(0)} 点重生点数 · 换得 1 点坍缩点数（累计 ${times + 1} 次）`
+    );
+  }, [addToast]);
+
   /** 重生：数值达百万即可（无次数限制），基础 +1 点，再加上「重生点数获取」的加成 */
   const confirmRebirth = useCallback(() => {
     // 起始数值 = 成就奖励之和（可与其他数值来源累加）
@@ -505,6 +621,22 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     setState((prev) => ({ ...prev, currentValue: val.toData() }));
   }, []);
 
+  /** 调试：直接设置重生点数 */
+  const debugSetRebirthPoints = useCallback((n: number) => {
+    setState((prev) => ({
+      ...prev,
+      rebirthPoints: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : prev.rebirthPoints,
+    }));
+  }, []);
+
+  /** 调试：直接设置坍缩点数 */
+  const debugSetCollapsePoints = useCallback((n: number) => {
+    setState((prev) => ({
+      ...prev,
+      collapsePoints: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : prev.collapsePoints,
+    }));
+  }, []);
+
   /** 重修道途：清空存档与全部进度 */
   const resetProgress = useCallback(() => {
     clearGameState();
@@ -533,9 +665,14 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleBuyRebirthBaseAttr,
     handleUnlockCollapse,
     handleBuyValueCap,
+    handleExchangeRebirthToCollapse,
+    handleUnlockGoodsShop,
+    handleBuyGoods,
     confirmRebirth,
     confirmCollapse,
     resetProgress,
     debugSetValue,
+    debugSetRebirthPoints,
+    debugSetCollapsePoints,
   };
 }

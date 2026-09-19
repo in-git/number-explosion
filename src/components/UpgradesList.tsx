@@ -83,9 +83,9 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
   // 隐藏不可继续升级（已满级）的功法
   const [hideMaxed, setHideMaxed] = useState(false);
 
-  // Filter upgrades: only show those whose requiredClicks condition is met
+  // Filter upgrades: 点击量达标，或已解锁（解锁会消耗点击量，已解锁项须继续显示）
   const visibleUpgrades = UPGRADE_ORDER.filter(
-    (id) => state.clickCount >= UPGRADE_METADATA[id].requiredClicks
+    (id) => state.clickCount >= UPGRADE_METADATA[id].requiredClicks || state.upgrades[id].unlocked
   );
 
   if (visibleUpgrades.length === 0) {
@@ -98,7 +98,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
           使用当前点击次数解锁
         </div>
         <div className="mt-2 text-[11px]">
-          本世点击: {state.clickCount} 
+          点击量: {state.clickCount}
         </div>
       </div>
     );
@@ -119,7 +119,9 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       desc,
       currentCost,
       isMaxed: isUpgradeMaxed(id, upgradeState),
-      canAffordUnlock: currentValue.gte(new BigNum(meta.baseUnlockCost, 0)),
+      canAffordUnlock:
+        currentValue.gte(new BigNum(meta.baseUnlockCost, 0)) &&
+        state.clickCount >= meta.requiredClicks,
       canAffordUpgrade: currentCost ? currentValue.gte(currentCost) : false,
     };
   });
@@ -131,9 +133,17 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between pb-1.5 border-b border-[#2d2822]">
-        <div className="text-[10px] font-serif text-[#6f6656]">
-          当前数值
-          <span className="ml-1 font-mono text-[#c9a86a]">{currentValue.formatChinese(2)}</span>
+        <div className="flex items-center gap-3 text-[10px] font-serif text-[#6f6656]">
+          <span>
+            当前数值
+            <span className="ml-1 font-mono text-[#c9a86a]">{currentValue.formatChinese(2)}</span>
+          </span>
+          <span id="upgrade-shop-click-count">
+            点击量
+            <span className="ml-1 font-mono text-[#76d18c]">
+              {state.clickCount.toLocaleString('zh-CN')}
+            </span>
+          </span>
         </div>
         <button
           id="btn-toggle-hide-maxed"
@@ -168,23 +178,23 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     if (!row.canAffordUnlock) return;
                     onUnlock(id, new BigNum(meta.baseUnlockCost, 0));
                   }}
-                  className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211e1a] border border-[#3d372e] transition-colors ${
+                  className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#16211a] border border-[#2f4a35] transition-colors ${
                     row.canAffordUnlock
-                      ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]'
+                      ? 'cursor-pointer hover:bg-[#1c2c22] hover:border-[#4d7a56]'
                       : ''
                   }`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-serif font-bold text-xs sm:text-sm text-[#d9d1c3] truncate">
+                      <span className="font-serif font-bold text-xs sm:text-sm text-[#cfe8d4] truncate">
                         {meta.name}
                       </span>
-                      <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
+                      <span className="text-[10px] font-mono px-1 py-px rounded bg-[#1d2c22] border border-[#33553c] text-[#8fc79a] flex-shrink-0">
                         上限 Lv.{maxLevel}
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#7d7364] font-serif truncate">
-                      本世点击 {meta.requiredClicks} 次
+                    <div className="text-[10px] text-[#7fa886] font-serif truncate">
+                      解锁消耗点击量 {meta.requiredClicks.toLocaleString('zh-CN')}
                     </div>
                   </div>
 
@@ -192,13 +202,21 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     id={`btn-unlock-${id}`}
                     disabled={!row.canAffordUnlock}
                     ariaLabel="解锁"
+                    tone="green"
                   >
                     <span className="inline-flex items-center gap-1">
                       {new BigNum(meta.baseUnlockCost, 0).formatChinese(0)}
+                      <span
+                        className={`font-mono ${
+                          row.canAffordUnlock ? 'text-[#9fd3ad]' : 'text-[#5c564e]'
+                        }`}
+                      >
+                        +{meta.requiredClicks.toLocaleString('zh-CN')}
+                      </span>
                       <Unlock
                         size={11}
                         className={`flex-shrink-0 ${
-                          row.canAffordUnlock ? 'text-[#c9a86a]' : 'text-[#595246]'
+                          row.canAffordUnlock ? 'text-[#76d18c]' : 'text-[#4a5a4d]'
                         }`}
                       />
                     </span>

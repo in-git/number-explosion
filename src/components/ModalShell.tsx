@@ -59,8 +59,8 @@ export const ModalShell: React.FC<ModalShellProps> = ({
           </button>
         </div>
 
-        {/* 内容区 */}
-        <div className="flex-1 overflow-y-auto px-4 py-3">{children}</div>
+        {/* 内容区：超出即滚动 */}
+        <div className="flex-1 min-h-0 modal-scroll px-4 py-3">{children}</div>
 
         {/* 底栏 */}
         <div className="flex items-center justify-end px-4 py-3 border-t border-[#362f25] bg-[#1a1715]">

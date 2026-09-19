@@ -2,6 +2,7 @@ import React from 'react';
 import { GameState } from '../types';
 import { COLLAPSE_COST } from '../utils/gameMath';
 import {
+  GOODS_SHOP_UNLOCK_COST,
   INITIAL_REBIRTH_BASE_ATTRS,
   REBIRTH_BASE_ATTR_LABELS,
   REBIRTH_BASE_ATTR_PURCHASE_GAINS,
@@ -19,6 +20,8 @@ interface RebirthShopProps {
   onUnlockCollapse: () => void;
   /** 已解锁后打开坍缩弹窗 */
   onOpenCollapse: () => void;
+  /** 消耗 1 点重生点数解锁万物店 */
+  onUnlockGoodsShop: () => void;
 }
 
 /** 商店中每项基础的展示信息：当前值文案 + 单次提升文案 */
@@ -46,6 +49,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
   onBuyRebirthBaseAttr,
   onUnlockCollapse,
   onOpenCollapse,
+  onUnlockGoodsShop,
 }) => {
   const canBuy = state.rebirthPoints >= 1;
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
@@ -102,6 +106,39 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
           );
         })}
       </div>
+
+      {/* 解锁万物店：以数值购置万物（默认不显示） */}
+      {!state.goodsShopUnlocked && (
+        <div className="pt-1.5 border-t border-[#2d2822]">
+          <div
+            id="shop-item-unlock-goods"
+            onClick={() => {
+              if (canBuy) onUnlockGoodsShop();
+            }}
+            className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
+              canBuy ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+            }`}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
+                  解锁万物店
+                </span>
+                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
+                  未开启
+                </span>
+              </div>
+              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
+                开张万物店 · 自此可以数值购置万物
+              </div>
+            </div>
+
+            <UpgradeButton id="btn-shop-unlock-goods" disabled={!canBuy}>
+              {GOODS_SHOP_UNLOCK_COST} 点
+            </UpgradeButton>
+          </div>
+        </div>
+      )}
 
       {/* 最底部：解锁坍缩 / 进行坍缩 */}
       <div className="pt-1.5 border-t border-[#2d2822]">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { GameState } from '../types';
 import { BASE_VALUE_INITIAL, calculateGameAttributes, getValueCap } from '../utils/gameMath';
+import { formatDuration } from '../utils/serverTime';
 import { INITIAL_REBIRTH_BASE_ATTRS } from '../config';
 
 interface AttributesPanelProps {
@@ -168,9 +169,23 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     },
     {
       id: 'attr-click-count',
-      label: '本世点击',
+      label: '点击量',
       value: `${attrs.clickCount} 次`,
-      detail: '重生后亲手点击次数 · 用于解锁功法',
+      detail: '重生后亲手点击次数 · 用于解锁功法（解锁时消耗）',
+    },
+    {
+      id: 'attr-play-time',
+      label: '游玩时长',
+      value: formatDuration(attrs.playTimeMs),
+      valueClass: 'text-[#76d18c]',
+      detail: '页面开启时长 · 后台挂机与离线不计',
+    },
+    {
+      id: 'attr-achievement-crit',
+      label: '暴击效果加成',
+      value: `+${attrs.achievementCritBonus}`,
+      valueClass: 'text-[#76d18c]',
+      detail: '游玩时长成就奖励 · 累加到暴击倍数',
     },
     {
       id: 'attr-total-click-count',

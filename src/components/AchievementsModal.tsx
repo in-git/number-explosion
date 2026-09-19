@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GameState } from '../types';
 import { ACHIEVEMENTS } from '../config';
+import { formatDuration } from '../utils/serverTime';
 import { ModalShell } from './ModalShell';
 
 interface AchievementsModalProps {
@@ -29,6 +30,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
 
   const unlocked = new Set(state.unlockedAchievements || []);
   const totalClicks = state.totalClickCount || 0;
+  const playTimeMs = state.playTimeMs || 0;
   const unlockedCount = ACHIEVEMENTS.filter((a) => unlocked.has(a.id)).length;
 
   const shown = ACHIEVEMENTS.filter((a) => {
@@ -42,7 +44,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="成就"
-      subtitle={`累计点击 ${fmt(totalClicks)} 次 · 已达成 ${unlockedCount} / ${ACHIEVEMENTS.length}`}
+      subtitle={`累计点击 ${fmt(totalClicks)} 次 · 游玩 ${formatDuration(playTimeMs)} · 已达成 ${unlockedCount} / ${ACHIEVEMENTS.length}`}
     >
       {/* 筛选栏 */}
       <div className="flex items-center gap-2 pb-2 mb-2 border-b border-[#2d2822]">
@@ -69,7 +71,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
           —— 暂无符合条件的成就 ——
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {shown.map((a) => {
             const done = unlocked.has(a.id);
 
@@ -78,13 +80,15 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
                 key={a.id}
                 id={`achievement-item-${a.id}`}
                 className={`flex flex-col gap-0.5 p-2 rounded-lg border ${
-                  done ? 'bg-[#241f16] border-[#6b5a3f]' : 'bg-[#211f1c] border-[#383229]'
+                  done
+                    ? 'bg-[#241f16] border-[#6b5a3f]'
+                    : 'bg-[#1a1917] border-[#2b2926] opacity-75'
                 }`}
               >
                 <div className="flex items-center gap-1">
                   <span
                     className={`font-serif font-bold text-[11px] sm:text-xs truncate ${
-                      done ? 'text-[#e8cf9a]' : 'text-[#ded7cb]'
+                      done ? 'text-[#e8cf9a]' : 'text-[#6f6961]'
                     }`}
                   >
                     {a.name}
@@ -93,21 +97,43 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
                     className={`text-[10px] font-mono px-1 py-px rounded border flex-shrink-0 ml-auto ${
                       done
                         ? 'bg-[#3b3327] border-[#6b5a3f] text-[#c9a86a]'
-                        : 'bg-[#2a2620] border-[#3e372c] text-[#8f8574]'
+                        : 'bg-[#232120] border-[#302d29] text-[#6b655c]'
                     }`}
                   >
                     {done ? '已完成' : '未完成'}
                   </span>
                 </div>
 
-                <div className="text-[10px] text-[#998e7e] font-serif truncate">{a.desc}</div>
-
-                <div className="text-[10px] font-serif text-[#c9a86a] truncate">
-                  重生初始数值 +{fmt(a.rebirthStartValue)}
+                <div
+                  className={`text-[10px] font-serif truncate ${
+                    done ? 'text-[#998e7e]' : 'text-[#5c564e]'
+                  }`}
+                >
+                  {a.desc}
                 </div>
 
-                <div className="text-[10px] font-mono text-[#8a7a63]">
-                  {fmt(Math.min(totalClicks, a.requiredClicks))} / {fmt(a.requiredClicks)}
+                <div
+                  className={`text-[10px] font-serif truncate ${
+                    !done
+                      ? 'text-[#5c564e]'
+                      : a.critMultiplier
+                        ? 'text-[#76d18c]'
+                        : 'text-[#c9a86a]'
+                  }`}
+                >
+                  {a.critMultiplier
+                    ? `暴击效果 +${a.critMultiplier}`
+                    : `重生初始数值 +${fmt(a.rebirthStartValue)}`}
+                </div>
+
+                <div
+                  className={`text-[10px] font-mono ${done ? 'text-[#8a7a63]' : 'text-[#544e46]'}`}
+                >
+                  {a.type === 'playTime'
+                    ? `${formatDuration(
+                        Math.min(playTimeMs, a.requiredPlayMs || 0)
+                      )} / ${formatDuration(a.requiredPlayMs || 0)}`
+                    : `${fmt(Math.min(totalClicks, a.requiredClicks))} / ${fmt(a.requiredClicks)}`}
                 </div>
               </div>
             );

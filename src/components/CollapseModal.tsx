@@ -22,8 +22,8 @@ export const CollapseModal: React.FC<CollapseModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xs">
-      <div className="relative w-full max-w-lg bg-[#141217] border-2 border-[#433054] rounded-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.98)] select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xs modal-scroll">
+      <div className="relative w-full max-w-lg my-auto bg-[#141217] border-2 border-[#433054] rounded-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.98)] select-none">
         <div className="absolute top-2 left-2 right-2 bottom-2 pointer-events-none border border-[#2b1e36] rounded-lg" />
 
         {/* Title */}

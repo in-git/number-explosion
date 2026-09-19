@@ -5,8 +5,22 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSetValue: (val: BigNum) => void;
+  onSetRebirthPoints: (n: number) => void;
+  onSetCollapsePoints: (n: number) => void;
   onResetProgress: () => void;
   currentValue: BigNum;
+}
+
+/** 点数默认值 */
+const DEFAULT_POINTS = '100';
+
+/** 解析点数输入：非法或负数无效 */
+function parsePoints(raw: string): number | null {
+  const text = raw.trim();
+  if (text === '') return null;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
 }
 
 /** 快捷设置项：0 / 10万 / 500万 / 1亿 */
@@ -21,10 +35,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   onSetValue,
+  onSetRebirthPoints,
+  onSetCollapsePoints,
   onResetProgress,
   currentValue,
 }) => {
   const [input, setInput] = useState('');
+  const [rebirthInput, setRebirthInput] = useState(DEFAULT_POINTS);
+  const [collapseInput, setCollapseInput] = useState(DEFAULT_POINTS);
 
   if (!isOpen) return null;
 
@@ -44,6 +62,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
+  /** 重生点数 / 坍缩点数：输入框默认 100，设置后立即生效并关闭 */
+  const applyRebirth = () => {
+    const n = parsePoints(rebirthInput);
+    if (n === null) return;
+    onSetRebirthPoints(n);
+    setRebirthInput(DEFAULT_POINTS);
+    onClose();
+  };
+
+  const applyCollapse = () => {
+    const n = parsePoints(collapseInput);
+    if (n === null) return;
+    onSetCollapsePoints(n);
+    setCollapseInput(DEFAULT_POINTS);
+    onClose();
+  };
+
+  const pointFields = [
+    {
+      id: 'rebirth',
+      title: '重生点数',
+      value: rebirthInput,
+      onChange: setRebirthInput,
+      onApply: applyRebirth,
+    },
+    {
+      id: 'collapse',
+      title: '坍缩点数',
+      value: collapseInput,
+      onChange: setCollapseInput,
+      onApply: applyCollapse,
+    },
+  ];
+
   const handleReset = () => {
     if (window.confirm('是否重置所有修炼进度归零？')) {
       onResetProgress();
@@ -52,8 +104,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-      <div className="relative w-full max-w-md bg-[#1a1715] border-2 border-[#473e32] rounded-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.95)] select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs modal-scroll">
+      <div className="relative w-full max-w-md my-auto bg-[#1a1715] border-2 border-[#473e32] rounded-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.95)] select-none">
         <div className="absolute top-2 left-2 right-2 bottom-2 pointer-events-none border border-[#302921] rounded-lg" />
 
         {/* Title */}
@@ -95,6 +147,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               设置
             </button>
           </div>
+        </div>
+
+        {/* 重生点数 / 坍缩点数：仅标题 + 输入框（默认 100） */}
+        <div className="space-y-2 mb-3">
+          {pointFields.map((f) => (
+            <div
+              key={f.id}
+              className="rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2.5"
+            >
+              <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">{f.title}</div>
+              <div className="flex items-center gap-2">
+                <input
+                  id={`settings-${f.id}-points-input`}
+                  type="number"
+                  inputMode="numeric"
+                  value={f.value}
+                  onChange={(e) => f.onChange(e.target.value)}
+                  className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-[#0f1216] border border-[#2c3440] text-sm text-[#e3ded4] font-mono outline-none focus:border-[#5b8db8] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  id={`btn-settings-apply-${f.id}-points`}
+                  onClick={f.onApply}
+                  className="px-4 py-2 rounded-lg bg-[#1f3a4d] border border-[#2f5a73] hover:border-[#4a8db8] active:translate-y-0.5 text-xs font-serif text-[#cfe4f2] cursor-pointer"
+                >
+                  设置
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* 快捷选择 */}

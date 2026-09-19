@@ -9,6 +9,8 @@ interface UpgradeButtonProps {
   onClick?: () => void;
   ariaLabel?: string;
   className?: string;
+  /** 色调：gold 金色（默认，升级/购买）；green 绿色（解锁） */
+  tone?: 'gold' | 'green';
 }
 
 const BASE =
@@ -16,6 +18,9 @@ const BASE =
 // 金黄色文本：可用态明亮金，禁用态暗金（仍可区分，但统一为金色调）
 const ACTIVE =
   'text-[#e8c46a] underline decoration-1 underline-offset-4 cursor-pointer hover:text-[#f5dd9a]';
+// 绿色文本：解锁类型的可用态
+const ACTIVE_GREEN =
+  'text-[#76d18c] underline decoration-1 underline-offset-4 cursor-pointer hover:text-[#a3e8b3]';
 const DISABLED = 'text-[#5b5548] cursor-default';
 
 /** 通用升级 / 购买按钮：无背景色、无前置图标，供功法列表与各商店共用 */
@@ -26,6 +31,7 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
   onClick,
   ariaLabel,
   className = '',
+  tone = 'gold',
 }) => (
   <button
     type="button"
@@ -33,7 +39,9 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
     disabled={disabled}
     onClick={onClick}
     aria-label={ariaLabel}
-    className={`${BASE} ${disabled ? DISABLED : ACTIVE} ${className}`}
+    className={`${BASE} ${
+      disabled ? DISABLED : tone === 'green' ? ACTIVE_GREEN : ACTIVE
+    } ${className}`}
   >
     {children}
   </button>

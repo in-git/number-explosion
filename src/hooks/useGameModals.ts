@@ -7,6 +7,8 @@ export interface GameModalsState {
   rebirthShop: Disclosure;
   /** 坍缩商店（数值上限翻倍） */
   collapseShop: Disclosure;
+  /** 万物店（消耗数值购置万物） */
+  goodsShop: Disclosure;
   /** 奇趣商店（博弈） */
   funShop: Disclosure;
   /** 重生确认 */
@@ -24,6 +26,7 @@ export function useGameModals(): GameModalsState {
     upgradeShop: useDisclosure(),
     rebirthShop: useDisclosure(),
     collapseShop: useDisclosure(),
+    goodsShop: useDisclosure(),
     funShop: useDisclosure(),
     rebirth: useDisclosure(),
     collapse: useDisclosure(),

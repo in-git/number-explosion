@@ -69,6 +69,8 @@ export interface GameState {
   totalClickCount: number;
   /** 已达成的成就 id */
   unlockedAchievements: string[];
+  /** 累计游玩时长（ms）：仅在页面可见时累计，不计离线 / 后台挂机 */
+  playTimeMs: number;
 
   // 升级状态
   upgrades: Record<UpgradeId, UpgradeState>;
@@ -79,6 +81,10 @@ export interface GameState {
   collapsePoints: number;   // 坍缩点数（当前拥有）
   rebirthUnlocked: boolean;
   collapseUnlocked: boolean;
+  /** 万物店是否已解锁（消耗 1 点重生点数，默认不显示） */
+  goodsShopUnlocked: boolean;
+  /** 万物店已购商品：商品 id → 拥有数量 */
+  goodsPurchases: Record<string, number>;
   /** 重生基础属性（永久累加，重生/坍缩均不清除） */
   rebirthBaseAttrs: RebirthBaseAttrs;
   /** 数值上限的翻倍次数（坍缩商店购买，0 = 默认 500万） */
@@ -88,6 +94,11 @@ export interface GameState {
    * 每级在重生时额外 +1 点重生点数
    */
   rebirthPointLevel: number;
+  /**
+   * 坍缩商店中「重生点数 → 坍缩点数」的累计兑换次数
+   * 前 50 次每次 3 点重生点数；第 51 次起消耗按 50 + 斐波拉契 递增
+   */
+  rebirthToCollapseCount: number;
 
   /** 已经弹出过解锁提示的条目（功法 id / 'rebirth' / 'collapse'），持久化避免刷新后重复提示 */
   notifiedUnlocks: string[];
