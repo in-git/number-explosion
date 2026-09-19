@@ -16,7 +16,6 @@ import { GameState } from '../types';
 interface ShopEntriesProps {
   state: GameState;
   canRebirth: boolean;
-  canCollapse: boolean;
   onOpenUpgradeShop: () => void;
   onOpenRebirthShop: () => void;
   onOpenFunShop: () => void;
@@ -52,7 +51,6 @@ const LIST_TITLE =
 export const ShopEntries: React.FC<ShopEntriesProps> = ({
   state,
   canRebirth,
-  canCollapse,
   onOpenUpgradeShop,
   onOpenRebirthShop,
   onOpenFunShop,
@@ -69,7 +67,8 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   const collapseShopUnlocked = state.collapseUnlocked || state.collapsePoints > 0;
   // 排行：消耗 1 点永劫点数解锁后显示
   const rankingUnlocked = !!state.rankingUnlocked;
-  const canOpenRebirth = canRebirth || canCollapse;
+  // 永劫门槛：数值必须 ≥ 100 万（坍缩入口已移至坍缩商店，不再复用此按钮）
+  const canOpenRebirth = canRebirth;
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-2 flex flex-col gap-2">

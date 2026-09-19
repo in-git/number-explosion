@@ -76,6 +76,16 @@ export function getRebirthPointUpgradeCost(level: number): BigNum {
   return getFibonacciBig(lv + 1);
 }
 
+/** 每 100 万数值折算 1 点永劫点数 */
+export const REBIRTH_VALUE_PER_POINT = 1e6;
+
+/** 永劫点数 = 数值 ÷ 100 万（向下取整）；300 万即 3 点 */
+export function getRebirthPointsFromValue(value: BigNum): number {
+  const ratio = value.div(BigNum.fromNumber(REBIRTH_VALUE_PER_POINT)).toNumber();
+  if (!Number.isFinite(ratio)) return Number.MAX_SAFE_INTEGER;
+  return Math.max(0, Math.floor(ratio));
+}
+
 /** 该升级带来的额外永劫点数（每级 +1） */
 export function getExtraRebirthPoints(level: number): number {
   return Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
@@ -179,17 +189,18 @@ export const UPGRADE_METADATA: Record<UpgradeId, { name: string; requiredClicks:
 /** 坍缩所需消耗的永劫点数 */
 export const COLLAPSE_COST = 5;
 
-/** 数值上限：默认 500万，每消耗 1 点坍缩点数翻倍 */
-const VALUE_CAP_MANTISSA = 5;
-const VALUE_CAP_EXP = 6; // 5 × 10^6 = 500万
+/** 数值上限基数：默认 100 万 */
+export const VALUE_CAP_BASE = 1e6;
+/** 每消耗 1 点坍缩点数提升的上限：100 万（线性） */
+export const VALUE_CAP_STEP = 1e6;
+
+/**
+ * 数值上限：默认 100 万，每级 +100 万（线性增长）
+ * = 100万 × (等级 + 1)
+ */
 export function getValueCap(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  if (lv <= 0) return new BigNum(VALUE_CAP_MANTISSA, VALUE_CAP_EXP);
-  // 500万 × 2^lv
-  const exp = lv * Math.log10(2);
-  const e = Math.floor(exp);
-  const m = Math.pow(10, exp - e);
-  return new BigNum(VALUE_CAP_MANTISSA * m, VALUE_CAP_EXP + e);
+  return new BigNum(VALUE_CAP_BASE + lv * VALUE_CAP_STEP, 0);
 }
 
 /** 暴击概率: 基础 20%，每级 +5%，上限 100% */
@@ -273,8 +284,11 @@ export function getUpgradeCost(
 
   if (currentLevel >= maxLevel) return null; // 已臻圆满
 
-  // 自动点击频率：斐波拉契消耗（100, 201, 301 ...）
-  if (id === 'autoFrequency') return getAutoFrequencyUpgradeCost(currentLevel);
+  // 自动点击频率：已达最快间隔（10ms/次）后禁止继续升级
+  if (id === 'autoFrequency') {
+    if (getAutoClickRate(currentLevel).intervalMs <= AUTO_FREQ_INTERVAL_MIN) return null;
+    return getAutoFrequencyUpgradeCost(currentLevel);
+  }
 
   const base = UPGRADE_METADATA[id].baseUnlockCost;
   const discount = UPGRADE_COST_DISCOUNT[id] ?? 1;

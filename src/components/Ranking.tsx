@@ -11,8 +11,10 @@ import {
   PlayerProfile,
   SELF_USER_ID,
   fetchLeaderboard,
+  submitScore,
 } from '../utils/leaderboardApi';
 import { fetchRegions } from '../utils/authApi';
+import { leaderboardSocket } from '../utils/leaderboardSocket';
 
 interface RankingProps {
   state: GameState;
@@ -20,6 +22,8 @@ interface RankingProps {
   onLogin: (account: UserAccountData) => void;
   /** 入驻大区成功 */
   onRegionSelected: (regionId: string, regionName: string) => void;
+  /** 退出登录 */
+  onLogout: () => void;
 }
 
 /** tabbar：数值排行 / 富豪排行 在前，其后时长、重生、连点 */
@@ -92,7 +96,12 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
 );
 
 /** 排行榜：数据全部来自后端接口（GET /api/leaderboard） */
-export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelected }) => {
+export const Ranking: React.FC<RankingProps> = ({
+  state,
+  onLogin,
+  onRegionSelected,
+  onLogout,
+}) => {
   const [board, setBoard] = useState<LeaderboardId>('value');
   const [showAuth, setShowAuth] = useState(false);
   const [data, setData] = useState<LeaderboardResponse | null>(null);
@@ -140,6 +149,25 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
     ]
   );
 
+  // 点入排行：已登录则上传一次个人数据
+  useEffect(() => {
+    const account = state.account;
+    if (!account) return;
+    submitScore({
+      userId: account.userId,
+      userName: account.userName,
+      highestValue: state.highestValue,
+      totalSpent: state.goodsTotalSpent,
+      playTimeMs: state.playTimeMs || 0,
+      rebirthCount: state.rebirthCount || 0,
+      clickCount: state.totalClickCount || 0,
+    }).catch(() => {
+      /* 上报失败不影响浏览榜单 */
+    });
+    // 仅在进入排行时上报一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 点入排行：拉取大区并默认加入最新大区
   useEffect(() => {
     let cancelled = false;
@@ -165,7 +193,12 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
     setLoading(true);
     setError(null);
 
-    fetchLeaderboard(board, selfEntry)
+    // 订阅长连接：服务端数据变更时自动推送，无需轮询
+    const listener = (res: LeaderboardResponse) => {
+      if (!cancelled && res.board === board) setData(res);
+    };
+
+    fetchLeaderboard(board, selfEntry, listener)
       .then((res) => {
         if (cancelled) return;
         setData(res);
@@ -182,6 +215,7 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
 
     return () => {
       cancelled = true;
+      leaderboardSocket.off(listener);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreKey]);
@@ -289,14 +323,14 @@ export const Ranking: React.FC<RankingProps> = ({ state, onLogin, onRegionSelect
       <div className="sticky bottom-0 pt-2 -mx-1 px-1 pb-1">
         <button
           id="btn-rank-ascend"
-          onClick={() => setShowAuth(true)}
-          className="w-full py-3 rounded-xl border-2 border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c] text-sm font-serif font-bold tracking-[0.2em] text-[#f5ebd7] shadow-[0_6px_18px_rgba(0,0,0,0.7)] cursor-pointer active:translate-y-0.5 transition-all"
+          onClick={() => (state.account ? onLogout() : setShowAuth(true))}
+          className={`w-full py-3 rounded-xl border-2 text-sm font-serif font-bold tracking-[0.2em] text-[#f5ebd7] shadow-[0_6px_18px_rgba(0,0,0,0.7)] cursor-pointer active:translate-y-0.5 transition-all ${
+            state.account
+              ? 'border-[#5a2f2f] bg-[#3d1f1f] hover:bg-[#4d2828]'
+              : 'border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c]'
+          }`}
         >
-          {state.account
-            ? state.account.regionName
-              ? `已登顶 · ${state.account.regionName}`
-              : '选择大区入驻'
-            : '登 顶'}
+          {state.account ? '退 出 登 录' : '登 顶'}
         </button>
       </div>
     </div>

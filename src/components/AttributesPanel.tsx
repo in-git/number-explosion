@@ -174,7 +174,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       id: 'attr-value-cap',
       label: '数值上限',
       value: getValueCap(state.valueCapLevel || 0).formatChinese(2),
-      detail: '数值不得超越此限（坍缩商店可翻倍）',
+      detail: '数值不得超越此限（坍缩商店可 +100万）',
     },
     {
       id: 'attr-collapse',

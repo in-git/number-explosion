@@ -27,6 +27,56 @@ interface UpgradeDesc {
   nextDesc: string;
 }
 
+/** 长按首次触发的延迟（ms） */
+const PRESS_DELAY_MS = 400;
+/** 长按持续触发的间隔（ms） */
+const PRESS_INTERVAL_MS = 110;
+
+/** 可长按的行：按下即升级一次，按住不放则持续升级 */
+const PressableRow: React.FC<{
+  id: string;
+  disabled: boolean;
+  onPress: () => void;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ id, disabled, onPress, className = '', children }) => {
+  // 始终持有最新的回调，保证连发时使用最新消耗
+  const pressRef = React.useRef(onPress);
+  pressRef.current = onPress;
+  const delayRef = React.useRef<number | null>(null);
+  const repeatRef = React.useRef<number | null>(null);
+
+  const stop = React.useCallback(() => {
+    if (delayRef.current !== null) window.clearTimeout(delayRef.current);
+    if (repeatRef.current !== null) window.clearInterval(repeatRef.current);
+    delayRef.current = null;
+    repeatRef.current = null;
+  }, []);
+
+  React.useEffect(() => stop, [stop]);
+
+  const start = () => {
+    if (disabled) return;
+    pressRef.current();
+    delayRef.current = window.setTimeout(() => {
+      repeatRef.current = window.setInterval(() => pressRef.current(), PRESS_INTERVAL_MS);
+    }, PRESS_DELAY_MS);
+  };
+
+  return (
+    <div
+      id={id}
+      onPointerDown={start}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      className={className}
+    >
+      {children}
+    </div>
+  );
+};
+
 function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
   if (id === 'baseValue') {
     const currentBonus = getBaseValueBonus(level);
@@ -156,6 +206,11 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
         </button>
       </div>
 
+      {/* 长按提示 */}
+      <div className="text-[10px] font-serif text-[#8a7a63] text-center -mt-0.5">
+        长按条目可持续升级
+      </div>
+
       {shownRows.length === 0 ? (
         <div className="text-[11px] text-[#7d7364] font-serif text-center py-4">
           —— 诸法皆已臻圆满，可于永劫商店提升等级上限 ——
@@ -217,19 +272,20 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
               );
             }
 
-            // Already unlocked:
+            // Already unlocked: 支持长按持续升级
+            const canUpgrade = !isMaxed && !!currentCost && row.canAffordUpgrade;
+
             return (
-              <div
+              <PressableRow
                 key={id}
                 id={`upgrade-item-${id}`}
-                onClick={() => {
-                  if (isMaxed || !currentCost || !row.canAffordUpgrade) return;
+                disabled={!canUpgrade}
+                onPress={() => {
+                  if (!currentCost) return;
                   onUpgrade(id, currentCost);
                 }}
-                className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-                  !isMaxed && currentCost && row.canAffordUpgrade
-                    ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]'
-                    : ''
+                className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors select-none ${
+                  canUpgrade ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
                 }`}
               >
                 <div className="flex-1 min-w-0">
@@ -263,7 +319,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     {currentCost.formatChinese(2)}
                   </UpgradeButton>
                 )}
-              </div>
+              </PressableRow>
             );
           })}
         </div>

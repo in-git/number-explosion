@@ -42,6 +42,8 @@ export default defineConfig(() => {
         '/api': {
           target: 'http://localhost:8731',
           changeOrigin: true,
+          // 支持 WebSocket 长连接（榜单推送）
+          ws: true,
           // 返回路径 = 不代理（交给 vite 本地中间件）；undefined = 正常代理
           bypass: (req) => (req.url?.startsWith('/api/time') ? req.url : undefined),
         },

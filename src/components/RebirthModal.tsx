@@ -1,5 +1,7 @@
 import React from 'react';
 import { BigNum } from '../utils/bigNumber';
+import { REBIRTH_THRESHOLD } from '../config';
+import { getRebirthPointsFromValue } from '../utils/gameMath';
 
 interface RebirthModalProps {
   isOpen: boolean;
@@ -13,9 +15,15 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
+  currentValue,
   currentRebirthCount,
 }) => {
   if (!isOpen) return null;
+
+  // 所得永劫点数 = 数值 ÷ 100 万
+  const gainFromValue = getRebirthPointsFromValue(currentValue);
+  // 门槛：数值必须 ≥ 100 万
+  const canRebirth = currentValue.gte(REBIRTH_THRESHOLD);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs modal-scroll">
@@ -36,7 +44,9 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
         <div className="space-y-1.5 text-[11px] font-serif mb-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[#7a6f5e]">所得</span>
-            <span className="font-mono text-[#5fa8e6]">+1 点永劫值（永久）</span>
+            <span className="font-mono text-[#5fa8e6]">
+              +{gainFromValue} 点永劫值（数值 ÷ 100万）
+            </span>
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-[#7a6f5e]">代价</span>
@@ -54,7 +64,9 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
         <div className="rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2 mb-4">
           <div className="text-[11px] font-serif text-[#8fa6bd] mb-1">须知</div>
           <div className="text-[11px] font-mono text-[#cbbfa9] leading-relaxed">
-            永劫获得 1 点永劫值
+            数值须 ≥ 100 万方可永劫
+            <br />
+            每 100 万数值折算 1 点永劫值（向下取整）
             <br />
             基础属性只可在永劫商店中购买提升
           </div>
@@ -72,9 +84,14 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
           <button
             id="btn-modal-confirm-rebirth"
             onClick={onConfirm}
-            className="px-5 py-2 rounded text-xs font-serif font-bold text-[#f5ebd7] bg-[#543b23] hover:bg-[#694a2c] border border-[#8a653f] shadow-[0_4px_16px_rgba(0,0,0,0.6)] cursor-pointer active:translate-y-0.5 transition-all"
+            disabled={!canRebirth}
+            className={`px-5 py-2 rounded text-xs font-serif font-bold border shadow-[0_4px_16px_rgba(0,0,0,0.6)] active:translate-y-0.5 transition-all ${
+              canRebirth
+                ? 'text-[#f5ebd7] bg-[#543b23] hover:bg-[#694a2c] border-[#8a653f] cursor-pointer'
+                : 'text-[#6b6455] bg-[#171513] border-[#2b2721] cursor-not-allowed'
+            }`}
           >
-            转世永劫
+            {canRebirth ? '转世永劫' : '数值需满 100万'}
           </button>
         </div>
       </div>

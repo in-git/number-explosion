@@ -73,6 +73,13 @@ export interface UserAccountData {
   regionName: string | null;
 }
 
+/** 上次登录的凭据（退出登录后保留，便于再次登录） */
+export interface LoginCredentials {
+  userName: string;
+  password: string;
+  nickname: string;
+}
+
 export interface GameState {
   // 核心数值
   currentValue: BigNumData;
@@ -106,13 +113,15 @@ export interface GameState {
   upgradesAutoUnlocked: boolean;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
   account: UserAccountData | null;
+  /** 上次登录的账号密码与昵称（登录界面直接复用，不再重新生成） */
+  lastCredentials: LoginCredentials | null;
   /** 万物店已购商品：商品 id → 拥有数量 */
   goodsPurchases: Record<string, number>;
   /** 购置商品累计花费的数值总额（永不清零） */
   goodsTotalSpent: BigNumData;
   /** 永劫基础属性（永久累加，永劫/坍缩均不清除） */
   rebirthBaseAttrs: RebirthBaseAttrs;
-  /** 数值上限的翻倍次数（坍缩商店购买，0 = 默认 500万） */
+  /** 数值上限的提升次数（坍缩商店购买，每级 +100万，0 = 默认 100万） */
   valueCapLevel: number;
   /**
    * 「永劫点数获取」的升级次数（坍缩商店购买，消耗按斐波拉契递增的坍缩点数）

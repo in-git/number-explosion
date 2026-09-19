@@ -1,5 +1,6 @@
 import { BigNum } from './bigNumber';
 import { BigNumData } from '../types';
+import { leaderboardSocket } from './leaderboardSocket';
 
 /** 榜单类型：数值 / 富豪 / 时长 / 重生次数 */
 export type LeaderboardId = 'value' | 'wealth' | 'playTime' | 'rebirth' | 'clicks';
@@ -67,11 +68,21 @@ export const SELF_USER_ID = 'self';
 /** 后端接口基址（由 vite 代理转发到后端服务） */
 const API_BASE = '/api';
 
-/** 拉取榜单：GET /api/leaderboard?board=xxx&userId=xxx */
+/**
+ * 拉取榜单：优先走 WebSocket 长连接订阅（服务端推送，避免轮询），
+ * 长连接不可用时回退 HTTP：GET /api/leaderboard?board=xxx&userId=xxx
+ */
 export async function fetchLeaderboard(
   board: LeaderboardId,
-  self: Omit<LeaderboardEntry, 'rank'>
+  self: Omit<LeaderboardEntry, 'rank'>,
+  onUpdate?: (data: LeaderboardResponse) => void
 ): Promise<LeaderboardResponse> {
+  try {
+    return await leaderboardSocket.subscribe(board, self.userId, onUpdate);
+  } catch {
+    // 回退 HTTP
+  }
+
   const res = await fetch(
     `${API_BASE}/leaderboard?board=${board}&userId=${encodeURIComponent(self.userId)}`,
     { cache: 'no-store' }
@@ -80,8 +91,10 @@ export async function fetchLeaderboard(
   return (await res.json()) as LeaderboardResponse;
 }
 
-/** 上报本人成绩：POST /api/leaderboard/score */
+/** 上报本人成绩：优先走长连接，否则 POST /api/leaderboard/score */
 export async function submitScore(report: ScoreReport): Promise<void> {
+  if (leaderboardSocket.report(report)) return;
+
   const res = await fetch(`${API_BASE}/leaderboard/score`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

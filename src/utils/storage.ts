@@ -1,4 +1,11 @@
-import { BigNumData, GameState, RebirthBaseAttrs, UpgradeId, UserAccountData } from '../types';
+import {
+  BigNumData,
+  GameState,
+  LoginCredentials,
+  RebirthBaseAttrs,
+  UpgradeId,
+  UserAccountData,
+} from '../types';
 import {
   ACHIEVEMENTS,
   DEFAULT_NICKNAME,
@@ -43,6 +50,17 @@ function sanitizeAccount(raw: unknown): UserAccountData | null {
     token: typeof src.token === 'string' ? src.token : '',
     regionId: typeof src.regionId === 'string' ? src.regionId : null,
     regionName: typeof src.regionName === 'string' ? src.regionName : null,
+  };
+}
+
+/** 清洗上次登录凭据 */
+function sanitizeCredentials(raw: unknown): LoginCredentials | null {
+  const src = raw as Partial<LoginCredentials> | null | undefined;
+  if (!src || typeof src.userName !== 'string' || typeof src.password !== 'string') return null;
+  return {
+    userName: src.userName,
+    password: src.password,
+    nickname: typeof src.nickname === 'string' && src.nickname.trim() ? src.nickname : '',
   };
 }
 
@@ -147,6 +165,7 @@ export function loadGameState(): GameState {
       rankingUnlocked: !!parsed.rankingUnlocked,
       upgradesAutoUnlocked: !!parsed.upgradesAutoUnlocked,
       account: sanitizeAccount(parsed.account),
+      lastCredentials: sanitizeCredentials(parsed.lastCredentials),
       valueCapLevel: Number.isFinite(parsed.valueCapLevel)
         ? Math.max(0, Math.floor(parsed.valueCapLevel))
         : 0,

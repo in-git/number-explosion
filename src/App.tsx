@@ -35,7 +35,6 @@ export default function App() {
         <ShopEntries
           state={game.state}
           canRebirth={game.canRebirth}
-          canCollapse={game.canCollapse}
           onOpenUpgradeShop={modals.upgradeShop.open}
           onOpenRebirthShop={modals.rebirthShop.open}
           onOpenFunShop={modals.funShop.open}
@@ -65,6 +64,7 @@ export default function App() {
         onBuyAutoUnlock={game.handleBuyAutoUnlock}
         onLogin={game.handleLogin}
         onRegionSelected={game.handleSelectRegion}
+        onLogout={game.handleLogout}
         onBuyValueCap={game.handleBuyValueCap}
         onBuyRebirthPointLevel={game.handleBuyRebirthPointLevel}
         onExchangeRebirthToCollapse={game.handleExchangeRebirthToCollapse}

@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import { GameState, UserAccountData } from '../types';
 import { calculateGameAttributes } from '../utils/gameMath';
 import { DEFAULT_NICKNAME } from '../config';
-import { UserAccount, generateCredentials, register, selectRegion } from '../utils/authApi';
+import {
+  UserAccount,
+  generateCredentials,
+  login,
+  register,
+  selectRegion,
+} from '../utils/authApi';
 
 interface AuthPanelProps {
   state: GameState;
@@ -31,8 +37,16 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   onRegionSelected,
   onBack,
 }) => {
-  const [cred, setCred] = useState(() => generateCredentials());
-  const [nickname, setNickname] = useState(state.account?.nickname || DEFAULT_NICKNAME);
+  // 已有历史记录则直接沿用，不再重新生成账号密码
+  const [cred, setCred] = useState(() => {
+    const history = state.lastCredentials;
+    return history
+      ? { userName: history.userName, password: history.password }
+      : generateCredentials();
+  });
+  const [nickname, setNickname] = useState(
+    state.account?.nickname || state.lastCredentials?.nickname || DEFAULT_NICKNAME
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,8 +58,16 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     setLoading(true);
     setError(null);
 
+    // 沿用历史账号密码时走登录，否则注册新账号
+    const isHistory =
+      !!state.lastCredentials &&
+      cred.userName === state.lastCredentials.userName &&
+      cred.password === state.lastCredentials.password;
+
     try {
-      const acc: UserAccount = await register(cred.userName, cred.password, finalNickname);
+      const acc: UserAccount = isHistory
+        ? await login(cred.userName, cred.password)
+        : await register(cred.userName, cred.password, finalNickname);
       onLogin({
         userId: acc.userId,
         userName: acc.userName,
@@ -94,12 +116,16 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       </div>
 
       <div className={CARD}>
-        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">账号（自动生成）</div>
+        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">
+          账号（{state.lastCredentials ? '历史记录' : '自动生成'}）
+        </div>
         <div className="font-mono text-sm text-[#e3ded4] break-all">{cred.userName}</div>
       </div>
 
       <div className={CARD}>
-        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">密码（自动生成）</div>
+        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">
+          密码（{state.lastCredentials ? '历史记录' : '自动生成'}）
+        </div>
         <div className="font-mono text-sm text-[#e3ded4] break-all">{cred.password}</div>
       </div>
 

@@ -67,7 +67,7 @@ export const CollapseModal: React.FC<CollapseModalProps> = ({
                 <span className="font-bold">凝练太虚坍缩神位</span>：初始获得1点坍缩，随后以2的等差数列递进增长（本次可获 <span className="font-bold text-white">+{collapseGain}</span> 重）。
               </li>
               <li>
-                <span className="font-bold">坍缩神位永存</span>：坍缩层数可用于坍缩商店翻倍数值上限，与每次点击所得数值无关。
+                <span className="font-bold">坍缩神位永存</span>：坍缩层数可用于坍缩商店提升数值上限（每点 +100万），与每次点击所得数值无关。
               </li>
               <li>
                 <span className="font-bold">大道永驻</span>：坍缩层数永久凝练，即便转世轮回亦不可磨灭。

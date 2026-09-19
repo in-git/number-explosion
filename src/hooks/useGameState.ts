@@ -14,6 +14,7 @@ import {
   getRebirthPointUpgradeCost,
   getExtraRebirthPoints,
   getRebirthToCollapseCost,
+  getRebirthPointsFromValue,
   getGoodsSellPrice,
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
@@ -486,7 +487,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('坍缩觉醒', `消耗 ${COLLAPSE_COST} 点永劫值 · 太虚坍缩已开启`);
   }, [addToast]);
 
-  /** 坍缩商店：消耗 1 点坍缩点数，数值上限翻倍 */
+  /** 坍缩商店：消耗 1 点坍缩点数，数值上限 +100 万（线性） */
   const handleBuyValueCap = useCallback(() => {
     const nextLevel = (stateRef.current.valueCapLevel || 0) + 1;
     setState((prev) => {
@@ -497,7 +498,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         valueCapLevel: nextLevel,
       };
     });
-    addToast('天道扩容', `数值上限翻倍 → ${getValueCap(nextLevel).formatChinese(2)}`);
+    addToast('天道扩容', `数值上限 +100万 → ${getValueCap(nextLevel).formatChinese(2)}`);
   }, [addToast]);
 
   /** 坍缩商店：购买「永劫点数获取」，消耗按斐波拉契递增的坍缩点数 */
@@ -564,6 +565,25 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     },
     [addToast]
   );
+
+  /** 排行·登顶：退出登录（保留历史账号密码，便于再次登录） */
+  const handleLogout = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (!prev.account) return prev;
+      done = true;
+      return {
+        ...prev,
+        lastCredentials: {
+          userName: prev.account.userName,
+          password: prev.account.password,
+          nickname: prev.account.nickname,
+        },
+        account: null,
+      };
+    });
+    if (done) addToast('退出登录', '已退出当前账号 · 账号密码已留存');
+  }, [addToast]);
 
   /** 排行·登顶：入驻大区（信息已由接口层上报后台） */
   const handleSelectRegion = useCallback(
@@ -715,12 +735,17 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     );
   }, [addToast]);
 
-  /** 永劫：数值达百万即可（无次数限制），基础 +1 点，再加上「永劫点数获取」的加成 */
+  /** 永劫：数值须 ≥ 100 万；所得点数 = 数值 ÷ 100 万，再加上「永劫点数获取」的加成 */
   const confirmRebirth = useCallback(() => {
+    // 门槛：数值必须达到 100 万
+    if (bigNumRef.current.lt(REBIRTH_THRESHOLD)) return;
+
     // 起始数值 = 成就奖励之和（可与其他数值来源累加）
     const startValue = getRebirthStartValue(stateRef.current);
-    // 基础 1 点 + 「永劫点数获取」升级的额外点数
-    const gain = 1 + getExtraRebirthPoints(stateRef.current.rebirthPointLevel || 0);
+    // 数值 ÷ 100 万（300 万即 3 点）+「永劫点数获取」升级的额外点数
+    const gain =
+      getRebirthPointsFromValue(bigNumRef.current) +
+      getExtraRebirthPoints(stateRef.current.rebirthPointLevel || 0);
 
     setState((prev) => ({
       ...prev,
@@ -826,6 +851,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUnlockRanking,
     handleBuyAutoUnlock,
     handleLogin,
+    handleLogout,
     handleSelectRegion,
     handleBuyGoods,
     handleSellGoods,

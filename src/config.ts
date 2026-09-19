@@ -499,6 +499,8 @@ export const INITIAL_STATE: GameState = {
   upgradesAutoUnlocked: false,
   /** 登录账号与已选大区（未登录为 null） */
   account: null,
+  /** 上次登录凭据（null = 无历史记录） */
+  lastCredentials: null,
   /** 万物店已购商品：商品 id → 拥有数量 */
   goodsPurchases: {},
   /** 购置商品累计花费的数值总额 */

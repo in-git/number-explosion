@@ -5,7 +5,7 @@ export interface GameModalsState {
   upgradeShop: Disclosure;
   /** 永劫商店（等级上限 / 解锁坍缩） */
   rebirthShop: Disclosure;
-  /** 坍缩商店（数值上限翻倍） */
+  /** 坍缩商店（数值上限 +100万 等） */
   collapseShop: Disclosure;
   /** 万物店（消耗数值购置万物） */
   goodsShop: Disclosure;

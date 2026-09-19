@@ -38,6 +38,8 @@ interface GameModalsProps {
   onLogin: (account: UserAccountData) => void;
   /** 排行·登顶：入驻大区 */
   onRegionSelected: (regionId: string, regionName: string) => void;
+  /** 排行·登顶：退出登录 */
+  onLogout: () => void;
   onBuyValueCap: () => void;
   /** 购买「永劫点数获取」 */
   onBuyRebirthPointLevel: () => void;
@@ -77,6 +79,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyAutoUnlock,
   onLogin,
   onRegionSelected,
+  onLogout,
   onBuyValueCap,
   onBuyRebirthPointLevel,
   onExchangeRebirthToCollapse,
@@ -115,17 +118,10 @@ export const GameModals: React.FC<GameModalsProps> = ({
     >
       <RebirthShop
         state={state}
-        collapseGain={collapseGain}
         onBuyRebirthBaseAttr={onBuyRebirthBaseAttr}
         onUnlockCollapse={onUnlockCollapse}
-        onUnlockGoodsShop={onUnlockGoodsShop}
-        onUnlockInventory={onUnlockInventory}
         onUnlockRanking={onUnlockRanking}
         onBuyAutoUnlock={onBuyAutoUnlock}
-        onOpenCollapse={() => {
-          modals.rebirthShop.close();
-          modals.collapse.open();
-        }}
       />
     </ModalShell>
 
@@ -142,6 +138,13 @@ export const GameModals: React.FC<GameModalsProps> = ({
         onBuyRebirthPointLevel={onBuyRebirthPointLevel}
         onBuyLevelCap={onBuyLevelCap}
         onExchangeRebirthToCollapse={onExchangeRebirthToCollapse}
+        onUnlockGoodsShop={onUnlockGoodsShop}
+        onUnlockInventory={onUnlockInventory}
+        collapseGain={collapseGain}
+        onOpenCollapse={() => {
+          modals.collapseShop.close();
+          modals.collapse.open();
+        }}
       />
     </ModalShell>
 
@@ -178,7 +181,12 @@ export const GameModals: React.FC<GameModalsProps> = ({
       subtitle="—— 天 道 有 榜 · 各 归 其 位 ——"
       hideFooterClose
     >
-      <Ranking state={state} onLogin={onLogin} onRegionSelected={onRegionSelected} />
+      <Ranking
+        state={state}
+        onLogin={onLogin}
+        onRegionSelected={onRegionSelected}
+        onLogout={onLogout}
+      />
     </ModalShell>
 
     {/* 奇趣商店 Modal */}
