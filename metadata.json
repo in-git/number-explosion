@@ -1,0 +1,6 @@
+{
+  "name": "数值爆炸",
+  "description": "极具写实厚重水墨与金石质感的高阶数值放置修真模拟器",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

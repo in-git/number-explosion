@@ -1,0 +1,33 @@
+import { useDisclosure, Disclosure } from './useDisclosure';
+
+export interface GameModalsState {
+  /** 数值商店（功法升级） */
+  upgradeShop: Disclosure;
+  /** 重生商店（等级上限 / 解锁坍缩） */
+  rebirthShop: Disclosure;
+  /** 坍缩商店（数值上限翻倍） */
+  collapseShop: Disclosure;
+  /** 奇趣商店（博弈） */
+  funShop: Disclosure;
+  /** 重生确认 */
+  rebirth: Disclosure;
+  /** 坍缩确认 */
+  collapse: Disclosure;
+  /** 成就面板（历世累计点击成就） */
+  achievements: Disclosure;
+  /** 设置面板（设定当前数值 / 重修道途） */
+  settings: Disclosure;
+}
+
+export function useGameModals(): GameModalsState {
+  return {
+    upgradeShop: useDisclosure(),
+    rebirthShop: useDisclosure(),
+    collapseShop: useDisclosure(),
+    funShop: useDisclosure(),
+    rebirth: useDisclosure(),
+    collapse: useDisclosure(),
+    achievements: useDisclosure(),
+    settings: useDisclosure(),
+  };
+}
