@@ -44,6 +44,18 @@ export interface ToastMessage {
   timestamp: number;
 }
 
+/** 挂机收益结算报告（挂机回来后弹窗展示） */
+export interface OfflineGainReport {
+  /** 实际结算的离线时长（ms），已按 1 天上限裁剪 */
+  durationMs: number;
+  /** 实际入账收益（可能被数值上限截断） */
+  gain: BigNumData;
+  /** 离线时长超过 1 天，已按上限结算 */
+  truncatedByMax: boolean;
+  /** 收益被数值上限截断，超出部分未能入账 */
+  truncatedByCap: boolean;
+}
+
 /** 登录账号（排行榜登顶用） */
 export interface UserAccountData {
   userId: string;

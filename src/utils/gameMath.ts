@@ -1,6 +1,6 @@
 import { BigNum } from './bigNumber';
-import { GameState, RebirthBaseAttrs, UpgradeId, UpgradeState } from '../types';
-import { ACHIEVEMENTS, INITIAL_REBIRTH_BASE_ATTRS, REBIRTH_BASE_ATTR_PURCHASE_GAINS } from '../config';
+import { GameState, UpgradeId, UpgradeState } from '../types';
+import { ACHIEVEMENTS } from '../config';
 
 /**
  * 成就奖励累加出的「永劫初始数值」：所有已达成成就的奖励之和
@@ -233,18 +233,19 @@ export function getValueCapCost(level: number): BigNum {
 
 /**
  * 永劫商店：单独升级某项永劫基础属性的消耗（永劫点数）
- * - 暴击倍数 / 连击倍数：按斐波拉契数列递增（从 1 开始）：1, 1, 2, 3, 5, 8 ...
+ * - 基础数值 / 暴击倍数 / 连击倍数：按斐波拉契数列递增（从 1 开始）：1, 1, 2, 3, 5, 8 ...
  *   第 n 次购买消耗 F(n)
- * - 其余属性（基础数值 / 自动点击频率 / 暴击概率 / 连击概率）：恒为 1 点
+ * - 其余属性（自动点击频率 / 暴击概率 / 连击概率）：恒为 1 点
  */
-export function getRebirthBaseAttrCost(
-  key: keyof RebirthBaseAttrs,
-  currentValue: number
-): BigNum {
-  if (key === 'critMultiplier' || key === 'comboMultiplier') {
-    const gain = REBIRTH_BASE_ATTR_PURCHASE_GAINS[key];
-    const purchases = gain > 0 ? Math.round(currentValue / gain) : 0;
-    return getFibonacciBig(purchases + 1); // F(1)=1, F(2)=1, F(3)=2 ...
+/** 永劫店「基础属性」升级消耗（已合并到数值店升级等级）：
+ * - 基础数值 / 暴击倍数 / 连击倍数：按斐波那契（从 1 开始：1,1,2,3,5...）
+ * - 其余属性：固定 1 点永劫点数
+ * 消耗依据当前升级等级（即已购买次数）计算。
+ */
+export function getRebirthMergedUpgradeCost(id: UpgradeId, level: number): BigNum {
+  if (id === 'baseValue' || id === 'critMultiplier' || id === 'comboMultiplier') {
+    const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+    return getFibonacciBig(lv + 1);
   }
   return new BigNum(1, 0);
 }
@@ -424,20 +425,7 @@ export function getAutoClickRate(level: number): AutoClickRate {
   return { intervalMs, clicksPerMs: 0, clicksPerSec: AUTO_FREQ_INTERVAL_BASE / intervalMs };
 }
 
-/** 累加两套永劫基础属性 */
-export function addRebirthBaseAttrs(
-  base: RebirthBaseAttrs,
-  gain: RebirthBaseAttrs
-): RebirthBaseAttrs {
-  return {
-    baseValue: base.baseValue + gain.baseValue,
-    autoFrequency: base.autoFrequency + gain.autoFrequency,
-    critMultiplier: base.critMultiplier + gain.critMultiplier,
-    critChance: base.critChance + gain.critChance,
-    comboChance: base.comboChance + gain.comboChance,
-    comboMultiplier: base.comboMultiplier + gain.comboMultiplier,
-  };
-}
+
 
 /**
  * Calculate all live attributes for display and math
@@ -451,16 +439,14 @@ export function calculateGameAttributes(state: GameState) {
   const comboMultUp = state.upgrades.comboMultiplier;
   const critChanceUp = state.upgrades.critChance;
 
-  // 0. 永劫基础属性：永久累加，功法未解锁时同样生效
-  const rebirthBase = state.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
+  // 0. 永劫基础属性已合并至「数值店」升级等级（统一数据源，重生/坍缩后永久保留）
 
   // 1. 基础数值: 默认 BASE_VALUE_INITIAL + 永劫基础数值，数值升级提升值: 斐波拉契数列 × 0.9
   const baseBonus = baseValueUp.unlocked
     ? getBaseValueBonus(baseValueUp.level)
     : new BigNum(0, 0);
   const baseValue = new BigNum(BASE_VALUE_INITIAL, 0)
-    .add(baseBonus)
-    .add(rebirthBase.baseValue);
+    .add(baseBonus);
 
   // 2. 数值倍率
   const valueMultiplier = state.baseValueMultiplier;
@@ -471,41 +457,36 @@ export function calculateGameAttributes(state: GameState) {
   let autoClicksPerMs = 0;
 
   if (autoClickUp.unlocked) {
-    // 自动点击频率等级 + 永劫商店购买的永久等级加成
-    const autoFreqLevel =
-      (autoFreqUp.unlocked ? autoFreqUp.level : 0) + (rebirthBase.autoFrequency || 0);
+    const autoFreqLevel = autoFreqUp.unlocked ? autoFreqUp.level : 0;
     const rate = getAutoClickRate(autoFreqLevel);
     autoIntervalMs = rate.intervalMs;
     autoClicksPerMs = rate.clicksPerMs;
     autoClicksPerSec = rate.clicksPerSec;
   }
 
-  // 4. 连击概率: 永劫基础 + 每次+0.05，最高100%
-  let comboChance = Math.min(1.0, rebirthBase.comboChance);
+  // 4. 连击概率: 每次升级 +0.05，最高 100%
+  let comboChance = 0;
   if (comboChanceUp.unlocked) {
-    comboChance = Math.min(1.0, rebirthBase.comboChance + comboChanceUp.level * 0.05);
+    comboChance = Math.min(1.0, comboChanceUp.level * 0.05);
   }
 
-  // 5. 连击倍数: 基础100% + 永劫基础，等差数列+0.5 (即 1.0 + 0.5 * level)
-  let comboMultiplier = 1.0 + rebirthBase.comboMultiplier;
+  // 5. 连击倍数: 基础 100% + 每次升级 +0.5（即 1.0 + 0.5 × level）
+  let comboMultiplier = 1.0;
   if (comboMultUp.unlocked) {
     comboMultiplier += comboMultUp.level * 0.5;
   }
 
-  // 6. 暴击倍数: 基础100% + 永劫基础 + 成就奖励（游玩时长），等差数列+0.5 (即 1.0 + 0.5 * level)
+  // 6. 暴击倍数: 基础 100% + 成就奖励 + 每次升级 +0.5（即 1.0 + 成就加成 + 0.5 × level）
   const achievementCritBonus = getAchievementCritBonus(state);
-  let critMultiplier = 1.0 + rebirthBase.critMultiplier + achievementCritBonus;
+  let critMultiplier = 1.0 + achievementCritBonus;
   if (critMultUp.unlocked) {
     critMultiplier += critMultUp.level * 0.5;
   }
 
-  // 7. 暴击概率: 基础20% + 永劫基础，暴击概率升级每级 +5%，上限100%
-  let critChance = Math.min(1.0, state.baseCritRate + rebirthBase.critChance);
+  // 7. 暴击概率: 基础 20% + 暴击概率升级每级 +5%，上限 100%
+  let critChance = Math.min(1.0, state.baseCritRate);
   if (critChanceUp.unlocked) {
-    critChance = Math.min(
-      1.0,
-      state.baseCritRate + rebirthBase.critChance + critChanceUp.level * CRIT_CHANCE_STEP
-    );
+    critChance = Math.min(1.0, state.baseCritRate + critChanceUp.level * CRIT_CHANCE_STEP);
   }
 
   // 8. 永劫点数
@@ -526,7 +507,6 @@ export function calculateGameAttributes(state: GameState) {
 
   return {
     baseValue,
-    rebirthBase,
     valueMultiplier,
     autoClicksPerSec,
     autoClicksPerMs,

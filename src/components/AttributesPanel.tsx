@@ -4,7 +4,7 @@ import { GameState } from '../types';
 import { BigNum } from '../utils/bigNumber';
 import { BASE_VALUE_INITIAL, calculateGameAttributes, getValueCap } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
-import { INITIAL_REBIRTH_BASE_ATTRS } from '../config';
+
 
 interface AttributesPanelProps {
   state: GameState;
@@ -56,53 +56,6 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     }
   }
 
-  // 永劫基础属性：永久累加，与基础值叠加参与计算
-  const rebirthBase = state.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
-  const pct = (v: number) => `${BigNum.fromNumber(v * 100).formatChinese(0)}%`;
-  const rebirthAttrsList: AttributeItem[] = [
-    {
-      id: 'rebirth-base-value',
-      label: '基础数值',
-      value: `+${BigNum.fromNumber(rebirthBase.baseValue).formatChinese(0)}`,
-      detail: '与点击基础值累加',
-      valueClass: 'text-[#5fa8e6]',
-    },
-    {
-      id: 'rebirth-auto-freq',
-      label: '自动点击频率',
-      value: `+${BigNum.fromNumber(rebirthBase.autoFrequency).formatChinese(0)} 级`,
-      detail: '与自动点击频率等级累加',
-      valueClass: 'text-[#5fa8e6]',
-    },
-    {
-      id: 'rebirth-crit-mult',
-      label: '暴击倍数',
-      value: `+${pct(rebirthBase.critMultiplier)}`,
-      detail: '与暴击倍数基数累加',
-      valueClass: 'text-[#5fa8e6]',
-    },
-    {
-      id: 'rebirth-crit-chance',
-      label: '暴击概率',
-      value: `+${pct(rebirthBase.critChance)}`,
-      detail: '与暴击概率基数累加',
-      valueClass: 'text-[#5fa8e6]',
-    },
-    {
-      id: 'rebirth-combo-chance',
-      label: '连击概率',
-      value: `+${pct(rebirthBase.comboChance)}`,
-      detail: '与连击概率基数累加',
-      valueClass: 'text-[#5fa8e6]',
-    },
-    {
-      id: 'rebirth-combo-mult',
-      label: '连击倍数',
-      value: `+${pct(rebirthBase.comboMultiplier)}`,
-      detail: '与连击倍数基数累加',
-      valueClass: 'text-[#5fa8e6]',
-    },
-  ];
 
   const attributesList: AttributeItem[] = [
     {
@@ -260,21 +213,6 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
             <AttributeRow key={item.id} item={item} />
           ))}
 
-          {/* 永劫基础属性（永久累加） */}
-          <div className="pt-1.5 mt-1.5 border-t border-[#2d2822]">
-            <div className="flex items-center gap-1.5 px-1 pb-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#5fa8e6]" />
-              <span className="text-[10px] font-serif tracking-[0.2em] text-[#8fa6bd]">
-                永 劫 基 础 属 性
-              </span>
-              <span className="text-[10px] font-serif text-[#5f5749]">永久累加</span>
-            </div>
-            <div className="flex flex-col divide-y divide-[#262220]">
-              {rebirthAttrsList.map((item) => (
-                <AttributeRow key={item.id} item={item} />
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

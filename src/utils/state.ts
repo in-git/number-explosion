@@ -1,4 +1,5 @@
 import { GameState, UpgradeId } from '../types';
+import { REBIRTH_MERGED_UPGRADES } from '../config';
 
 /**
  * 重生/坍缩只清空功法等级；
@@ -9,8 +10,11 @@ export function resetUpgradeLevels(
   upgrades: GameState['upgrades'],
   keepUnlocked = false
 ): GameState['upgrades'] {
+  const mergedIds = new Set<UpgradeId>(REBIRTH_MERGED_UPGRADES.map((u) => u.id));
   const next = { ...upgrades };
   (Object.keys(next) as UpgradeId[]).forEach((id) => {
+    // 永劫基础属性已合并至数值店升级等级，作为永久道基，重生/坍缩后保留
+    if (mergedIds.has(id)) return;
     next[id] = {
       unlocked: keepUnlocked ? true : false,
       level: 0,

@@ -1,152 +1,142 @@
 import React from 'react';
-import { GameState } from '../types';
-import { COLLAPSE_COST, getRebirthBaseAttrCost } from '../utils/gameMath';
+import { GameState, UpgradeId } from '../types';
+import { REBIRTH_MERGED_UPGRADES, AUTO_UNLOCK_COST, RANKING_UNLOCK_COST } from '../config';
 import {
-  AUTO_UNLOCK_COST,
-  RANKING_UNLOCK_COST,
-  INITIAL_REBIRTH_BASE_ATTRS,
-  REBIRTH_BASE_ATTR_LABELS,
-} from '../config';
-import { UpgradeButton } from './UpgradeButton';
+  COLLAPSE_COST,
+  getRebirthMergedUpgradeCost,
+  getBaseValueBonus,
+  getAutoClickRate,
+} from '../utils/gameMath';
 import { PressableRow } from './PressableRow';
-import { BigNum } from '../utils/bigNumber';
-
-type AttrKey = keyof typeof REBIRTH_BASE_ATTR_LABELS;
+import { UpgradeButton } from './UpgradeButton';
 
 interface RebirthShopProps {
   state: GameState;
-  /** 消耗 1 点永劫点数，单独升级某项永劫基础属性 */
-  onBuyRebirthBaseAttr: (key: AttrKey) => void;
-  /** 消耗 5 点永劫值解锁坍缩 */
-  onUnlockCollapse: () => void;
+  /** 消耗永劫点数，提升数值店对应升级等级（已合并，永久保留） */
+  onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
+  /** 消耗 5 点永劫值解锁坍缩（仅完整商店） */
+  onUnlockCollapse?: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
-  onUnlockRanking: () => void;
+  onUnlockRanking?: () => void;
   /** 消耗 1 点永劫点数购买「功法无需解锁」特权 */
-  onBuyAutoUnlock: () => void;
+  onBuyAutoUnlock?: () => void;
+  /** 一指永劫（重生，仅主视图卡片） */
+  onRebirth?: () => void;
+  /** 回转（放弃本世，仅主视图卡片） */
+  onReset?: () => void;
 }
 
-/** 格式化：统一使用系统 BigNum 方法，避免大数（如高倍数/高概率）显示溢出 */
-const fmtPct = (v: number) => BigNum.fromNumber(v * 100).formatChinese(0);
-const fmtInt = (v: number) => BigNum.fromNumber(v).formatChinese(0);
-
-/** 商店中每项基础的展示信息：当前值文案 + 单次提升文案 */
-const ATTR_DISPLAY: Record<AttrKey, { current: (v: number) => string; gain: string }> = {
-  baseValue: { current: (v) => `当前 +${fmtInt(v)}`, gain: '+5' },
-  autoFrequency: { current: (v) => `当前 +${fmtInt(v)} 级`, gain: '+1 级' },
-  critMultiplier: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+200%' },
-  critChance: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+100%' },
-  comboChance: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+100%' },
-  comboMultiplier: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+200%' },
+/** 每项单次提升文案（与数值店升级效果一致） */
+const nextGainText = (id: UpgradeId, level: number): string => {
+  switch (id) {
+    case 'baseValue': {
+      const add = getBaseValueBonus(level + 1).sub(getBaseValueBonus(level));
+      return `+${add.formatChinese(1)} 基础数值`;
+    }
+    case 'autoFrequency': {
+      const cur = getAutoClickRate(level).intervalMs;
+      const nxt = getAutoClickRate(level + 1).intervalMs;
+      const step = cur - nxt;
+      return step > 0 ? `自动间隔 -${step}ms` : '已至极速';
+    }
+    case 'critMultiplier':
+    case 'comboMultiplier':
+      return '倍数 +50%';
+    case 'critChance':
+    case 'comboChance':
+      return '概率 +5%';
+    default:
+      return '';
+  }
 };
-
-const ATTR_ORDER: AttrKey[] = [
-  'baseValue',
-  'autoFrequency',
-  'critMultiplier',
-  'critChance',
-  'comboChance',
-  'comboMultiplier',
-];
 
 export const RebirthShop: React.FC<RebirthShopProps> = ({
   state,
-  onBuyRebirthBaseAttr,
+  onBuyRebirthMergedUpgrade,
   onUnlockCollapse,
   onUnlockRanking,
   onBuyAutoUnlock,
+  onRebirth,
+  onReset,
 }) => {
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
   const canUnlockRanking = state.rebirthPoints >= RANKING_UNLOCK_COST;
   const canBuyAutoUnlock = state.rebirthPoints >= AUTO_UNLOCK_COST;
 
-  const rebirthBase = state.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between pb-1.5 border-b border-[#2d2822]">
-      
         <div className="text-[10px] font-mono text-[#8a7a63]">
           永劫点数 <span className="text-[#5fa8e6]">{state.rebirthPoints}</span>
         </div>
       </div>
 
-      {/* 升级：永劫基础属性（逐项单独升级） */}
+      {/* 升级：永劫基础属性（已合并至数值店升级等级，重生/坍缩后永久保留） */}
       <div className="flex flex-col gap-1.5">
-        {ATTR_ORDER.map((key) => {
-          const label = REBIRTH_BASE_ATTR_LABELS[key];
-          const display = ATTR_DISPLAY[key];
-          const cost = getRebirthBaseAttrCost(key, rebirthBase[key]).toNumber();
-          const canBuyAttr = state.rebirthPoints >= cost;
-
+        {REBIRTH_MERGED_UPGRADES.map(({ id, label }) => {
+          const up = state.upgrades[id] || { unlocked: false, level: 0, capBonus: 0 };
+          const level = up.level || 0;
+          const cost = getRebirthMergedUpgradeCost(id, level);
+          const canBuy = state.rebirthPoints >= cost.toNumber();
           return (
             <PressableRow
-              key={key}
-              id={`shop-item-rebirth-attr-${key}`}
-              disabled={!canBuyAttr}
-              onPress={() => {
-                if (canBuyAttr) onBuyRebirthBaseAttr(key);
-              }}
+              key={id}
+              id={`rebirth-merged-${id}`}
               className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-                canBuyAttr ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+                canBuy ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
               }`}
+              disabled={!canBuy}
+              onPress={() => onBuyRebirthMergedUpgrade(id)}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
+                  <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
                     {label}
                   </span>
+                  <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574]">
+                    Lv.{level}
+                  </span>
                 </div>
-                <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-                  每次 {display.gain} · {display.current(rebirthBase[key])}
+                <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
+                  {nextGainText(id, level)} · 长按可持续
                 </div>
               </div>
-
-              <UpgradeButton
-                id={`btn-shop-rebirth-attr-${key}`}
-                disabled={!canBuyAttr}
-              >
-                {cost} 点
+              <UpgradeButton id={`btn-rebirth-merged-${id}`} disabled={!canBuy}>
+                {cost.formatChinese(0)} 点
               </UpgradeButton>
             </PressableRow>
           );
         })}
       </div>
 
-      {/* 功法无需解锁：购买后数值功法不必解锁即可直接升级 */}
-      {!state.upgradesAutoUnlocked && (
+      {/* 功法通明 */}
+      {onBuyAutoUnlock && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
-            id="shop-item-auto-unlock"
+            id="shop-item-unlock-autounlock"
             onClick={() => {
               if (canBuyAutoUnlock) onBuyAutoUnlock();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canBuyAutoUnlock ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+              canBuyAutoUnlock ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
             }`}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
-                  功法通明
-                </span>
-                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
-                  未开启
-                </span>
+                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">功法通明</span>
+                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">未购</span>
               </div>
-              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
-                功法无需解锁 · 永世可直接升级（重生亦不退回）
-              </div>
+              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">功法无需解锁 · 可直接升级，重生后保留</div>
             </div>
-
-            <UpgradeButton id="btn-shop-auto-unlock" disabled={!canBuyAutoUnlock}>
+            <UpgradeButton id="btn-shop-unlock-autounlock" disabled={!canBuyAutoUnlock}>
               {AUTO_UNLOCK_COST} 点
             </UpgradeButton>
           </div>
         </div>
       )}
 
-      {/* 解锁排行：开启天榜（默认不显示） */}
-      {!state.rankingUnlocked && (
+      {/* 解锁排行 */}
+      {onUnlockRanking && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
             id="shop-item-unlock-ranking"
@@ -154,23 +144,16 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
               if (canUnlockRanking) onUnlockRanking();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canUnlockRanking ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+              canUnlockRanking ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
             }`}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
-                  解锁排行
-                </span>
-                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
-                  未开启
-                </span>
+                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">解锁排行</span>
+                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">未开启</span>
               </div>
-              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
-                开启天榜 · 查看数值 / 富豪 / 时长 / 重生排行
-              </div>
+              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">开启天榜 · 查看数值 / 富豪 / 时长 / 重生排行</div>
             </div>
-
             <UpgradeButton id="btn-shop-unlock-ranking" disabled={!canUnlockRanking}>
               {RANKING_UNLOCK_COST} 点
             </UpgradeButton>
@@ -178,8 +161,8 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         </div>
       )}
 
-      {/* 最底部：解锁坍缩（坍缩行为已迁至坍缩商店） */}
-      {!state.collapseUnlocked && (
+      {/* 解锁坍缩 */}
+      {onUnlockCollapse && !state.collapseUnlocked && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
             id="shop-item-unlock-collapse"
@@ -187,27 +170,42 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
               if (canUnlockCollapse) onUnlockCollapse();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canUnlockCollapse ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+              canUnlockCollapse ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
             }`}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
-                  解锁坍缩
-                </span>
-                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
-                  未觉醒
-                </span>
+                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">解锁坍缩</span>
+                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">未觉醒</span>
               </div>
-              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
-                觉醒太虚坍缩秘境 · 解锁后方可献祭永劫值进行坍缩
-              </div>
+              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">觉醒太虚坍缩秘境 · 解锁后方可献祭永劫值进行坍缩</div>
             </div>
-
             <UpgradeButton id="btn-shop-unlock-collapse" disabled={!canUnlockCollapse}>
               {COLLAPSE_COST} 点
             </UpgradeButton>
           </div>
+        </div>
+      )}
+
+      {/* 永劫 / 回转 */}
+      {onRebirth && (
+        <div className="pt-1.5 border-t border-[#2d2822] flex gap-2">
+          <div
+            id="shop-btn-rebirth"
+            onClick={onRebirth}
+            className="flex-1 text-center font-serif font-bold text-xs sm:text-sm text-[#ded7cb] p-2 rounded-lg bg-[#211f1c] border border-[#383229] cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]"
+          >
+            一指永劫（重生）
+          </div>
+          {onReset && (
+            <div
+              id="shop-btn-reset"
+              onClick={onReset}
+              className="flex-1 text-center font-serif font-bold text-xs sm:text-sm text-[#ded7cb] p-2 rounded-lg bg-[#211f1c] border border-[#383229] cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]"
+            >
+              回转（放弃本世）
+            </div>
+          )}
         </div>
       )}
     </div>

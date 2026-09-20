@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { GameState, UpgradeId, UserAccountData } from '../types';
+import { GameState, UpgradeId, UserAccountData, OfflineGainReport } from '../types';
 import { SettleType } from '../components/FunShop';
 import {
   UPGRADE_METADATA,
@@ -14,7 +14,7 @@ import {
   getValueCapCost,
   getRebirthStartValue,
   getRebirthPointUpgradeCost,
-  getRebirthBaseAttrCost,
+  getRebirthMergedUpgradeCost,
   getExtraRebirthPoints,
   getRebirthToCollapseCost,
   getRebirthPointsFromValue,
@@ -24,7 +24,7 @@ import {
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
 import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
-import { formatDuration, syncServerTime } from '../utils/serverTime';
+import { getServerNow, syncServerTime } from '../utils/serverTime';
 import {
   ACHIEVEMENTS,
   GOODS_CATEGORIES,
@@ -33,12 +33,9 @@ import {
   RANKING_UNLOCK_COST,
   AFTERLIFE_SHOP_UNLOCK_COST,
   AFTERLIFE_POINT_EXCHANGE_COST,
-  INITIAL_REBIRTH_BASE_ATTRS,
   INITIAL_STATE,
   OFFLINE_MAX_MS,
   OFFLINE_MIN_MS,
-  REBIRTH_BASE_ATTR_LABELS,
-  REBIRTH_BASE_ATTR_PURCHASE_GAINS,
   REBIRTH_THRESHOLD,
   SERVER_TIME_SYNC_INTERVAL_MS,
   UPGRADE_ORDER,
@@ -63,6 +60,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   const [currentBigNum, setCurrentBigNum] = useState<BigNum>(() =>
     BigNum.fromData(state.currentValue)
   );
+  /** 挂机收益报告：非空时展示离线收益弹窗 */
+  const [offlineReport, setOfflineReport] = useState<OfflineGainReport | null>(null);
 
   // 已提示过的解锁（以存档为准，刷新后不会重复提示）
   const notifiedUnlocks = useRef<Set<string>>(new Set(state.notifiedUnlocks || []));
@@ -152,8 +151,38 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   );
 
   /**
+   * 挂机收益结算：< 3 分钟不计，最多按 1 天结算。
+   * 入账成功后设置 offlineReport，由离线收益弹窗展示本次挂机所得。
+   */
+  const settleOfflineGain = useCallback(
+    (elapsedMs: number) => {
+      if (elapsedMs < OFFLINE_MIN_MS) return;
+
+      const cappedMs = Math.min(elapsedMs, OFFLINE_MAX_MS);
+      const gain = getOfflineGain(stateRef.current, cappedMs / 1000);
+      if (gain.m === 0) return;
+
+      const before = bigNumRef.current;
+      const after = commitValue(before.add(gain));
+      // 受数值上限截断后的实际入账
+      const actual = after.sub(before);
+      if (actual.m === 0) return;
+
+      setOfflineReport({
+        durationMs: cappedMs,
+        gain: actual.toData(),
+        truncatedByMax: elapsedMs > OFFLINE_MAX_MS,
+        truncatedByCap: actual.lt(gain),
+      });
+
+      checkUnlockTriggers(stateRef.current.clickCount, after);
+    },
+    [checkUnlockTriggers, commitValue]
+  );
+
+  /**
    * 离线收益结算（每次进入界面仅执行一次）
-   * 以服务器时间计算离线时长：< 3 分钟不计，最多结算 1 天
+   * 以服务器时间计算离线时长，挂机回来后弹窗展示收益
    */
   const offlineSettledRef = useRef(false);
   useEffect(() => {
@@ -174,32 +203,36 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       // 无历史记录（首次进入）：仅记录时间戳
       if (!lastActiveAt) return;
 
-      const elapsed = serverNow - lastActiveAt;
-      if (elapsed < OFFLINE_MIN_MS) return;
-
-      const cappedMs = Math.min(elapsed, OFFLINE_MAX_MS);
-      const gain = getOfflineGain(stateRef.current, cappedMs / 1000);
-      if (gain.m === 0) return;
-
-      const before = bigNumRef.current;
-      const after = commitValue(before.add(gain));
-      // 受数值上限截断后的实际入账
-      const actual = after.sub(before);
-      if (actual.m === 0) return;
-
-      const cappedNote = elapsed > OFFLINE_MAX_MS ? ' · 已按上限 1 天结算' : '';
-      addToast(
-        '离线参玄',
-        `离线 ${formatDuration(cappedMs)} · 自动行功入账 ${actual.formatChinese(2)}${cappedNote}`
-      );
-
-      checkUnlockTriggers(stateRef.current.clickCount, after);
+      settleOfflineGain(serverNow - lastActiveAt);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [addToast, checkUnlockTriggers, commitValue]);
+  }, [settleOfflineGain]);
+
+  /**
+   * 页面从后台 / 最小化切回：离开超过门槛时同样按挂机结算并弹窗展示收益。
+   * 后台期间 rAF 停摆、存档实时刷新时间戳，此处按最近一次活跃时间差结算。
+   */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+
+      const lastActiveAt = stateRef.current.lastActiveAt || 0;
+      if (!lastActiveAt) return;
+
+      const elapsed = getServerNow() - lastActiveAt;
+      if (elapsed < OFFLINE_MIN_MS) return;
+
+      // 先刷新时间戳，避免重复结算
+      setState((prev) => ({ ...prev, lastActiveAt: getServerNow() }));
+      settleOfflineGain(elapsed);
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [settleOfflineGain]);
 
   /**
    * 成就结算：
@@ -363,9 +396,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       if (currentState.upgrades.autoClickUnlock.unlocked && delta > 0) {
         const autoFreq = currentState.upgrades.autoFrequency;
         // 功法等级 + 永劫商店购买的永久频率等级加成
-        const autoFreqLevel =
-          (autoFreq.unlocked ? autoFreq.level : 0) +
-          (currentState.rebirthBaseAttrs?.autoFrequency || 0);
+        const autoFreqLevel = autoFreq.unlocked ? autoFreq.level : 0;
         const rate = getAutoClickRate(autoFreqLevel);
         const clicksPerMs = rate.clicksPerMs > 0 ? rate.clicksPerMs : 1 / rate.intervalMs;
 
@@ -460,27 +491,29 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 永劫商店：消耗永劫点数，单独提升某一永劫基础属性（暴击/连击倍数消耗按斐波那契递增） */
-  const handleBuyRebirthBaseAttr = useCallback(
-    (key: keyof typeof REBIRTH_BASE_ATTR_PURCHASE_GAINS) => {
+  /** 永劫商店：消耗永劫点数，提升数值店对应升级等级（已合并，重生/坍缩后永久保留） */
+  const handleBuyRebirthMergedUpgrade = useCallback(
+    (id: UpgradeId) => {
       const prev = stateRef.current;
-      const rebirthBase = prev.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
-      const cost = getRebirthBaseAttrCost(key, rebirthBase[key]).toNumber();
+      const up = prev.upgrades[id] || { unlocked: false, level: 0, capBonus: 0 };
+      const level = up.level || 0;
+      const cost = getRebirthMergedUpgradeCost(id, level).toNumber();
       if (prev.rebirthPoints < cost) return;
+      const label = UPGRADE_METADATA[id]?.name ?? id;
       setState((p) => {
-        const rb = p.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
-        const next = { ...rb, [key]: rb[key] + REBIRTH_BASE_ATTR_PURCHASE_GAINS[key] };
+        const cur = p.upgrades[id] || { unlocked: false, level: 0, capBonus: 0 };
         return {
           ...p,
           rebirthPoints: p.rebirthPoints - cost,
-          rebirthBaseAttrs: next,
+          upgrades: {
+            ...p.upgrades,
+            [id]: { ...cur, unlocked: true, level: cur.level + 1 },
+          },
         };
       });
-      const gain = REBIRTH_BASE_ATTR_PURCHASE_GAINS[key];
-      const gainText = key === 'autoFrequency' ? `+${gain} 级` : `+${gain}`;
       addToast(
         '道基淬炼',
-        `永劫基础属性「${REBIRTH_BASE_ATTR_LABELS[key]}」提升 ${gainText} · 消耗 ${cost} 点永劫点数`
+        `永劫基础属性「${label}」提升 1 级（Lv.${level + 1}）· 消耗 ${cost} 点永劫点数`
       );
     },
     [addToast]
@@ -860,6 +893,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }));
   }, []);
 
+  /** 关闭挂机收益弹窗 */
+  const dismissOfflineReport = useCallback(() => setOfflineReport(null), []);
+
   /** 重修道途：清空存档与全部进度 */
   const resetProgress = useCallback(() => {
     clearGameState();
@@ -885,7 +921,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleGambleSettle,
     handleBuyLevelCap,
     handleBuyRebirthPointLevel,
-    handleBuyRebirthBaseAttr,
+    handleBuyRebirthMergedUpgrade,
     handleUnlockCollapse,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
@@ -903,6 +939,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     confirmRebirth,
     confirmCollapse,
     resetProgress,
+    offlineReport,
+    dismissOfflineReport,
     debugSetValue,
     debugSetRebirthPoints,
     debugSetCollapsePoints,

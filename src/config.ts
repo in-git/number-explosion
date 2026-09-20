@@ -1,5 +1,5 @@
 import { BigNum } from './utils/bigNumber';
-import { GameState, RebirthBaseAttrs, UpgradeId } from './types';
+import { GameState, UpgradeId } from './types';
 
 /** 存档键名 */
 export const STORAGE_KEY = 'shuzhibaozha_save_v1';

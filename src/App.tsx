@@ -5,6 +5,7 @@ import { CoreNumberDisplay } from './components/CoreNumberDisplay';
 import { AttributesPanel } from './components/AttributesPanel';
 import { ShopEntries } from './components/ShopEntries';
 import { GameModals } from './components/GameModals';
+import { OfflineGainModal } from './components/OfflineGainModal';
 import { ToastContainer } from './components/ToastContainer';
 import { useToasts } from './hooks/useToasts';
 import { useFloatingTexts } from './hooks/useFloatingTexts';
@@ -56,7 +57,7 @@ export default function App() {
         onUnlockUpgrade={game.handleUnlockUpgrade}
         onUpgradeLevel={game.handleUpgradeLevel}
         onBuyLevelCap={game.handleBuyLevelCap}
-        onBuyRebirthBaseAttr={game.handleBuyRebirthBaseAttr}
+        onBuyRebirthMergedUpgrade={game.handleBuyRebirthMergedUpgrade}
         onUnlockCollapse={game.handleUnlockCollapse}
         onUnlockInventory={game.handleUnlockInventory}
         onUnlockAfterlifeShop={game.handleUnlockAfterlifeShop}
@@ -80,6 +81,9 @@ export default function App() {
         onSetCollapsePoints={game.debugSetCollapsePoints}
         onResetProgress={game.resetProgress}
       />
+
+      {/* 挂机收益弹窗：离线 / 切后台回来后展示本次挂机收益 */}
+      <OfflineGainModal report={game.offlineReport} onClose={game.dismissOfflineReport} />
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>

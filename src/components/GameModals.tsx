@@ -2,7 +2,6 @@ import React from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { GameState, UpgradeId, UserAccountData } from '../types';
 import { GameModalsState } from '../hooks/useGameModals';
-import { REBIRTH_BASE_ATTR_PURCHASE_GAINS } from '../config';
 import { FunShop, SettleType } from './FunShop';
 import { ModalShell } from './ModalShell';
 import { UpgradesList } from './UpgradesList';
@@ -24,7 +23,7 @@ interface GameModalsProps {
   onUnlockUpgrade: (id: UpgradeId, cost: BigNum) => void;
   onUpgradeLevel: (id: UpgradeId, cost: BigNum) => void;
   onBuyLevelCap: (id: UpgradeId) => void;
-  onBuyRebirthBaseAttr: (key: keyof typeof REBIRTH_BASE_ATTR_PURCHASE_GAINS) => void;
+  onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
   onUnlockCollapse: () => void;
   /** 消耗 3 点永劫点数解锁背包 */
   onUnlockInventory: () => void;
@@ -73,7 +72,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onUnlockUpgrade,
   onUpgradeLevel,
   onBuyLevelCap,
-  onBuyRebirthBaseAttr,
+  onBuyRebirthMergedUpgrade,
   onUnlockCollapse,
   onUnlockInventory,
   onUnlockAfterlifeShop,
@@ -121,7 +120,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
     >
       <RebirthShop
         state={state}
-        onBuyRebirthBaseAttr={onBuyRebirthBaseAttr}
+        onBuyRebirthMergedUpgrade={onBuyRebirthMergedUpgrade}
         onUnlockCollapse={onUnlockCollapse}
         onUnlockRanking={onUnlockRanking}
         onBuyAutoUnlock={onBuyAutoUnlock}
