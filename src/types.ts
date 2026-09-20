@@ -108,6 +108,11 @@ export interface GameState {
   upgradesAutoUnlocked: boolean;
   /** 是否已解锁「往生殿」特权（于坍缩店消耗 20 点坍缩点数解锁，永久生效，默认不显示） */
   afterlifeShopUnlocked: boolean;
+  /**
+   * 永劫店累计购买的各属性等级（永久道基，永不清零）。
+   * 数值店用数值购买的等级超出此部分，将在永劫/坍缩时重置。
+   */
+  rebirthMergedLevels: Record<UpgradeId, number>;
   /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值店的升级消耗，消耗按 2×斐波那契增长 */
   afterlifeUpgradeLevels: Record<UpgradeId, number>;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */

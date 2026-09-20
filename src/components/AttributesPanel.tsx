@@ -117,25 +117,6 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       detail: '天意破极暴击',
     },
     {
-      id: 'attr-rebirth-points',
-      label: '永劫点数',
-      value: `${attrs.rebirthPoints} 点`,
-      valueClass: 'text-[#5fa8e6]',
-      detail: `累计永劫: ${state.rebirthCount} 次`,
-    },
-    {
-      id: 'attr-value-cap',
-      label: '数值上限',
-      value: getValueCap(state.valueCapLevel || 0).formatChinese(2),
-      detail: '数值不得超越此限（坍缩商店可 +100万）',
-    },
-    {
-      id: 'attr-collapse',
-      label: '坍缩',
-      value: `${attrs.collapsePoints} 重`,
-      detail: state.collapseUnlocked ? '太虚混沌之力' : '太虚未开',
-    },
-    {
       id: 'attr-click-count',
       label: '点击量',
       value: `${attrs.clickCount} 次`,
@@ -201,6 +182,40 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
          
           </button>
     
+        </div>
+
+        {/* 资源区：置顶常显，为 0 的不显示 */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5 border-b border-[#262220]">
+          {attrs.rebirthPoints > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">永劫点数</span>
+              <span className="font-mono text-xs sm:text-sm font-bold text-[#5fa8e6] tracking-tight">
+                {BigNum.fromNumber(attrs.rebirthPoints).formatChinese(0)} 点
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">数值上限</span>
+            <span className="font-mono text-xs sm:text-sm font-bold text-[#e6ded1] tracking-tight">
+              {getValueCap(state.valueCapLevel || 0).formatChinese(2)}
+            </span>
+          </div>
+          {attrs.collapsePoints > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">坍缩</span>
+              <span className="font-mono text-xs sm:text-sm font-bold text-[#5b9bd8] tracking-tight">
+                {attrs.collapsePoints} 重
+              </span>
+            </div>
+          )}
+          {state.afterlifePoints > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">往生点</span>
+              <span className="font-mono text-xs sm:text-sm font-bold text-[#d897fa] tracking-tight">
+                {state.afterlifePoints} 点
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Compact attribute list */}

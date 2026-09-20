@@ -82,8 +82,14 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
       <div className="flex items-center justify-between pb-1.5 border-b border-[#2d2822]">
       
         <div className="text-[10px] font-mono text-[#8a7a63]">
-          永劫点数 <span className="text-[#5fa8e6]">{state.rebirthPoints}</span> · 坍缩点数{' '}
-          <span className="text-[#5b9bd8]">{state.collapsePoints}</span>
+          永劫点数{' '}
+          <span className="text-[#5fa8e6]">
+            {BigNum.fromNumber(state.rebirthPoints).formatChinese(0)}
+          </span>{' '}
+          · 坍缩点数{' '}
+          <span className="text-[#5b9bd8]">
+            {BigNum.fromNumber(state.collapsePoints).formatChinese(0)}
+          </span>
         </div>
       </div>
 

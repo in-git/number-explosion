@@ -491,7 +491,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 永劫商店：消耗永劫点数，提升数值店对应升级等级（已合并，重生/坍缩后永久保留） */
+  /** 永劫商店：消耗永劫点数，提升数值店对应升级等级（已合并，购买部分永久保留） */
   const handleBuyRebirthMergedUpgrade = useCallback(
     (id: UpgradeId) => {
       const prev = stateRef.current;
@@ -505,6 +505,10 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         return {
           ...p,
           rebirthPoints: p.rebirthPoints - cost,
+          rebirthMergedLevels: {
+            ...p.rebirthMergedLevels,
+            [id]: (p.rebirthMergedLevels?.[id] || 0) + 1,
+          },
           upgrades: {
             ...p.upgrades,
             [id]: { ...cur, unlocked: true, level: cur.level + 1 },
@@ -831,7 +835,12 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthCount: prev.rebirthCount + 1,
       rebirthPoints: prev.rebirthPoints + gain,
       // 已购「功法无需解锁」特权：重生后仍保持解锁态，可直接升级
-      upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
+      // 数值店等级重置：仅保留永劫店购买的等级（永久道基）
+      upgrades: resetUpgradeLevels(
+        prev.upgrades,
+        prev.upgradesAutoUnlocked,
+        prev.rebirthMergedLevels
+      ),
       // 背包为永久财产：永劫不清空已购商品
       goodsPurchases: prev.goodsPurchases || {},
     }));
@@ -861,7 +870,11 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       clickCount: 0,
       rebirthPoints: prev.rebirthPoints - COLLAPSE_COST,
       collapsePoints: prev.collapsePoints + collapseGain,
-      upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
+      upgrades: resetUpgradeLevels(
+        prev.upgrades,
+        prev.upgradesAutoUnlocked,
+        prev.rebirthMergedLevels
+      ),
       // 背包为永久财产：坍缩同样不清空已购商品
       goodsPurchases: prev.goodsPurchases || {},
     }));

@@ -155,6 +155,20 @@ export function loadGameState(): GameState {
         ? Math.max(0, Math.floor(parsed.rebirthToCollapseCount))
         : 0,
       upgrades,
+      // 旧存档迁移：无法区分永劫店/数值店购买来源，将当前等级整体保留为永久道基
+      rebirthMergedLevels: (Object.keys(INITIAL_STATE.rebirthMergedLevels) as UpgradeId[]).reduce(
+        (acc, id) => {
+          const saved = parsed.rebirthMergedLevels?.[id];
+          acc[id] =
+            Number.isFinite(saved) && saved > 0
+              ? Math.max(0, Math.floor(saved))
+              : Number.isFinite(upgrades[id].level)
+                ? Math.max(0, Math.floor(upgrades[id].level))
+                : 0;
+          return acc;
+        },
+        {} as Record<UpgradeId, number>
+      ),
       notifiedUnlocks,
       lastActiveAt: Number.isFinite(parsed.lastActiveAt) ? parsed.lastActiveAt : 0,
     };

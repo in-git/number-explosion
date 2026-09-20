@@ -6,7 +6,10 @@ import {
   getRebirthMergedUpgradeCost,
   getBaseValueBonus,
   getAutoClickRate,
+  calculateGameAttributes,
+  MULTIPLIER_STEP,
 } from '../utils/gameMath';
+import { BigNum } from '../utils/bigNumber';
 import { PressableRow } from './PressableRow';
 import { UpgradeButton } from './UpgradeButton';
 
@@ -41,10 +44,30 @@ const nextGainText = (id: UpgradeId, level: number): string => {
     }
     case 'critMultiplier':
     case 'comboMultiplier':
-      return '倍数 +50%';
+      return `倍数 +${MULTIPLIER_STEP * 100}%`;
     case 'critChance':
     case 'comboChance':
       return '概率 +5%';
+    default:
+      return '';
+  }
+};
+
+/** 每项当前实际效果文案（含功法等级 / 成就加成，与属性面板同源） */
+const currentValueText = (id: UpgradeId, attrs: ReturnType<typeof calculateGameAttributes>): string => {
+  switch (id) {
+    case 'baseValue':
+      return `当前基础 ${attrs.baseValue.formatChinese(1)}`;
+    case 'autoFrequency':
+      return `当前 ${attrs.autoClicksPerSec.toFixed(1)} 次/s`;
+    case 'critMultiplier':
+      return `当前 ${BigNum.fromNumber(attrs.critMultiplier * 100).formatChinese(0)}%`;
+    case 'comboMultiplier':
+      return `当前 ${BigNum.fromNumber(attrs.comboMultiplier * 100).formatChinese(0)}%`;
+    case 'critChance':
+      return `当前 ${BigNum.fromNumber(attrs.critChance * 100).formatChinese(1)}%`;
+    case 'comboChance':
+      return `当前 ${BigNum.fromNumber(attrs.comboChance * 100).formatChinese(1)}%`;
     default:
       return '';
   }
@@ -62,13 +85,18 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
   const canUnlockRanking = state.rebirthPoints >= RANKING_UNLOCK_COST;
   const canBuyAutoUnlock = state.rebirthPoints >= AUTO_UNLOCK_COST;
+  const attrs = calculateGameAttributes(state);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between pb-1.5 border-b border-[#2d2822]">
         <div className="text-[10px] font-mono text-[#8a7a63]">
-          永劫点数 <span className="text-[#5fa8e6]">{state.rebirthPoints}</span>
+          永劫点数{' '}
+          <span className="text-[#5fa8e6]">
+            {BigNum.fromNumber(state.rebirthPoints).formatChinese(0)}
+          </span>
         </div>
+        <div className="text-[10px] font-serif text-[#8a7a63]">长按条目可持续升级</div>
       </div>
 
       {/* 升级：永劫基础属性（已合并至数值店升级等级，重生/坍缩后永久保留） */}
@@ -97,8 +125,8 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                     Lv.{level}
                   </span>
                 </div>
-                <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
-                  {nextGainText(id, level)} · 长按可持续
+                <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">
+                  {currentValueText(id, attrs)} · {nextGainText(id, level)}
                 </div>
               </div>
               <UpgradeButton id={`btn-rebirth-merged-${id}`} disabled={!canBuy}>
@@ -126,7 +154,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                 <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">功法通明</span>
                 <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">未购</span>
               </div>
-              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">功法无需解锁 · 可直接升级，重生后保留</div>
+              <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">功法无需解锁 · 可直接升级，重生后保留</div>
             </div>
             <UpgradeButton id="btn-shop-unlock-autounlock" disabled={!canBuyAutoUnlock}>
               {AUTO_UNLOCK_COST} 点
@@ -152,7 +180,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                 <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">解锁排行</span>
                 <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">未开启</span>
               </div>
-              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">开启天榜 · 查看数值 / 富豪 / 时长 / 重生排行</div>
+              <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">开启天榜 · 查看数值 / 富豪 / 时长 / 重生排行</div>
             </div>
             <UpgradeButton id="btn-shop-unlock-ranking" disabled={!canUnlockRanking}>
               {RANKING_UNLOCK_COST} 点
@@ -178,7 +206,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                 <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">解锁坍缩</span>
                 <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">未觉醒</span>
               </div>
-              <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">觉醒太虚坍缩秘境 · 解锁后方可献祭永劫值进行坍缩</div>
+              <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">觉醒太虚坍缩秘境 · 解锁后方可献祭永劫值进行坍缩</div>
             </div>
             <UpgradeButton id="btn-shop-unlock-collapse" disabled={!canUnlockCollapse}>
               {COLLAPSE_COST} 点

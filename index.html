@@ -18,6 +18,10 @@
   </head>
   <body class="bg-[#181716] text-[#e8e4dc] select-none antialiased min-h-screen">
     <div id="root"></div>
+    <script>
+      // 屏蔽浏览器右键默认菜单
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

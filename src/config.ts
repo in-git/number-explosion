@@ -213,7 +213,6 @@ export const ACHIEVEMENTS: AchievementDef[] = [
  */
 export const REBIRTH_SHOP_ORDER: UpgradeId[] = [
   'baseValue',
-  'autoFrequency',
   'critMultiplier',
   'comboMultiplier',
 ];
@@ -471,6 +470,16 @@ export const INITIAL_STATE: GameState = {
   upgradesAutoUnlocked: false,
   /** 往生殿特权：默认关闭（于坍缩店消耗 20 点坍缩点数解锁） */
   afterlifeShopUnlocked: false,
+  /** 永劫店累计购买的等级（永久道基，默认全为 0） */
+  rebirthMergedLevels: {
+    baseValue: 0,
+    autoClickUnlock: 0,
+    autoFrequency: 0,
+    comboChance: 0,
+    critMultiplier: 0,
+    comboMultiplier: 0,
+    critChance: 0,
+  },
   /** 往生殿：各属性已购升级等级，默认全为 0 */
   afterlifeUpgradeLevels: {
     baseValue: 0,

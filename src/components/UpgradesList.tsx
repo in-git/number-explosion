@@ -11,6 +11,7 @@ import {
   getAutoClickRate,
   CRIT_CHANCE_BASE,
   CRIT_CHANCE_STEP,
+  MULTIPLIER_STEP,
   applyAfterlifeDiscount,
   getAfterlifeDiscountPercent,
 } from '../utils/gameMath';
@@ -62,10 +63,10 @@ function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
     };
   }
 
-  // 暴击倍数 / 连击倍数: 基础100%，等差数列 +0.5
+  // 暴击倍数 / 连击倍数: 基础100%，等差数列 +30%
   if (id === 'comboMultiplier' || id === 'critMultiplier') {
-    const mult = 1.0 + level * 0.5;
-    return { currentDesc: `${(mult * 100).toFixed(0)}%`, nextDesc: '+50%' };
+    const mult = 1.0 + level * MULTIPLIER_STEP;
+    return { currentDesc: `${(mult * 100).toFixed(0)}%`, nextDesc: `+${MULTIPLIER_STEP * 100}%` };
   }
 
   // 暴击概率: 基础20%，每级 +5%，上限100%

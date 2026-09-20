@@ -117,13 +117,27 @@ export function getGoodsSellPrice(baseCost: number): BigNum {
   return BigNum.fromNumber(baseCost).mulScalar(GOODS_SELL_RATE);
 }
 
-/** 数值升级收益系数：斐波那契加成 ×0.9，即每次升级收益降低 10% */
-export const BASE_VALUE_BONUS_FACTOR = 0.9;
+/**
+ * 永劫店「基础数值」每级提升量（自定义斐波那契数列，BigNum 防溢出）：
+ * 50, 70, 120, 190, 310, 500, 810 ...（第 1、2 级为 50、70；第 n 级 = 前两级之和）
+ */
+const REBIRTH_BASE_VALUE_GAIN_SEQ: BigNum[] = [new BigNum(50, 0), new BigNum(70, 0)];
+export function getRebirthBaseValueGain(level: number): BigNum {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return new BigNum(0, 0);
+  while (REBIRTH_BASE_VALUE_GAIN_SEQ.length < lv) {
+    const len = REBIRTH_BASE_VALUE_GAIN_SEQ.length;
+    REBIRTH_BASE_VALUE_GAIN_SEQ.push(
+      REBIRTH_BASE_VALUE_GAIN_SEQ[len - 1].add(REBIRTH_BASE_VALUE_GAIN_SEQ[len - 2])
+    );
+  }
+  return REBIRTH_BASE_VALUE_GAIN_SEQ[lv - 1];
+}
 
-/** 数值升级实际提升值 = 斐波那契累加值 × 0.9 */
+/** 数值升级累计加成：Σ(每级提升量) = a(level+2) − a(2)，即 a(level+2) − 70 */
 export function getBaseValueBonus(level: number): BigNum {
   if (level <= 0) return new BigNum(0, 0);
-  return getFibonacciBonus(level).mulScalar(BASE_VALUE_BONUS_FACTOR);
+  return getRebirthBaseValueGain(level + 2).sub(new BigNum(70, 0));
 }
 
 export interface UpgradeDetail {
@@ -233,26 +247,22 @@ export function getValueCapCost(level: number): BigNum {
 
 /**
  * 永劫商店：单独升级某项永劫基础属性的消耗（永劫点数）
- * - 基础数值 / 暴击倍数 / 连击倍数：按斐波拉契数列递增（从 1 开始）：1, 1, 2, 3, 5, 8 ...
- *   第 n 次购买消耗 F(n)
- * - 其余属性（自动点击频率 / 暴击概率 / 连击概率）：恒为 1 点
- */
-/** 永劫店「基础属性」升级消耗（已合并到数值店升级等级）：
- * - 基础数值 / 暴击倍数 / 连击倍数：按斐波那契（从 1 开始：1,1,2,3,5...）
- * - 其余属性：固定 1 点永劫点数
+ * - 基础数值：按斐波拉契数列递增（1, 1, 2, 3, 5, 8 ...），第 n 次购买消耗 F(n)
+ * - 其余属性：线性递增，第 n 次购买消耗 n 点（1, 2, 3, 4 ...）
  * 消耗依据当前升级等级（即已购买次数）计算。
  */
 export function getRebirthMergedUpgradeCost(id: UpgradeId, level: number): BigNum {
-  if (id === 'baseValue' || id === 'critMultiplier' || id === 'comboMultiplier') {
-    const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-    return getFibonacciBig(lv + 1);
-  }
-  return new BigNum(1, 0);
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (id === 'baseValue') return getFibonacciBig(lv + 1);
+  return new BigNum(lv + 1, 0);
 }
 
 /** 暴击概率: 基础 20%，每级 +5%，上限 100% */
 export const CRIT_CHANCE_BASE = 0.2;
 export const CRIT_CHANCE_STEP = 0.05;
+
+/** 暴击倍数 / 连击倍数: 每次升级 +30% */
+export const MULTIPLIER_STEP = 0.3;
 
 /** 所有功法的默认等级上限 */
 export const BASE_MAX_LEVEL = 20;
@@ -470,17 +480,17 @@ export function calculateGameAttributes(state: GameState) {
     comboChance = Math.min(1.0, comboChanceUp.level * 0.05);
   }
 
-  // 5. 连击倍数: 基础 100% + 每次升级 +0.5（即 1.0 + 0.5 × level）
+  // 5. 连击倍数: 基础 100% + 每次升级 +30%（即 1.0 + 0.3 × level）
   let comboMultiplier = 1.0;
   if (comboMultUp.unlocked) {
-    comboMultiplier += comboMultUp.level * 0.5;
+    comboMultiplier += comboMultUp.level * MULTIPLIER_STEP;
   }
 
-  // 6. 暴击倍数: 基础 100% + 成就奖励 + 每次升级 +0.5（即 1.0 + 成就加成 + 0.5 × level）
+  // 6. 暴击倍数: 基础 100% + 成就奖励 + 每次升级 +30%（即 1.0 + 成就加成 + 0.3 × level）
   const achievementCritBonus = getAchievementCritBonus(state);
   let critMultiplier = 1.0 + achievementCritBonus;
   if (critMultUp.unlocked) {
-    critMultiplier += critMultUp.level * 0.5;
+    critMultiplier += critMultUp.level * MULTIPLIER_STEP;
   }
 
   // 7. 暴击概率: 基础 20% + 暴击概率升级每级 +5%，上限 100%

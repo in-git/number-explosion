@@ -1,0 +1,117 @@
+- generic [ref=f1e3]:
+  - generic:
+    - img "Ancient stone temple background"
+  - banner [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - img "Elderly monk in linen robes" [ref=f1e7]
+      - generic [ref=f1e8]:
+        - heading "数值爆炸" [level=1] [ref=f1e9]
+        - generic [ref=f1e10]: 青石枯荣 · 天道参玄
+  - main [ref=f1e11]:
+    - generic [ref=f1e18] [cursor=pointer]:
+      - generic [ref=f1e19]: 太 虚 衍 化 · 本 源 数 值
+      - generic [ref=f1e23]: "0"
+      - generic [ref=f1e24]: 点我
+    - generic [ref=f1e27]:
+      - button "数 值 属 性" [ref=f1e29] [cursor=pointer]
+      - generic:
+        - generic [ref=f1e33]:
+          - generic [ref=f1e34]:
+            - generic [ref=f1e35]: 数值升级
+            - generic [ref=f1e36]: "当前单次基础: 1"
+          - generic [ref=f1e37]: 基础 (1)
+        - generic [ref=f1e38]:
+          - generic [ref=f1e39]:
+            - generic [ref=f1e40]: 购置总额
+            - generic [ref=f1e41]: 万物店累计花费 · 永不清零
+          - generic [ref=f1e42]: "0"
+        - generic [ref=f1e43]:
+          - generic [ref=f1e44]:
+            - generic [ref=f1e45]: 最高数值
+            - generic [ref=f1e46]: 历世最高纪录 · 永不清零
+          - generic [ref=f1e47]: "0"
+        - generic [ref=f1e48]:
+          - generic [ref=f1e49]:
+            - generic [ref=f1e50]: 数值倍率
+            - generic [ref=f1e51]: 基础全域倍率
+          - generic [ref=f1e52]: 1x
+        - generic [ref=f1e53]:
+          - generic [ref=f1e54]:
+            - generic [ref=f1e55]: 自动点击n/s
+            - generic [ref=f1e56]: 尚未觉醒
+          - generic [ref=f1e57]: 0 /s
+        - generic [ref=f1e58]:
+          - generic [ref=f1e59]:
+            - generic [ref=f1e60]: 连击概率
+            - generic [ref=f1e61]: 触发多重连击
+          - generic [ref=f1e62]: 0%
+        - generic [ref=f1e63]:
+          - generic [ref=f1e64]:
+            - generic [ref=f1e65]: 连击倍数
+            - generic [ref=f1e66]: 加成 +1x
+          - generic [ref=f1e67]: 100%
+        - generic [ref=f1e68]:
+          - generic [ref=f1e69]:
+            - generic [ref=f1e70]: 暴击倍数
+            - generic [ref=f1e71]: 加成 +1x
+          - generic [ref=f1e72]: 100%
+        - generic [ref=f1e73]:
+          - generic [ref=f1e74]:
+            - generic [ref=f1e75]: 暴击概率
+            - generic [ref=f1e76]: 天意破极暴击
+          - generic [ref=f1e77]: 0%
+        - generic [ref=f1e78]:
+          - generic [ref=f1e79]:
+            - generic [ref=f1e80]: 永劫点数
+            - generic [ref=f1e81]: "累计永劫: 0 次"
+          - generic [ref=f1e82]: 0 点
+        - generic [ref=f1e83]:
+          - generic [ref=f1e84]:
+            - generic [ref=f1e85]: 数值上限
+            - generic [ref=f1e86]: 数值不得超越此限（坍缩商店可 +100万）
+          - generic [ref=f1e87]: 100.00 万
+        - generic [ref=f1e88]:
+          - generic [ref=f1e89]:
+            - generic [ref=f1e90]: 坍缩
+            - generic [ref=f1e91]: 太虚未开
+          - generic [ref=f1e92]: 0 重
+        - generic [ref=f1e93]:
+          - generic [ref=f1e94]:
+            - generic [ref=f1e95]: 点击量
+            - generic [ref=f1e96]: 永劫后亲手点击次数 · 用于解锁功法（解锁时消耗）
+          - generic [ref=f1e97]: 0 次
+        - generic [ref=f1e98]:
+          - generic [ref=f1e99]:
+            - generic [ref=f1e100]: 游玩时长
+            - generic [ref=f1e101]: 页面开启时长 · 后台挂机与离线不计
+          - generic [ref=f1e102]: 0分钟
+        - generic [ref=f1e103]:
+          - generic [ref=f1e104]:
+            - generic [ref=f1e105]: 暴击效果加成
+            - generic [ref=f1e106]: 游玩时长成就奖励 · 累加到暴击倍数
+          - generic [ref=f1e107]: "+0"
+        - generic [ref=f1e108]:
+          - generic [ref=f1e109]:
+            - generic [ref=f1e110]: 累计点击
+            - generic [ref=f1e111]: 历世累计点击总数 · 用于解锁成就
+          - generic [ref=f1e112]: 0 次
+        - generic [ref=f1e113]:
+          - generic [ref=f1e114]:
+            - generic [ref=f1e115]: 永劫点数加成
+            - generic [ref=f1e116]: 「永劫点数获取」升级 · 每次永劫额外获得
+          - generic [ref=f1e117]: +0 点
+        - generic [ref=f1e118]:
+          - generic [ref=f1e119]:
+            - generic [ref=f1e120]: 永劫初始数值
+            - generic [ref=f1e121]: 成就奖励累加 · 永劫/坍缩后的起始数值
+          - generic [ref=f1e122]: "0"
+    - generic [ref=f1e123]:
+      - generic [ref=f1e124]:
+        - button "数 值 店" [ref=f1e125] [cursor=pointer]
+        - button "奇 趣 店" [ref=f1e131] [cursor=pointer]
+      - generic [ref=f1e136]:
+        - button "永 劫 100 w" [disabled] [ref=f1e137]:
+          - generic [ref=f1e138]: 永 劫
+          - generic [ref=f1e141]: 100 w
+        - button "成 就" [ref=f1e142] [cursor=pointer]
+        - button "设 置" [ref=f1e150] [cursor=pointer]
