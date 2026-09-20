@@ -1,6 +1,6 @@
 import { BigNum } from './bigNumber';
 import { GameState, RebirthBaseAttrs, UpgradeId, UpgradeState } from '../types';
-import { ACHIEVEMENTS, INITIAL_REBIRTH_BASE_ATTRS } from '../config';
+import { ACHIEVEMENTS, INITIAL_REBIRTH_BASE_ATTRS, REBIRTH_BASE_ATTR_PURCHASE_GAINS } from '../config';
 
 /**
  * 成就奖励累加出的「永劫初始数值」：所有已达成成就的奖励之和
@@ -111,16 +111,6 @@ export function getRebirthToCollapseCost(exchangedTimes: number): BigNum {
   return getFibonacciBig(n - REBIRTH_TO_COLLAPSE_FREE_TIMES).add(REBIRTH_TO_COLLAPSE_RAISE_BASE);
 }
 
-/**
- * 万物店：第 (owned+1) 件商品的售价 = 原价 + 斐波拉契数列
- * 首件即原价（F(0)=0），此后每购一次累加 F(n)：0, 1, 1, 2, 3, 5, 8 ...
- */
-export function getGoodsPrice(baseCost: number, owned: number): BigNum {
-  const base = BigNum.fromNumber(baseCost);
-  const n = Number.isFinite(owned) && owned > 0 ? Math.floor(owned) : 0;
-  return base.add(getFibonacciBig(n));
-}
-
 /** 背包回收价：原价 × 10% */
 export const GOODS_SELL_RATE = 0.1;
 export function getGoodsSellPrice(baseCost: number): BigNum {
@@ -191,16 +181,72 @@ export const COLLAPSE_COST = 5;
 
 /** 数值上限基数：默认 100 万 */
 export const VALUE_CAP_BASE = 1e6;
-/** 每消耗 1 点坍缩点数提升的上限：100 万（线性） */
-export const VALUE_CAP_STEP = 1e6;
 
 /**
- * 数值上限：默认 100 万，每级 +100 万（线性增长）
- * = 100万 × (等级 + 1)
+ * 数值上限每级提升量系数（单位：万）
+ * 序列：0, 1, 2, 3, 5, 8, 13 ...（第 1、2 级为 0、1；第 3 级起 = 前两级之和，呈斐波那契增长）
+ * 第 n 级的提升量 = (100 + 50 × 系数) 万
+ */
+function getValueCapStepCoeff(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return 0;
+  const seq = [0, 1, 2]; // 第 1、2、3 级系数
+  while (seq.length < lv) {
+    const len = seq.length;
+    seq.push(seq[len - 1] + seq[len - 2]);
+  }
+  return seq[lv - 1];
+}
+
+/**
+ * 数值上限每级提升量（实际数值）：
+ *   第 n 级 = (100 + 50 × 系数_n) 万
+ *   即：100 万、150 万、200 万、250 万、350 万、550 万 ...
+ */
+export function getValueCapStep(level: number): BigNum {
+  const coeff = getValueCapStepCoeff(level);
+  return new BigNum(VALUE_CAP_BASE).add(new BigNum(5e5 * coeff, 0));
+}
+
+/**
+ * 数值上限：默认 100 万，每级提升量按斐波那契式递增
+ * = 100万 + Σ(每级提升量)
  */
 export function getValueCap(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  return new BigNum(VALUE_CAP_BASE + lv * VALUE_CAP_STEP, 0);
+  let total = new BigNum(VALUE_CAP_BASE, 0);
+  for (let k = 1; k <= lv; k++) {
+    total = total.add(getValueCapStep(k));
+  }
+  return total;
+}
+
+/**
+ * 购买第 level 级（level 从 1 起）数值上限所需的坍缩点数：100 × F(level + 1)（斐波那契）
+ *   即：100、200、300、500、800、1300 ...
+ */
+export function getValueCapCost(level: number): BigNum {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return new BigNum(100, 0);
+  return getFibonacciBig(lv + 1).mulScalar(100);
+}
+
+/**
+ * 永劫商店：单独升级某项永劫基础属性的消耗（永劫点数）
+ * - 暴击倍数 / 连击倍数：按斐波拉契数列递增（从 1 开始）：1, 1, 2, 3, 5, 8 ...
+ *   第 n 次购买消耗 F(n)
+ * - 其余属性（基础数值 / 自动点击频率 / 暴击概率 / 连击概率）：恒为 1 点
+ */
+export function getRebirthBaseAttrCost(
+  key: keyof RebirthBaseAttrs,
+  currentValue: number
+): BigNum {
+  if (key === 'critMultiplier' || key === 'comboMultiplier') {
+    const gain = REBIRTH_BASE_ATTR_PURCHASE_GAINS[key];
+    const purchases = gain > 0 ? Math.round(currentValue / gain) : 0;
+    return getFibonacciBig(purchases + 1); // F(1)=1, F(2)=1, F(3)=2 ...
+  }
+  return new BigNum(1, 0);
 }
 
 /** 暴击概率: 基础 20%，每级 +5%，上限 100% */
@@ -274,6 +320,46 @@ export function getAutoFrequencyUpgradeCost(currentLevel: number): BigNum {
  * 自动点击频率已改为斐波拉契消耗，不再享有折扣
  */
 export const UPGRADE_COST_DISCOUNT: Partial<Record<UpgradeId, number>> = {};
+
+/**
+ * 往生店：「数值店升级消耗折扣」特权
+ * - 于坍缩店消耗 20 点坍缩点数解锁（一次性），默认不显示
+ * - 每级进一步提升数值店升级消耗的折扣：
+ *     · 第 1 级：固定降低 5%
+ *     · 第 L 级（L≥2）：5% + 斐波那契 F(L+4) × 20%
+ *       即 5%、5+8×0.2、5+13×0.2、5+21×0.2 …（8/13/21 为斐波那契数列）
+ * - 每级消耗（坍缩点）按斐波那契递增：F(当前等级+1)
+ *     即第 1 级 1、第 2 级 2、第 3 级 3、第 4 级 5、第 5 级 8 …
+ */
+/** 达到指定等级时的折扣百分比（0 表示未购买） */
+export function getAfterlifeDiscountPercent(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return 0;
+  if (lv === 1) return 5; // 首级固定 5%，不叠加斐波那契项
+  // 第 L 级（L≥2）：5% + F(L+4) × 20%
+  return 5 + 0.2 * getFibonacci(lv + 4);
+}
+
+/** 购买后等级（currentLevel + 1）的折扣百分比 */
+export function getAfterlifeNextDiscount(currentLevel: number): number {
+  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
+  return getAfterlifeDiscountPercent(lv + 1);
+}
+
+/** 购买第 (currentLevel+1) 级所需坍缩点数：F(currentLevel + 2)（即 1, 2, 3, 5, 8 …） */
+export function getAfterlifeUpgradeCost(currentLevel: number): number {
+  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
+  return getFibonacci(lv + 2);
+}
+
+/** 将往生店折扣应用到一次数值店升级消耗上（折扣封顶 100%，消耗不为负） */
+export function applyAfterlifeDiscount(cost: BigNum | null, level: number): BigNum | null {
+  if (cost === null) return null;
+  const discount = getAfterlifeDiscountPercent(level);
+  if (discount <= 0) return cost;
+  const multiplier = Math.max(0, 1 - discount / 100);
+  return cost.mulScalar(multiplier);
+}
 
 export function getUpgradeCost(
   id: UpgradeId,

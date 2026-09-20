@@ -1,14 +1,15 @@
 import React from 'react';
 import { GameState } from '../types';
-import { COLLAPSE_COST } from '../utils/gameMath';
+import { COLLAPSE_COST, getRebirthBaseAttrCost } from '../utils/gameMath';
 import {
   AUTO_UNLOCK_COST,
   RANKING_UNLOCK_COST,
   INITIAL_REBIRTH_BASE_ATTRS,
   REBIRTH_BASE_ATTR_LABELS,
-  REBIRTH_BASE_ATTR_PURCHASE_GAINS,
 } from '../config';
 import { UpgradeButton } from './UpgradeButton';
+import { PressableRow } from './PressableRow';
+import { BigNum } from '../utils/bigNumber';
 
 type AttrKey = keyof typeof REBIRTH_BASE_ATTR_LABELS;
 
@@ -24,14 +25,18 @@ interface RebirthShopProps {
   onBuyAutoUnlock: () => void;
 }
 
+/** 格式化：统一使用系统 BigNum 方法，避免大数（如高倍数/高概率）显示溢出 */
+const fmtPct = (v: number) => BigNum.fromNumber(v * 100).formatChinese(0);
+const fmtInt = (v: number) => BigNum.fromNumber(v).formatChinese(0);
+
 /** 商店中每项基础的展示信息：当前值文案 + 单次提升文案 */
 const ATTR_DISPLAY: Record<AttrKey, { current: (v: number) => string; gain: string }> = {
-  baseValue: { current: (v) => `当前 +${v.toFixed(0)}`, gain: '+5' },
-  autoFrequency: { current: (v) => `当前 +${v.toFixed(0)} 级`, gain: '+1 级' },
-  critMultiplier: { current: (v) => `当前 +${(v * 100).toFixed(0)}%`, gain: '+50%' },
-  critChance: { current: (v) => `当前 +${(v * 100).toFixed(0)}%`, gain: '+5%' },
-  comboChance: { current: (v) => `当前 +${(v * 100).toFixed(0)}%`, gain: '+5%' },
-  comboMultiplier: { current: (v) => `当前 +${(v * 100).toFixed(0)}%`, gain: '+50%' },
+  baseValue: { current: (v) => `当前 +${fmtInt(v)}`, gain: '+5' },
+  autoFrequency: { current: (v) => `当前 +${fmtInt(v)} 级`, gain: '+1 级' },
+  critMultiplier: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+200%' },
+  critChance: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+100%' },
+  comboChance: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+100%' },
+  comboMultiplier: { current: (v) => `当前 +${fmtPct(v)}%`, gain: '+200%' },
 };
 
 const ATTR_ORDER: AttrKey[] = [
@@ -50,7 +55,6 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
   onUnlockRanking,
   onBuyAutoUnlock,
 }) => {
-  const canBuy = state.rebirthPoints >= 1;
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
   const canUnlockRanking = state.rebirthPoints >= RANKING_UNLOCK_COST;
   const canBuyAutoUnlock = state.rebirthPoints >= AUTO_UNLOCK_COST;
@@ -71,36 +75,39 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         {ATTR_ORDER.map((key) => {
           const label = REBIRTH_BASE_ATTR_LABELS[key];
           const display = ATTR_DISPLAY[key];
+          const cost = getRebirthBaseAttrCost(key, rebirthBase[key]).toNumber();
+          const canBuyAttr = state.rebirthPoints >= cost;
 
           return (
-            <div
+            <PressableRow
               key={key}
               id={`shop-item-rebirth-attr-${key}`}
-              onClick={() => {
-                if (canBuy) onBuyRebirthBaseAttr(key);
+              disabled={!canBuyAttr}
+              onPress={() => {
+                if (canBuyAttr) onBuyRebirthBaseAttr(key);
               }}
               className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-                canBuy ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+                canBuyAttr ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
               }`}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
+                  <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
                     {label}
                   </span>
                 </div>
-                <div className="text-[10px] text-[#998e7e] font-serif truncate mt-0.5">
+                <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
                   每次 {display.gain} · {display.current(rebirthBase[key])}
                 </div>
               </div>
 
               <UpgradeButton
                 id={`btn-shop-rebirth-attr-${key}`}
-                disabled={!canBuy}
+                disabled={!canBuyAttr}
               >
-                1 点
+                {cost} 点
               </UpgradeButton>
-            </div>
+            </PressableRow>
           );
         })}
       </div>

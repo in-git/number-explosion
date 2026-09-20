@@ -7,21 +7,22 @@ import {
   Package,
   RefreshCw,
   Settings,
-  ShoppingBag,
+  Sparkles,
   Store,
   Trophy,
 } from 'lucide-react';
 import { GameState } from '../types';
+import { REBIRTH_THRESHOLD } from '../config';
 
 interface ShopEntriesProps {
   state: GameState;
   canRebirth: boolean;
   onOpenUpgradeShop: () => void;
   onOpenRebirthShop: () => void;
+  /** 打开往生店（需先在坍缩店解锁） */
+  onOpenAfterlifeShop: () => void;
   onOpenFunShop: () => void;
   onOpenCollapseShop: () => void;
-  /** 万物店入口：解锁后开放 */
-  onOpenGoodsShop: () => void;
   /** 背包入口：变卖已购商品 */
   onOpenInventory: () => void;
   /** 排行入口：永劫后解锁 */
@@ -53,9 +54,9 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   canRebirth,
   onOpenUpgradeShop,
   onOpenRebirthShop,
+  onOpenAfterlifeShop,
   onOpenFunShop,
   onOpenCollapseShop,
-  onOpenGoodsShop,
   onOpenInventory,
   onOpenRanking,
   onOpenRebirthModal,
@@ -111,22 +112,22 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           <button
             id="btn-open-collapse-shop"
             onClick={onOpenCollapseShop}
-            className={`${SHOP_CARD} bg-[#1b1622] border-[#4a2e5e] hover:border-[#8938b8] active:translate-y-0.5 cursor-pointer`}
+            className={`${SHOP_CARD} bg-[#161d2b] border-[#2e4a6e] hover:border-[#3f7fd0] active:translate-y-0.5 cursor-pointer`}
           >
-            <Orbit size={18} className="text-[#8c8273] flex-shrink-0" />
+            <Orbit size={18} className="text-[#5b9bd8] flex-shrink-0" />
             <div className={SHOP_TITLE}>坍 缩 店</div>
           </button>
         )}
 
-        {/* 万物店：解锁后才显示 */}
-        {state.goodsShopUnlocked && (
+        {/* 往生店：于坍缩店解锁后才显示 */}
+        {state.afterlifeShopUnlocked && (
           <button
-            id="btn-open-goods-shop"
-            onClick={onOpenGoodsShop}
-            className={`${SHOP_CARD} bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
+            id="btn-open-afterlife"
+            onClick={onOpenAfterlifeShop}
+            className={`${SHOP_CARD} bg-[#1b1622] border-[#4a2e5e] hover:border-[#8938b8] active:translate-y-0.5 cursor-pointer`}
           >
-            <ShoppingBag size={18} className="text-[#8c8273] flex-shrink-0" />
-            <div className={SHOP_TITLE}>万 物 店</div>
+            <Sparkles size={18} className="text-[#d897fa] flex-shrink-0" />
+            <div className={SHOP_TITLE}>往 生 殿</div>
           </button>
         )}
       </div>
@@ -138,11 +139,12 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           id="btn-open-rebirth"
           onClick={onOpenRebirthModal}
           disabled={!canOpenRebirth}
-          className={`${LIST_CARD} ${
+          className={`relative ${LIST_CARD} ${
             canOpenRebirth
-              ? 'bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer'
+              ? 'bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer animate-[rebirthGlow_1.5s_ease-in-out_infinite]'
               : 'bg-[#171513] border-[#2b2721] cursor-not-allowed'
           }`}
+          style={{ overflow: 'visible' }}
         >
           <div
             className={`text-sm font-serif font-bold tracking-[0.2em] whitespace-nowrap ${
@@ -152,6 +154,10 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             永 劫
           </div>
           <InfinityIcon size={18} className="text-[#8c8273] flex-shrink-0" />
+          {/* 门槛标签：右上角溢出边界的红色标签 */}
+          <span className="absolute -top-2 -right-2 text-[9px] font-mono px-1 py-px rounded bg-[#3a1717] border border-[#7a2a2a] text-[#f07979] flex-shrink-0">
+            {REBIRTH_THRESHOLD.formatChinese(0).replace('万', 'w')}
+          </span>
         </button>
 
         {/* 背包（变卖已购商品）：解锁后才显示 */}

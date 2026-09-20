@@ -58,19 +58,19 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
 
   // 永劫基础属性：永久累加，与基础值叠加参与计算
   const rebirthBase = state.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
-  const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
+  const pct = (v: number) => `${BigNum.fromNumber(v * 100).formatChinese(0)}%`;
   const rebirthAttrsList: AttributeItem[] = [
     {
       id: 'rebirth-base-value',
       label: '基础数值',
-      value: `+${rebirthBase.baseValue}`,
+      value: `+${BigNum.fromNumber(rebirthBase.baseValue).formatChinese(0)}`,
       detail: '与点击基础值累加',
       valueClass: 'text-[#5fa8e6]',
     },
     {
       id: 'rebirth-auto-freq',
       label: '自动点击频率',
-      value: `+${rebirthBase.autoFrequency} 级`,
+      value: `+${BigNum.fromNumber(rebirthBase.autoFrequency).formatChinese(0)} 级`,
       detail: '与自动点击频率等级累加',
       valueClass: 'text-[#5fa8e6]',
     },
@@ -130,7 +130,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-value-mult',
       label: '数值倍率',
-      value: `${attrs.valueMultiplier.toFixed(2)}x`,
+      value: `${BigNum.fromNumber(attrs.valueMultiplier).formatChinese(2)}x`,
       detail: '基础全域倍率',
     },
     {
@@ -142,25 +142,25 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-combo-chance',
       label: '连击概率',
-      value: `${(attrs.comboChance * 100).toFixed(1)}%`,
+      value: `${BigNum.fromNumber(attrs.comboChance * 100).formatChinese(1)}%`,
       detail: '触发多重连击',
     },
     {
       id: 'attr-combo-mult',
       label: '连击倍数',
-      value: `${(attrs.comboMultiplier * 100).toFixed(0)}%`,
-      detail: `加成 +${attrs.comboMultiplier.toFixed(1)}x`,
+      value: `${BigNum.fromNumber(attrs.comboMultiplier * 100).formatChinese(0)}%`,
+      detail: `加成 +${BigNum.fromNumber(attrs.comboMultiplier).formatChinese(1)}x`,
     },
     {
       id: 'attr-crit-mult',
       label: '暴击倍数',
-      value: `${(attrs.critMultiplier * 100).toFixed(0)}%`,
-      detail: `加成 +${attrs.critMultiplier.toFixed(1)}x`,
+      value: `${BigNum.fromNumber(attrs.critMultiplier * 100).formatChinese(0)}%`,
+      detail: `加成 +${BigNum.fromNumber(attrs.critMultiplier).formatChinese(1)}x`,
     },
     {
       id: 'attr-crit-chance',
       label: '暴击概率',
-      value: `${(attrs.critChance * 100).toFixed(1)}%`,
+      value: `${BigNum.fromNumber(attrs.critChance * 100).formatChinese(1)}%`,
       detail: '天意破极暴击',
     },
     {

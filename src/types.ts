@@ -44,22 +44,6 @@ export interface ToastMessage {
   timestamp: number;
 }
 
-/**
- * 永劫基础属性：每次永劫永久累加，与基础值叠加参与计算
- * - baseValue: 直接加到单次点击的基础数值上
- * - critMultiplier / comboMultiplier: 加到倍数基数（1.0 = 100%）上
- * - critChance / comboChance: 加到概率上（0.05 = 5%），合计上限 100%
- */
-export interface RebirthBaseAttrs {
-  baseValue: number;
-  /** 自动点击频率的永久等级加成（每次购买 +1 级，与功法等级叠加计算） */
-  autoFrequency: number;
-  critMultiplier: number;
-  critChance: number;
-  comboChance: number;
-  comboMultiplier: number;
-}
-
 /** 登录账号（排行榜登顶用） */
 export interface UserAccountData {
   userId: string;
@@ -101,16 +85,19 @@ export interface GameState {
   rebirthCount: number;     // 累计永劫次数（无上限）
   rebirthPoints: number;    // 永劫点数（当前拥有）
   collapsePoints: number;   // 坍缩点数（当前拥有）
+  afterlifePoints: number;  // 往生点数（当前拥有，由坍缩点兑换而来）
   rebirthUnlocked: boolean;
   collapseUnlocked: boolean;
-  /** 万物店是否已解锁（消耗 1 点永劫点数，默认不显示） */
-  goodsShopUnlocked: boolean;
-  /** 背包是否已解锁（消耗 3 点永劫点数，未解锁则无法购置商品） */
+  /** 背包是否已解锁（消耗 3 点永劫点数，开启后可收纳并变卖珍藏） */
   inventoryUnlocked: boolean;
   /** 排行是否已解锁（消耗 1 点永劫点数，默认不显示） */
   rankingUnlocked: boolean;
   /** 是否已购买「功法无需解锁」特权（消耗 1 点永劫点数，永久生效） */
   upgradesAutoUnlocked: boolean;
+  /** 是否已解锁「往生殿」特权（于坍缩店消耗 20 点坍缩点数解锁，永久生效，默认不显示） */
+  afterlifeShopUnlocked: boolean;
+  /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值店的升级消耗，消耗按 2×斐波那契增长 */
+  afterlifeUpgradeLevels: Record<UpgradeId, number>;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
   account: UserAccountData | null;
   /** 上次登录的账号密码与昵称（登录界面直接复用，不再重新生成） */
@@ -119,8 +106,6 @@ export interface GameState {
   goodsPurchases: Record<string, number>;
   /** 购置商品累计花费的数值总额（永不清零） */
   goodsTotalSpent: BigNumData;
-  /** 永劫基础属性（永久累加，永劫/坍缩均不清除） */
-  rebirthBaseAttrs: RebirthBaseAttrs;
   /** 数值上限的提升次数（坍缩商店购买，每级 +100万，0 = 默认 100万） */
   valueCapLevel: number;
   /**

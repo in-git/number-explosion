@@ -2,7 +2,6 @@ import {
   BigNumData,
   GameState,
   LoginCredentials,
-  RebirthBaseAttrs,
   UpgradeId,
   UserAccountData,
 } from '../types';
@@ -10,30 +9,10 @@ import {
   ACHIEVEMENTS,
   DEFAULT_NICKNAME,
   GOODS_CATEGORIES,
-  INITIAL_REBIRTH_BASE_ATTRS,
   INITIAL_STATE,
   STORAGE_KEY,
 } from '../config';
 import { getServerNow } from './serverTime';
-
-/** 清洗永劫基础属性：非法值归 0，缺失字段用初始值补齐 */
-function sanitizeRebirthBaseAttrs(raw: unknown): RebirthBaseAttrs {
-  const src = (raw || {}) as Partial<Record<keyof RebirthBaseAttrs, unknown>>;
-  const pick = (key: keyof RebirthBaseAttrs) => {
-    const v = src[key];
-    return typeof v === 'number' && Number.isFinite(v) && v > 0
-      ? v
-      : INITIAL_REBIRTH_BASE_ATTRS[key];
-  };
-  return {
-    baseValue: pick('baseValue'),
-    autoFrequency: pick('autoFrequency'),
-    critMultiplier: pick('critMultiplier'),
-    critChance: pick('critChance'),
-    comboChance: pick('comboChance'),
-    comboMultiplier: pick('comboMultiplier'),
-  };
-}
 
 /** 清洗账号信息：非法则视为未登录 */
 function sanitizeAccount(raw: unknown): UserAccountData | null {
@@ -154,13 +133,13 @@ export function loadGameState(): GameState {
       rebirthPoints: Number.isFinite(parsed.rebirthPoints) ? parsed.rebirthPoints : 0,
       playTimeMs: Number.isFinite(parsed.playTimeMs) ? Math.max(0, parsed.playTimeMs) : 0,
       collapsePoints: Number.isFinite(parsed.collapsePoints) ? parsed.collapsePoints : 0,
+      afterlifePoints: Number.isFinite(parsed.afterlifePoints) ? parsed.afterlifePoints : 0,
       highestValue: sanitizeBigNumData(parsed.highestValue, {
         m: Number.isFinite(parsed.currentValue?.m) ? parsed.currentValue.m : 0,
         e: Number.isFinite(parsed.currentValue?.e) ? parsed.currentValue.e : 0,
       }),
       goodsPurchases: sanitizeGoodsPurchases(parsed.goodsPurchases),
       goodsTotalSpent: sanitizeBigNumData(parsed.goodsTotalSpent, { m: 0, e: 0 }),
-      goodsShopUnlocked: !!parsed.goodsShopUnlocked,
       inventoryUnlocked: !!parsed.inventoryUnlocked,
       rankingUnlocked: !!parsed.rankingUnlocked,
       upgradesAutoUnlocked: !!parsed.upgradesAutoUnlocked,

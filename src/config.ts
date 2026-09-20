@@ -218,49 +218,19 @@ export const REBIRTH_SHOP_ORDER: UpgradeId[] = [
   'comboMultiplier',
 ];
 
-/** 永劫基础属性初始值（尚未永劫时全为 0） */
-export const INITIAL_REBIRTH_BASE_ATTRS: RebirthBaseAttrs = {
-  baseValue: 0,
-  autoFrequency: 0,
-  critMultiplier: 0,
-  critChance: 0,
-  comboChance: 0,
-  comboMultiplier: 0,
-};
-
 /**
- * 永劫不再自动累加基础属性（永劫只给 1 点永劫点数）。
- * 基础属性仅通过 REBIRTH_BASE_ATTR_PURCHASE_GAINS 在永劫商店购买获得。
- * 此常量保留作历史配置，当前逻辑不再使用。
+ * 永劫基础属性已合并进「数值店」升级等级：
+ * 在永劫店购买即等同于提升数值店对应升级的等级，且该等级永久保留（重生/坍缩不清零）。
+ * 下列即这 6 项合并升级及其展示名。
  */
-export const REBIRTH_BASE_ATTR_GAIN: RebirthBaseAttrs = {
-  baseValue: 1,
-  autoFrequency: 1,
-  critMultiplier: 0.5,
-  critChance: 0.05,
-  comboChance: 0.05,
-  comboMultiplier: 0.5,
-};
-
-/** 永劫商店中，单独升级某项永劫基础属性时，每次购买获得的增量（消耗 1 点永劫点数） */
-export const REBIRTH_BASE_ATTR_PURCHASE_GAINS: Record<keyof RebirthBaseAttrs, number> = {
-  baseValue: 5,
-  autoFrequency: 1,
-  critMultiplier: 0.5,
-  critChance: 0.05,
-  comboChance: 0.05,
-  comboMultiplier: 0.5,
-};
-
-/** 永劫基础属性中文名（用于商店与提示） */
-export const REBIRTH_BASE_ATTR_LABELS: Record<keyof RebirthBaseAttrs, string> = {
-  baseValue: '基础数值',
-  autoFrequency: '自动点击频率',
-  critMultiplier: '暴击倍数',
-  critChance: '暴击概率',
-  comboChance: '连击概率',
-  comboMultiplier: '连击倍数',
-};
+export const REBIRTH_MERGED_UPGRADES: { id: UpgradeId; label: string }[] = [
+  { id: 'baseValue', label: '基础数值' },
+  { id: 'autoFrequency', label: '自动点击频率' },
+  { id: 'critMultiplier', label: '暴击倍数' },
+  { id: 'critChance', label: '暴击概率' },
+  { id: 'comboChance', label: '连击概率' },
+  { id: 'comboMultiplier', label: '连击倍数' },
+];
 
 /** 万物店商品条目（消耗当前数值购买） */
 export interface GoodsItem {
@@ -454,14 +424,16 @@ export const RANKS: RankDef[] = [
   },
 ];
 
-/** 解锁万物店消耗的永劫点数 */
-export const GOODS_SHOP_UNLOCK_COST = 1;
-/** 解锁背包消耗的永劫点数（未解锁不可购置商品） */
+/** 解锁背包消耗的永劫点数（开启后可收纳并变卖珍藏） */
 export const INVENTORY_UNLOCK_COST = 3;
 /** 解锁排行消耗的永劫点数 */
 export const RANKING_UNLOCK_COST = 1;
 /** 「功法无需解锁」特权消耗的永劫点数 */
 export const AUTO_UNLOCK_COST = 1;
+/** 「往生店」特权消耗的坍缩点数（于坍缩店一次性解锁） */
+export const AFTERLIFE_SHOP_UNLOCK_COST = 20;
+/** 往生点兑换：每 10 点坍缩点数可兑换 1 点往生点数（于往生店内兑换） */
+export const AFTERLIFE_POINT_EXCHANGE_COST = 10;
 
 /** 排行昵称默认值（必填，用户可自行修改） */
 export const DEFAULT_NICKNAME = '数爆玩家';
@@ -485,18 +457,30 @@ export const INITIAL_STATE: GameState = {
   rebirthCount: 0,
   rebirthPoints: 0,
   collapsePoints: 0,
+  /** 往生点数：默认 0，由坍缩点兑换而来 */
+  afterlifePoints: 0,
   /** 累计游玩时长（ms）：仅页面可见时累计 */
   playTimeMs: 0,
   rebirthUnlocked: false,
   collapseUnlocked: false,
-  /** 万物店：默认不显示，消耗 1 点永劫点数解锁 */
-  goodsShopUnlocked: false,
-  /** 背包：默认不显示，消耗 3 点永劫点数解锁（未解锁不可购置商品） */
+  /** 背包：默认不显示，消耗 3 点永劫点数解锁（开启后可收纳并变卖珍藏） */
   inventoryUnlocked: false,
   /** 排行：默认不显示，消耗 1 点永劫点数解锁 */
   rankingUnlocked: false,
   /** 功法无需解锁特权：默认关闭 */
   upgradesAutoUnlocked: false,
+  /** 往生殿特权：默认关闭（于坍缩店消耗 20 点坍缩点数解锁） */
+  afterlifeShopUnlocked: false,
+  /** 往生殿：各属性已购升级等级，默认全为 0 */
+  afterlifeUpgradeLevels: {
+    baseValue: 0,
+    autoClickUnlock: 0,
+    autoFrequency: 0,
+    comboChance: 0,
+    critMultiplier: 0,
+    comboMultiplier: 0,
+    critChance: 0,
+  },
   /** 登录账号与已选大区（未登录为 null） */
   account: null,
   /** 上次登录凭据（null = 无历史记录） */
@@ -505,7 +489,6 @@ export const INITIAL_STATE: GameState = {
   goodsPurchases: {},
   /** 购置商品累计花费的数值总额 */
   goodsTotalSpent: { m: 0, e: 0 },
-  rebirthBaseAttrs: { ...INITIAL_REBIRTH_BASE_ATTRS },
   valueCapLevel: 0,
   rebirthPointLevel: 0,
   /** 永劫点数兑换坍缩点数的累计次数 */

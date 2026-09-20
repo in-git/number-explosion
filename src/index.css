@@ -49,6 +49,19 @@ body {
   }
 }
 
+/* 永劫解锁后可永劫：边框闪烁提示 */
+@keyframes rebirthGlow {
+  0%,
+  100% {
+    border-color: #4a3a24;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    border-color: #f07979;
+    box-shadow: 0 0 14px rgba(240, 121, 121, 0.75);
+  }
+}
+
 /* Custom scrollbar matching weathered stone aesthetic（始终可见，便于辨识内容已溢出） */
 * {
   scrollbar-width: thin;

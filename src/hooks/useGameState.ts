@@ -10,12 +10,17 @@ import {
   COLLAPSE_COST,
   LEVEL_CAP_PER_POINT,
   getValueCap,
+  getValueCapStep,
+  getValueCapCost,
   getRebirthStartValue,
   getRebirthPointUpgradeCost,
+  getRebirthBaseAttrCost,
   getExtraRebirthPoints,
   getRebirthToCollapseCost,
   getRebirthPointsFromValue,
   getGoodsSellPrice,
+  getAfterlifeUpgradeCost,
+  getAfterlifeDiscountPercent,
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
 import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
@@ -24,9 +29,10 @@ import {
   ACHIEVEMENTS,
   GOODS_CATEGORIES,
   AUTO_UNLOCK_COST,
-  GOODS_SHOP_UNLOCK_COST,
   INVENTORY_UNLOCK_COST,
   RANKING_UNLOCK_COST,
+  AFTERLIFE_SHOP_UNLOCK_COST,
+  AFTERLIFE_POINT_EXCHANGE_COST,
   INITIAL_REBIRTH_BASE_ATTRS,
   INITIAL_STATE,
   OFFLINE_MAX_MS,
@@ -454,22 +460,28 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 永劫商店：消耗 1 点永劫点数，单独提升某一永劫基础属性 */
+  /** 永劫商店：消耗永劫点数，单独提升某一永劫基础属性（暴击/连击倍数消耗按斐波那契递增） */
   const handleBuyRebirthBaseAttr = useCallback(
     (key: keyof typeof REBIRTH_BASE_ATTR_PURCHASE_GAINS) => {
-      setState((prev) => {
-        if (prev.rebirthPoints < 1) return prev;
-        const rebirthBase = prev.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
-        const next = { ...rebirthBase, [key]: rebirthBase[key] + REBIRTH_BASE_ATTR_PURCHASE_GAINS[key] };
+      const prev = stateRef.current;
+      const rebirthBase = prev.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
+      const cost = getRebirthBaseAttrCost(key, rebirthBase[key]).toNumber();
+      if (prev.rebirthPoints < cost) return;
+      setState((p) => {
+        const rb = p.rebirthBaseAttrs || INITIAL_REBIRTH_BASE_ATTRS;
+        const next = { ...rb, [key]: rb[key] + REBIRTH_BASE_ATTR_PURCHASE_GAINS[key] };
         return {
-          ...prev,
-          rebirthPoints: prev.rebirthPoints - 1,
+          ...p,
+          rebirthPoints: p.rebirthPoints - cost,
           rebirthBaseAttrs: next,
         };
       });
       const gain = REBIRTH_BASE_ATTR_PURCHASE_GAINS[key];
       const gainText = key === 'autoFrequency' ? `+${gain} 级` : `+${gain}`;
-      addToast('道基淬炼', `永劫基础属性「${REBIRTH_BASE_ATTR_LABELS[key]}」提升 ${gainText}`);
+      addToast(
+        '道基淬炼',
+        `永劫基础属性「${REBIRTH_BASE_ATTR_LABELS[key]}」提升 ${gainText} · 消耗 ${cost} 点永劫点数`
+      );
     },
     [addToast]
   );
@@ -487,18 +499,22 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('坍缩觉醒', `消耗 ${COLLAPSE_COST} 点永劫值 · 太虚坍缩已开启`);
   }, [addToast]);
 
-  /** 坍缩商店：消耗 1 点坍缩点数，数值上限 +100 万（线性） */
+  /** 坍缩商店：消耗按斐波那契递增的坍缩点数，提升数值上限（每级提升量亦按斐波那契式递增） */
   const handleBuyValueCap = useCallback(() => {
-    const nextLevel = (stateRef.current.valueCapLevel || 0) + 1;
-    setState((prev) => {
-      if (prev.collapsePoints < 1) return prev;
-      return {
-        ...prev,
-        collapsePoints: prev.collapsePoints - 1,
-        valueCapLevel: nextLevel,
-      };
-    });
-    addToast('天道扩容', `数值上限 +100万 → ${getValueCap(nextLevel).formatChinese(2)}`);
+    const prev = stateRef.current;
+    const nextLevel = (prev.valueCapLevel || 0) + 1;
+    const cost = getValueCapCost(nextLevel);
+    if (!BigNum.fromNumber(prev.collapsePoints).gte(cost)) return;
+    const costNum = cost.toNumber();
+    setState((p) => ({
+      ...p,
+      collapsePoints: Math.max(0, p.collapsePoints - costNum),
+      valueCapLevel: nextLevel,
+    }));
+    addToast(
+      '天道扩容',
+      `数值上限 +${getValueCapStep(nextLevel).formatChinese(2)} → ${getValueCap(nextLevel).formatChinese(2)} · 消耗 ${cost.formatChinese(0)} 点坍缩点数`
+    );
   }, [addToast]);
 
   /** 坍缩商店：购买「永劫点数获取」，消耗按斐波拉契递增的坍缩点数 */
@@ -521,23 +537,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       '天命加身',
       `永劫时额外 +1 点永劫点数（当前 +${level + 1}）· 消耗 ${cost.formatChinese(0)} 点坍缩点数`
     );
-  }, [addToast]);
-
-  /** 永劫商店：消耗 1 点永劫点数解锁万物店 */
-  const handleUnlockGoodsShop = useCallback(() => {
-    let done = false;
-    setState((prev) => {
-      if (prev.goodsShopUnlocked || prev.rebirthPoints < GOODS_SHOP_UNLOCK_COST) return prev;
-      done = true;
-      return {
-        ...prev,
-        rebirthPoints: prev.rebirthPoints - GOODS_SHOP_UNLOCK_COST,
-        goodsShopUnlocked: true,
-      };
-    });
-    if (done) {
-      addToast('万物洞开', `消耗 ${GOODS_SHOP_UNLOCK_COST} 点永劫点数 · 万物店已开张`);
-    }
   }, [addToast]);
 
   /** 永劫商店：消耗 3 点永劫点数解锁背包（未解锁不可购置商品） */
@@ -626,6 +625,75 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
+
+
+  /** 坍缩商店：消耗 20 点坍缩点数解锁「往生店」（一次性，永久生效，默认不显示） */
+  const handleUnlockAfterlifeShop = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.afterlifeShopUnlocked || prev.collapsePoints < AFTERLIFE_SHOP_UNLOCK_COST) {
+        return prev;
+      }
+      done = true;
+      return {
+        ...prev,
+        collapsePoints: prev.collapsePoints - AFTERLIFE_SHOP_UNLOCK_COST,
+        afterlifeShopUnlocked: true,
+      };
+    });
+    if (done) {
+      addToast(
+        '往生洞开',
+        `消耗 ${AFTERLIFE_SHOP_UNLOCK_COST} 点坍缩点数 · 各属性升级消耗可进一步折扣`
+      );
+    }
+  }, [addToast]);
+
+  /** 往生店：消耗 10 点坍缩点兑换 1 点往生点（在往生店内操作） */
+  const handleExchangeAfterlifePoint = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.collapsePoints < AFTERLIFE_POINT_EXCHANGE_COST) return prev;
+      done = true;
+      return {
+        ...prev,
+        collapsePoints: prev.collapsePoints - AFTERLIFE_POINT_EXCHANGE_COST,
+        afterlifePoints: prev.afterlifePoints + 1,
+      };
+    });
+    if (done) {
+      addToast('往生点', `消耗 ${AFTERLIFE_POINT_EXCHANGE_COST} 点坍缩点数 · 兑换 1 点往生点`);
+    }
+  }, [addToast]);
+
+  /** 往生殿：消耗斐波那契递增的往生点，提升指定属性在数值店的升级消耗折扣 */
+  const handleBuyAfterlifeUpgrade = useCallback(
+    (id: UpgradeId) => {
+      let done = false;
+      let newLevel = 0;
+      setState((prev) => {
+        const levels = prev.afterlifeUpgradeLevels || {};
+        const level = levels[id] || 0;
+        const cost = getAfterlifeUpgradeCost(level);
+        if (prev.afterlifePoints < cost) return prev;
+        done = true;
+        newLevel = level + 1;
+        return {
+          ...prev,
+          afterlifePoints: prev.afterlifePoints - cost,
+          afterlifeUpgradeLevels: { ...levels, [id]: newLevel },
+        };
+      });
+      if (done) {
+        addToast(
+          '往生加护',
+          `往生殿 ${UPGRADE_METADATA[id].name} Lv.${newLevel} · 数值店升级消耗折扣 +${getAfterlifeDiscountPercent(newLevel).toFixed(1)}%`
+        );
+      }
+    },
+    [addToast]
+  );
+
   /** 永劫商店：消耗 1 点永劫点数解锁排行 */
   const handleUnlockRanking = useCallback(() => {
     let done = false;
@@ -642,31 +710,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       addToast('天榜开启', `消耗 ${RANKING_UNLOCK_COST} 点永劫点数 · 天道有榜，各归其位`);
     }
   }, [addToast]);
-
-  /** 万物店：花费当前数值购置商品（价格随拥有数按斐波拉契递增，需已解锁背包） */
-  const handleBuyGoods = useCallback(
-    (id: string, name: string, cost: BigNum) => {
-      if (!stateRef.current.inventoryUnlocked) return;
-      const currentVal = bigNumRef.current;
-      const price = cost;
-      if (!currentVal.gte(price)) return;
-
-      commitValue(currentVal.sub(price));
-
-      setState((prev) => ({
-        ...prev,
-        goodsPurchases: {
-          ...(prev.goodsPurchases || {}),
-          [id]: (prev.goodsPurchases?.[id] || 0) + 1,
-        },
-        // 累计购置花费（永不清零）
-        goodsTotalSpent: BigNum.fromData(prev.goodsTotalSpent).add(price).toData(),
-      }));
-
-      addToast('购置万物', `${name} · 花费 ${price.formatChinese(2)}`);
-    },
-    [addToast, commitValue]
-  );
 
   /** 背包：变卖已购商品，按原价 10% 回收数值 */
   const handleSellGoods = useCallback(
@@ -846,14 +889,15 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUnlockCollapse,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
-    handleUnlockGoodsShop,
     handleUnlockInventory,
     handleUnlockRanking,
     handleBuyAutoUnlock,
+    handleUnlockAfterlifeShop,
+    handleExchangeAfterlifePoint,
+    handleBuyAfterlifeUpgrade,
     handleLogin,
     handleLogout,
     handleSelectRegion,
-    handleBuyGoods,
     handleSellGoods,
     handleSellAllGoods,
     confirmRebirth,

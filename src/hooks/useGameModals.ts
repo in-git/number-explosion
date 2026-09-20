@@ -7,10 +7,10 @@ export interface GameModalsState {
   rebirthShop: Disclosure;
   /** 坍缩商店（数值上限 +100万 等） */
   collapseShop: Disclosure;
-  /** 万物店（消耗数值购置万物） */
-  goodsShop: Disclosure;
   /** 背包（变卖已购商品） */
   inventory: Disclosure;
+  /** 往生店（数值店升级折扣，坍缩店解锁后显示） */
+  afterlifeShop: Disclosure;
   /** 排行榜（永劫后解锁） */
   ranking: Disclosure;
   /** 奇趣商店（博弈） */
@@ -30,8 +30,8 @@ export function useGameModals(): GameModalsState {
     upgradeShop: useDisclosure(),
     rebirthShop: useDisclosure(),
     collapseShop: useDisclosure(),
-    goodsShop: useDisclosure(),
     inventory: useDisclosure(),
+    afterlifeShop: useDisclosure(),
     ranking: useDisclosure(),
     funShop: useDisclosure(),
     rebirth: useDisclosure(),

@@ -8,12 +8,12 @@ import { ModalShell } from './ModalShell';
 import { UpgradesList } from './UpgradesList';
 import { RebirthShop } from './RebirthShop';
 import { CollapseShop } from './CollapseShop';
-import { GoodsShop } from './GoodsShop';
 import { Inventory } from './Inventory';
 import { Ranking } from './Ranking';
 import { AchievementsModal } from './AchievementsModal';
 import { RebirthModal } from './RebirthModal';
 import { CollapseModal } from './CollapseModal';
+import { AfterlifeShop } from './AfterlifeShop';
 import { SettingsModal } from './SettingsModal';
 
 interface GameModalsProps {
@@ -26,14 +26,18 @@ interface GameModalsProps {
   onBuyLevelCap: (id: UpgradeId) => void;
   onBuyRebirthBaseAttr: (key: keyof typeof REBIRTH_BASE_ATTR_PURCHASE_GAINS) => void;
   onUnlockCollapse: () => void;
-  /** 消耗 1 点永劫点数解锁万物店 */
-  onUnlockGoodsShop: () => void;
   /** 消耗 3 点永劫点数解锁背包 */
   onUnlockInventory: () => void;
+  /** 消耗 20 点坍缩点数解锁往生店（于坍缩店） */
+  onUnlockAfterlifeShop: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
   onUnlockRanking: () => void;
   /** 消耗 1 点永劫点数购买「功法无需解锁」特权 */
   onBuyAutoUnlock: () => void;
+  /** 往生店：消耗 10 点坍缩点兑换 1 点往生点 */
+  onExchangeAfterlifePoint: () => void;
+  /** 往生殿：消耗斐波那契递增的往生点，提升某属性在数值店的升级折扣 */
+  onBuyAfterlifeUpgrade: (id: UpgradeId) => void;
   /** 排行·登顶：注册/登录 */
   onLogin: (account: UserAccountData) => void;
   /** 排行·登顶：入驻大区 */
@@ -45,8 +49,6 @@ interface GameModalsProps {
   onBuyRebirthPointLevel: () => void;
   /** 永劫点数兑换坍缩点数 */
   onExchangeRebirthToCollapse: () => void;
-  /** 万物店：花费当前数值购置商品 */
-  onBuyGoods: (id: string, name: string, cost: BigNum) => void;
   /** 背包：变卖 1 件已购商品 */
   onSellGoods: (id: string, name: string, price: BigNum) => void;
   /** 背包：变卖全部已购商品 */
@@ -73,17 +75,18 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyLevelCap,
   onBuyRebirthBaseAttr,
   onUnlockCollapse,
-  onUnlockGoodsShop,
   onUnlockInventory,
+  onUnlockAfterlifeShop,
   onUnlockRanking,
   onBuyAutoUnlock,
+  onExchangeAfterlifePoint,
+  onBuyAfterlifeUpgrade,
   onLogin,
   onRegionSelected,
   onLogout,
   onBuyValueCap,
   onBuyRebirthPointLevel,
   onExchangeRebirthToCollapse,
-  onBuyGoods,
   onSellGoods,
   onSellAllGoods,
   onGambleSettle,
@@ -138,24 +141,14 @@ export const GameModals: React.FC<GameModalsProps> = ({
         onBuyRebirthPointLevel={onBuyRebirthPointLevel}
         onBuyLevelCap={onBuyLevelCap}
         onExchangeRebirthToCollapse={onExchangeRebirthToCollapse}
-        onUnlockGoodsShop={onUnlockGoodsShop}
         onUnlockInventory={onUnlockInventory}
+        onUnlockAfterlifeShop={onUnlockAfterlifeShop}
         collapseGain={collapseGain}
         onOpenCollapse={() => {
           modals.collapseShop.close();
           modals.collapse.open();
         }}
       />
-    </ModalShell>
-
-    {/* 万物店 Modal */}
-    <ModalShell
-      isOpen={modals.goodsShop.isOpen}
-      onClose={modals.goodsShop.close}
-      title="万 物 店"
-      subtitle="—— 一 掷 千 金 · 万 物 可 购 ——"
-    >
-      <GoodsShop state={state} currentValue={currentValue} onBuy={onBuyGoods} />
     </ModalShell>
 
     {/* 背包 Modal */}
@@ -213,6 +206,20 @@ export const GameModals: React.FC<GameModalsProps> = ({
       currentValue={currentValue}
       currentRebirthCount={state.rebirthCount}
     />
+
+    {/* 往生店 Modal */}
+    <ModalShell
+      isOpen={modals.afterlifeShop?.isOpen ?? false}
+      onClose={modals.afterlifeShop?.close}
+      title="往生殿"
+      subtitle="数值店升级消耗折扣 · 往生点兑换"
+    >
+      <AfterlifeShop
+        state={state}
+        onExchangeAfterlifePoint={onExchangeAfterlifePoint}
+        onBuyAfterlifeUpgrade={onBuyAfterlifeUpgrade}
+      />
+    </ModalShell>
 
     {/* 坍缩 Modal */}
     <CollapseModal

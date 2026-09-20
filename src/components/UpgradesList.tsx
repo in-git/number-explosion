@@ -11,9 +11,12 @@ import {
   getAutoClickRate,
   CRIT_CHANCE_BASE,
   CRIT_CHANCE_STEP,
+  applyAfterlifeDiscount,
+  getAfterlifeDiscountPercent,
 } from '../utils/gameMath';
 import { UPGRADE_ORDER } from '../config';
 import { UpgradeButton } from './UpgradeButton';
+import { PressableRow } from './PressableRow';
 
 interface UpgradesListProps {
   state: GameState;
@@ -26,56 +29,6 @@ interface UpgradeDesc {
   currentDesc: string;
   nextDesc: string;
 }
-
-/** 长按首次触发的延迟（ms） */
-const PRESS_DELAY_MS = 400;
-/** 长按持续触发的间隔（ms） */
-const PRESS_INTERVAL_MS = 110;
-
-/** 可长按的行：按下即升级一次，按住不放则持续升级 */
-const PressableRow: React.FC<{
-  id: string;
-  disabled: boolean;
-  onPress: () => void;
-  className?: string;
-  children: React.ReactNode;
-}> = ({ id, disabled, onPress, className = '', children }) => {
-  // 始终持有最新的回调，保证连发时使用最新消耗
-  const pressRef = React.useRef(onPress);
-  pressRef.current = onPress;
-  const delayRef = React.useRef<number | null>(null);
-  const repeatRef = React.useRef<number | null>(null);
-
-  const stop = React.useCallback(() => {
-    if (delayRef.current !== null) window.clearTimeout(delayRef.current);
-    if (repeatRef.current !== null) window.clearInterval(repeatRef.current);
-    delayRef.current = null;
-    repeatRef.current = null;
-  }, []);
-
-  React.useEffect(() => stop, [stop]);
-
-  const start = () => {
-    if (disabled) return;
-    pressRef.current();
-    delayRef.current = window.setTimeout(() => {
-      repeatRef.current = window.setInterval(() => pressRef.current(), PRESS_INTERVAL_MS);
-    }, PRESS_DELAY_MS);
-  };
-
-  return (
-    <div
-      id={id}
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      className={className}
-    >
-      {children}
-    </div>
-  );
-};
 
 function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
   if (id === 'baseValue') {
@@ -158,7 +111,11 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
     const upgradeState = state.upgrades[id];
     const maxLevel = getUpgradeMaxLevel(id, upgradeState);
     const desc = getUpgradeDesc(id, upgradeState.level);
-    const currentCost = getUpgradeCost(id, upgradeState.level, maxLevel);
+    // 往生殿折扣：按当前属性等级降低该属性的数值店升级消耗
+    const currentCost = applyAfterlifeDiscount(
+      getUpgradeCost(id, upgradeState.level, maxLevel),
+      state.afterlifeUpgradeLevels?.[id] || 0,
+    );
 
     return {
       id,
@@ -206,9 +163,12 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
         </button>
       </div>
 
-      {/* 长按提示 */}
+      {/* 长按提示 / 往生店折扣提示 */}
       <div className="text-[10px] font-serif text-[#8a7a63] text-center -mt-0.5">
-        长按条目可持续升级
+        {'长按条目可持续升级'}
+        {Object.values(state.afterlifeUpgradeLevels || {}).some((v) => v > 0) && (
+          <span className="text-[#7bd88f]"> · 往生殿：升级消耗按属性折扣</span>
+        )}
       </div>
 
       {shownRows.length === 0 ? (
@@ -238,7 +198,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-serif font-bold text-xs sm:text-sm text-[#cfe8d4] truncate">
+                      <span className="font-serif font-bold text-xs sm:text-sm text-[#cfe8d4] break-words">
                         {meta.name}
                       </span>
                       <span className="text-[10px] font-mono px-1 py-px rounded bg-[#1d2c22] border border-[#33553c] text-[#8fc79a] flex-shrink-0">
@@ -272,25 +232,14 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
               );
             }
 
-            // Already unlocked: 支持长按持续升级
+            // 所有升级均支持长按持续升级：单击升级一次，长按连续连升
             const canUpgrade = !isMaxed && !!currentCost && row.canAffordUpgrade;
 
-            return (
-              <PressableRow
-                key={id}
-                id={`upgrade-item-${id}`}
-                disabled={!canUpgrade}
-                onPress={() => {
-                  if (!currentCost) return;
-                  onUpgrade(id, currentCost);
-                }}
-                className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors select-none ${
-                  canUpgrade ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
-                }`}
-              >
+            const rowInner = (
+              <>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">
+                    <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
                       {meta.name}
                     </span>
                     {/* 数值升级直接显示加成值，其余显示等级 / 上限 */}
@@ -300,10 +249,10 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                         : `Lv.${upgradeState.level} / ${maxLevel}`}
                     </span>
                   </div>
-                  <div className="text-[10px] text-[#998e7e] font-serif flex items-center gap-1.5">
-                    <span className="truncate">{desc.currentDesc}</span>
+                  <div className="text-[10px] text-[#998e7e] font-serif flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span className="break-words">{desc.currentDesc}</span>
                     <span className="text-[#6e6456] flex-shrink-0">→</span>
-                    <span className="text-[#807667] truncate">{desc.nextDesc}</span>
+                    <span className="text-[#807667] break-words">{desc.nextDesc}</span>
                   </div>
                 </div>
 
@@ -319,6 +268,25 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     {currentCost.formatChinese(2)}
                   </UpgradeButton>
                 )}
+              </>
+            );
+
+            const rowClassName = `flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
+              canUpgrade ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+            }`;
+
+            return (
+              <PressableRow
+                key={id}
+                id={`upgrade-item-${id}`}
+                disabled={!canUpgrade}
+                onPress={() => {
+                  if (!currentCost) return;
+                  onUpgrade(id, currentCost);
+                }}
+                className={`${rowClassName} select-none`}
+              >
+                {rowInner}
               </PressableRow>
             );
           })}
