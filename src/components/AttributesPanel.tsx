@@ -66,13 +66,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
         : `基础 (${BASE_VALUE_INITIAL})`,
       detail: `当前单次基础: ${attrs.baseValue.formatChinese(1)}`,
     },
-    {
-      id: 'attr-goods-total-spent',
-      label: '购置总额',
-      value: BigNum.fromData(state.goodsTotalSpent).formatChinese(2),
-      valueClass: 'text-[#c9a86a]',
-      detail: '万物店累计花费 · 永不清零',
-    },
+ 
     {
       id: 'attr-highest-value',
       label: '最高数值',

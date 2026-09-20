@@ -68,8 +68,6 @@ export const RegionPanel: React.FC<RegionPanelProps> = ({
         collapsePoints: state.collapsePoints || 0,
         playTimeMs: state.playTimeMs || 0,
         clickCount: state.totalClickCount || 0,
-        highestValue: state.highestValue,
-        totalSpent: state.goodsTotalSpent,
       });
       onRegionSelected(regionId, region?.name ?? regionId);
       onBack();

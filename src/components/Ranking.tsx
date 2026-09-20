@@ -56,7 +56,6 @@ function formatScore(board: LeaderboardId, value: BigNumData): string {
 /** 本人成绩 */
 function selfScore(board: LeaderboardId, state: GameState): BigNumData {
   if (board === 'value') return state.highestValue;
-  if (board === 'wealth') return state.goodsTotalSpent;
   if (board === 'playTime') return BigNum.fromNumber(state.playTimeMs || 0).toData();
   if (board === 'clicks') return BigNum.fromNumber(state.totalClickCount || 0).toData();
   return BigNum.fromNumber(state.rebirthCount || 0).toData();
@@ -84,14 +83,8 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
       <ProfileItem label="重生次数" value={`${profile.rebirthCount.toLocaleString('zh-CN')} 次`} />
       <ProfileItem label="坍缩重数" value={`${profile.collapsePoints} 重`} />
       <ProfileItem label="游玩时长" value={formatDuration(profile.playTimeMs)} />
-      <ProfileItem label="最高数值" value={BigNum.fromData(profile.highestValue).formatChinese(2)} />
     </div>
-    <div className="mt-1 pt-1 border-t border-[#3a3228]">
-      <ProfileItem
-        label="购置总额"
-        value={BigNum.fromData(profile.totalSpent).formatChinese(2)}
-      />
-    </div>
+  
   </div>
 );
 
@@ -129,8 +122,7 @@ export const Ranking: React.FC<RankingProps> = ({
         rebirthCount: state.rebirthCount || 0,
         collapsePoints: state.collapsePoints || 0,
         playTimeMs: state.playTimeMs || 0,
-        highestValue: state.highestValue,
-        totalSpent: state.goodsTotalSpent,
+   
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,8 +136,7 @@ export const Ranking: React.FC<RankingProps> = ({
       state.playTimeMs,
       state.highestValue.m,
       state.highestValue.e,
-      state.goodsTotalSpent.m,
-      state.goodsTotalSpent.e,
+
     ]
   );
 
@@ -156,8 +147,6 @@ export const Ranking: React.FC<RankingProps> = ({
     submitScore({
       userId: account.userId,
       userName: account.userName,
-      highestValue: state.highestValue,
-      totalSpent: state.goodsTotalSpent,
       playTimeMs: state.playTimeMs || 0,
       rebirthCount: state.rebirthCount || 0,
       clickCount: state.totalClickCount || 0,

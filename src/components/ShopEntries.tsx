@@ -23,8 +23,6 @@ interface ShopEntriesProps {
   onOpenAfterlifeShop: () => void;
   onOpenFunShop: () => void;
   onOpenCollapseShop: () => void;
-  /** 背包入口：变卖已购商品 */
-  onOpenInventory: () => void;
   /** 排行入口：永劫后解锁 */
   onOpenRanking: () => void;
   /** 永劫入口：弹窗内可继续转入坍缩 */
@@ -57,7 +55,6 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   onOpenAfterlifeShop,
   onOpenFunShop,
   onOpenCollapseShop,
-  onOpenInventory,
   onOpenRanking,
   onOpenRebirthModal,
   onOpenAchievementsModal,
@@ -160,17 +157,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           </span>
         </button>
 
-        {/* 背包（变卖已购商品）：解锁后才显示 */}
-        {state.inventoryUnlocked && (
-          <button
-            id="btn-open-inventory"
-            onClick={onOpenInventory}
-            className={`${LIST_CARD} bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
-          >
-            <div className={LIST_TITLE}>背 包</div>
-            <Package size={18} className="text-[#8c8273] flex-shrink-0" />
-          </button>
-        )}
+    
 
         {/* 排行（消耗 1 点永劫点数解锁后显示） */}
         {rankingUnlocked && (

@@ -100,8 +100,7 @@ export interface GameState {
   afterlifePoints: number;  // 往生点数（当前拥有，由坍缩点兑换而来）
   rebirthUnlocked: boolean;
   collapseUnlocked: boolean;
-  /** 背包是否已解锁（消耗 3 点永劫点数，开启后可收纳并变卖珍藏） */
-  inventoryUnlocked: boolean;
+
   /** 排行是否已解锁（消耗 1 点永劫点数，默认不显示） */
   rankingUnlocked: boolean;
   /** 是否已购买「功法无需解锁」特权（消耗 1 点永劫点数，永久生效） */
@@ -119,10 +118,7 @@ export interface GameState {
   account: UserAccountData | null;
   /** 上次登录的账号密码与昵称（登录界面直接复用，不再重新生成） */
   lastCredentials: LoginCredentials | null;
-  /** 万物店已购商品：商品 id → 拥有数量 */
-  goodsPurchases: Record<string, number>;
-  /** 购置商品累计花费的数值总额（永不清零） */
-  goodsTotalSpent: BigNumData;
+
   /** 数值上限的提升次数（坍缩商店购买，每级 +100万，0 = 默认 100万） */
   valueCapLevel: number;
   /**

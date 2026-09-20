@@ -37,8 +37,6 @@ export interface UserSyncPayload {
   playTimeMs: number;
   /** 连点榜：历世累计点击次数 */
   clickCount: number;
-  highestValue: { m: number; e: number };
-  totalSpent: { m: number; e: number };
 }
 
 /** 后端接口基址（由 vite 代理转发到后端服务） */

@@ -7,7 +7,6 @@ import { ModalShell } from './ModalShell';
 import { UpgradesList } from './UpgradesList';
 import { RebirthShop } from './RebirthShop';
 import { CollapseShop } from './CollapseShop';
-import { Inventory } from './Inventory';
 import { Ranking } from './Ranking';
 import { AchievementsModal } from './AchievementsModal';
 import { RebirthModal } from './RebirthModal';
@@ -25,8 +24,7 @@ interface GameModalsProps {
   onBuyLevelCap: (id: UpgradeId) => void;
   onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
   onUnlockCollapse: () => void;
-  /** 消耗 3 点永劫点数解锁背包 */
-  onUnlockInventory: () => void;
+
   /** 消耗 20 点坍缩点数解锁往生店（于坍缩店） */
   onUnlockAfterlifeShop: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
@@ -48,10 +46,8 @@ interface GameModalsProps {
   onBuyRebirthPointLevel: () => void;
   /** 永劫点数兑换坍缩点数 */
   onExchangeRebirthToCollapse: () => void;
-  /** 背包：变卖 1 件已购商品 */
-  onSellGoods: (id: string, name: string, price: BigNum) => void;
-  /** 背包：变卖全部已购商品 */
-  onSellAllGoods: () => void;
+
+
   onGambleSettle: (type: SettleType, amount: BigNum) => void;
   onConfirmRebirth: () => void;
   onConfirmCollapse: () => void;
@@ -74,7 +70,6 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyLevelCap,
   onBuyRebirthMergedUpgrade,
   onUnlockCollapse,
-  onUnlockInventory,
   onUnlockAfterlifeShop,
   onUnlockRanking,
   onBuyAutoUnlock,
@@ -86,8 +81,6 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyValueCap,
   onBuyRebirthPointLevel,
   onExchangeRebirthToCollapse,
-  onSellGoods,
-  onSellAllGoods,
   onGambleSettle,
   onConfirmRebirth,
   onConfirmCollapse,
@@ -140,7 +133,6 @@ export const GameModals: React.FC<GameModalsProps> = ({
         onBuyRebirthPointLevel={onBuyRebirthPointLevel}
         onBuyLevelCap={onBuyLevelCap}
         onExchangeRebirthToCollapse={onExchangeRebirthToCollapse}
-        onUnlockInventory={onUnlockInventory}
         onUnlockAfterlifeShop={onUnlockAfterlifeShop}
         collapseGain={collapseGain}
         onOpenCollapse={() => {
@@ -150,20 +142,6 @@ export const GameModals: React.FC<GameModalsProps> = ({
       />
     </ModalShell>
 
-    {/* 背包 Modal */}
-    <ModalShell
-      isOpen={modals.inventory.isOpen}
-      onClose={modals.inventory.close}
-      title="背 包"
-      subtitle="—— 万 物 入 囊 · 变 卖 折 现 ——"
-    >
-      <Inventory
-        state={state}
-        currentValue={currentValue}
-        onSell={onSellGoods}
-        onSellAll={onSellAllGoods}
-      />
-    </ModalShell>
 
     {/* 排行 Modal */}
     <ModalShell

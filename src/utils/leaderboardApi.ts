@@ -23,10 +23,7 @@ export interface PlayerProfile {
   collapsePoints: number;
   /** 累计游玩时长（ms） */
   playTimeMs: number;
-  /** 最高数值 */
-  highestValue: BigNumData;
-  /** 万物店累计购置总额 */
-  totalSpent: BigNumData;
+
 }
 
 /** 榜单条目：成绩统一以 BigNumData 承载（时长/次数亦然） */
@@ -52,8 +49,6 @@ export interface LeaderboardResponse {
 export interface ScoreReport {
   userId: string;
   userName: string;
-  highestValue: BigNumData;
-  totalSpent: BigNumData;
   playTimeMs: number;
   rebirthCount: number;
   clickCount: number;

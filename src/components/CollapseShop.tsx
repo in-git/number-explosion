@@ -13,7 +13,6 @@ import {
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
 import {
-  INVENTORY_UNLOCK_COST,
   AFTERLIFE_SHOP_UNLOCK_COST,
   REBIRTH_SHOP_ORDER,
 } from '../config';
@@ -29,8 +28,7 @@ interface CollapseShopProps {
   onBuyLevelCap: (id: UpgradeId) => void;
   /** 消耗永劫点数兑换 1 点坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
   onExchangeRebirthToCollapse: () => void;
-  /** 消耗 3 点永劫点数解锁背包 */
-  onUnlockInventory: () => void;
+
   /** 消耗 20 点坍缩点数解锁往生店 */
   onUnlockAfterlifeShop: () => void;
   /** 本次坍缩可凝练的重数 */
@@ -45,7 +43,6 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
   onBuyRebirthPointLevel,
   onBuyLevelCap,
   onExchangeRebirthToCollapse,
-  onUnlockInventory,
   onUnlockAfterlifeShop,
   collapseGain,
   onOpenCollapse,
@@ -72,8 +69,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
   // 进行坍缩：献祭永劫点数凝练坍缩重数
   const canCollapse = state.rebirthPoints >= COLLAPSE_COST;
 
-  // 解锁项（消耗永劫点数）
-  const canUnlockInventory = state.rebirthPoints >= INVENTORY_UNLOCK_COST;
+
   // 往生店：消耗坍缩点（非永劫点）解锁
   const canUnlockAfterlifeShop = state.collapsePoints >= AFTERLIFE_SHOP_UNLOCK_COST;
 
@@ -167,9 +163,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
             <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] ">
               数值上限
             </span>
-            <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#a69b8b] flex-shrink-0">
-              下一级 +{nextStep.formatChinese(2)}
-            </span>
+          
           </div>
           <div className="text-[10px] text-[#998e7e] font-serif  mt-0.5">
             {currentCap.formatChinese(2)} → {nextCap.formatChinese(2)}
@@ -232,38 +226,6 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
       </div>
 
 
-      {/* 解锁背包（消耗 3 点永劫点数） */}
-      {!state.inventoryUnlocked && (
-        <div className="pt-1.5 border-t border-[#2d2822]">
-          <div
-            id="shop-item-unlock-inventory"
-            onClick={() => {
-              if (canUnlockInventory) onUnlockInventory();
-            }}
-            className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canUnlockInventory ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
-            }`}
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
-                  解锁背包
-                </span>
-                <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
-                  未开启
-                </span>
-              </div>
-              <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-                开启行囊 · 收纳珍藏，可随时变卖折现
-              </div>
-            </div>
-
-            <UpgradeButton id="btn-shop-unlock-inventory" disabled={!canUnlockInventory}>
-              {INVENTORY_UNLOCK_COST} 点
-            </UpgradeButton>
-          </div>
-        </div>
-      )}
 
       {/* 解锁往生殿（消耗 20 点坍缩点数） */}
       {!state.afterlifeShopUnlocked && (

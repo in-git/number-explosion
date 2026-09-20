@@ -95,8 +95,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           collapsePoints: state.collapsePoints || 0,
           playTimeMs: state.playTimeMs || 0,
           clickCount: state.totalClickCount || 0,
-          highestValue: state.highestValue,
-          totalSpent: state.goodsTotalSpent,
+     
         });
         onRegionSelected(regionId, defaultRegionName ?? regionId);
       }

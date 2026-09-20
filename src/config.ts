@@ -423,8 +423,6 @@ export const RANKS: RankDef[] = [
   },
 ];
 
-/** 解锁背包消耗的永劫点数（开启后可收纳并变卖珍藏） */
-export const INVENTORY_UNLOCK_COST = 3;
 /** 解锁排行消耗的永劫点数 */
 export const RANKING_UNLOCK_COST = 1;
 /** 「功法无需解锁」特权消耗的永劫点数 */
@@ -462,8 +460,7 @@ export const INITIAL_STATE: GameState = {
   playTimeMs: 0,
   rebirthUnlocked: false,
   collapseUnlocked: false,
-  /** 背包：默认不显示，消耗 3 点永劫点数解锁（开启后可收纳并变卖珍藏） */
-  inventoryUnlocked: false,
+
   /** 排行：默认不显示，消耗 1 点永劫点数解锁 */
   rankingUnlocked: false,
   /** 功法无需解锁特权：默认关闭 */
@@ -494,10 +491,8 @@ export const INITIAL_STATE: GameState = {
   account: null,
   /** 上次登录凭据（null = 无历史记录） */
   lastCredentials: null,
-  /** 万物店已购商品：商品 id → 拥有数量 */
-  goodsPurchases: {},
-  /** 购置商品累计花费的数值总额 */
-  goodsTotalSpent: { m: 0, e: 0 },
+
+
   valueCapLevel: 0,
   rebirthPointLevel: 0,
   /** 永劫点数兑换坍缩点数的累计次数 */

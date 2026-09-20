@@ -18,7 +18,6 @@ import {
   getExtraRebirthPoints,
   getRebirthToCollapseCost,
   getRebirthPointsFromValue,
-  getGoodsSellPrice,
   getAfterlifeUpgradeCost,
   getAfterlifeDiscountPercent,
 } from '../utils/gameMath';
@@ -27,9 +26,7 @@ import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { getServerNow, syncServerTime } from '../utils/serverTime';
 import {
   ACHIEVEMENTS,
-  GOODS_CATEGORIES,
   AUTO_UNLOCK_COST,
-  INVENTORY_UNLOCK_COST,
   RANKING_UNLOCK_COST,
   AFTERLIFE_SHOP_UNLOCK_COST,
   AFTERLIFE_POINT_EXCHANGE_COST,
@@ -576,23 +573,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     );
   }, [addToast]);
 
-  /** 永劫商店：消耗 3 点永劫点数解锁背包（未解锁不可购置商品） */
-  const handleUnlockInventory = useCallback(() => {
-    let done = false;
-    setState((prev) => {
-      if (prev.inventoryUnlocked || prev.rebirthPoints < INVENTORY_UNLOCK_COST) return prev;
-      done = true;
-      return {
-        ...prev,
-        rebirthPoints: prev.rebirthPoints - INVENTORY_UNLOCK_COST,
-        inventoryUnlocked: true,
-      };
-    });
-    if (done) {
-      addToast('行囊开启', `消耗 ${INVENTORY_UNLOCK_COST} 点永劫点数 · 背包已开，可购置万物`);
-    }
-  }, [addToast]);
-
   /** 排行·登顶：注册/登录成功，记录账号 */
   const handleLogin = useCallback(
     (account: UserAccountData) => {
@@ -748,51 +728,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
-  /** 背包：变卖已购商品，按原价 10% 回收数值 */
-  const handleSellGoods = useCallback(
-    (id: string, name: string, price: BigNum) => {
-      if ((stateRef.current.goodsPurchases?.[id] || 0) <= 0) return;
-
-      let removed = false;
-      setState((prev) => {
-        const owned = prev.goodsPurchases?.[id] || 0;
-        if (owned <= 0) return prev;
-        removed = true;
-        const next = { ...(prev.goodsPurchases || {}) };
-        if (owned <= 1) delete next[id];
-        else next[id] = owned - 1;
-        return { ...prev, goodsPurchases: next };
-      });
-      if (!removed) return;
-
-      commitValue(bigNumRef.current.add(price));
-      addToast('变卖万物', `${name} · 回收 ${price.formatChinese(2)}`);
-    },
-    [addToast, commitValue]
-  );
-
-  /** 背包：一键变卖全部已购商品 */
-  const handleSellAllGoods = useCallback(() => {
-    const purchases = stateRef.current.goodsPurchases || {};
-    let total = new BigNum(0, 0);
-    let count = 0;
-
-    GOODS_CATEGORIES.forEach((cat) => {
-      cat.items.forEach((item) => {
-        const owned = purchases[item.id] || 0;
-        if (owned <= 0) return;
-        total = total.add(getGoodsSellPrice(item.cost).mulScalar(owned));
-        count += owned;
-      });
-    });
-
-    if (count === 0) return;
-
-    setState((prev) => ({ ...prev, goodsPurchases: {} }));
-    commitValue(bigNumRef.current.add(total));
-    addToast('尽数变卖', `${count} 件 · 回收 ${total.formatChinese(2)}`);
-  }, [addToast, commitValue]);
-
   /** 坍缩商店：消耗永劫点数兑换坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
   const handleExchangeRebirthToCollapse = useCallback(() => {
     const prev = stateRef.current;
@@ -841,8 +776,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         prev.upgradesAutoUnlocked,
         prev.rebirthMergedLevels
       ),
-      // 背包为永久财产：永劫不清空已购商品
-      goodsPurchases: prev.goodsPurchases || {},
     }));
 
     setCurrentBigNum(startValue);
@@ -875,8 +808,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         prev.upgradesAutoUnlocked,
         prev.rebirthMergedLevels
       ),
-      // 背包为永久财产：坍缩同样不清空已购商品
-      goodsPurchases: prev.goodsPurchases || {},
     }));
 
     setCurrentBigNum(startValue);
@@ -938,7 +869,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUnlockCollapse,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
-    handleUnlockInventory,
     handleUnlockRanking,
     handleBuyAutoUnlock,
     handleUnlockAfterlifeShop,
@@ -947,8 +877,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleLogin,
     handleLogout,
     handleSelectRegion,
-    handleSellGoods,
-    handleSellAllGoods,
     confirmRebirth,
     confirmCollapse,
     resetProgress,

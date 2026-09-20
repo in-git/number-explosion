@@ -236,13 +236,12 @@ export function getValueCap(level: number): BigNum {
 }
 
 /**
- * 购买第 level 级（level 从 1 起）数值上限所需的坍缩点数：100 × F(level + 1)（斐波那契）
- *   即：100、200、300、500、800、1300 ...
+ * 购买第 level 级（level 从 1 起）数值上限所需的坍缩点数：线性 +1
+ *   即：1、2、3、4、5 ...
  */
 export function getValueCapCost(level: number): BigNum {
-  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  if (lv <= 0) return new BigNum(100, 0);
-  return getFibonacciBig(lv + 1).mulScalar(100);
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 1;
+  return new BigNum(lv, 0);
 }
 
 /**
