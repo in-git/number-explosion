@@ -4,11 +4,13 @@ import { REBIRTH_MERGED_UPGRADES, AUTO_UNLOCK_COST, RANKING_UNLOCK_COST } from '
 import {
   COLLAPSE_COST,
   getRebirthMergedUpgradeCost,
-  getBaseValueBonus,
-  getAutoClickRate,
+  getRebirthBaseValueCost,
+  getRebirthBaseValueGain,
   calculateGameAttributes,
-  getUpgradeMaxLevel,
   MULTIPLIER_STEP,
+  AUTO_FREQ_INTERVAL_STEP,
+  AUTO_FREQ_INTERVAL_MIN,
+  AUTO_FREQ_INTERVAL_BASE,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
 import { PressableRow } from './PressableRow';
@@ -16,7 +18,7 @@ import { UpgradeButton } from './UpgradeButton';
 
 interface RebirthShopProps {
   state: GameState;
-  /** 消耗永劫点数，提升数值店对应升级等级（已合并，永久保留） */
+  /** 消耗永劫点数升级（所有属性均与数值店独立，等级永久保留，效果累加） */
   onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
   /** 消耗 5 点永劫值解锁坍缩（仅完整商店） */
   onUnlockCollapse?: () => void;
@@ -30,25 +32,38 @@ interface RebirthShopProps {
   onReset?: () => void;
 }
 
-/** 每项单次提升文案（与数值店升级效果一致） */
-const nextGainText = (id: UpgradeId, level: number): string => {
+/** 有上限属性的封顶提示（无上限项返回空，如基础数值 / 倍数） */
+const capText = (id: UpgradeId): string => {
+  switch (id) {
+    case 'autoFrequency':
+      return `上限 ${AUTO_FREQ_INTERVAL_BASE / AUTO_FREQ_INTERVAL_MIN}次/s`;
+    case 'critChance':
+    case 'comboChance':
+      return '上限 100%';
+    default:
+      return '';
+  }
+};
+
+/** 每项单次提升文案（永劫店独立效果，计算时与数值店累加；效果已封顶时提示已至上限） */
+const nextGainText = (id: UpgradeId, level: number, attrs: ReturnType<typeof calculateGameAttributes>): string => {
   switch (id) {
     case 'baseValue': {
-      const add = getBaseValueBonus(level + 1).sub(getBaseValueBonus(level));
+      // 独立公式：每级提升 10×斐波那契（10, 20, 30, 50 ...）
+      const add = getRebirthBaseValueGain(level + 1);
       return `+${add.formatChinese(1)} 基础数值`;
     }
-    case 'autoFrequency': {
-      const cur = getAutoClickRate(level).intervalMs;
-      const nxt = getAutoClickRate(level + 1).intervalMs;
-      const step = cur - nxt;
-      return step > 0 ? `自动间隔 -${step}ms` : '已至极速';
-    }
+    case 'autoFrequency':
+      return attrs.autoIntervalMs <= AUTO_FREQ_INTERVAL_MIN
+        ? '已至上限'
+        : `自动间隔 -${AUTO_FREQ_INTERVAL_STEP}ms`;
     case 'critMultiplier':
     case 'comboMultiplier':
       return `倍数 +${MULTIPLIER_STEP * 100}%`;
     case 'critChance':
+      return attrs.critChance >= 1.0 ? '已至上限' : '概率 +0.5%';
     case 'comboChance':
-      return '概率 +5%';
+      return attrs.comboChance >= 1.0 ? '已至上限' : '概率 +0.5%';
     default:
       return '';
   }
@@ -100,13 +115,18 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         <div className="text-[10px] font-serif text-[#8a7a63]">长按条目可持续升级</div>
       </div>
 
-      {/* 升级：永劫基础属性（已合并至数值店升级等级，重生/坍缩后永久保留） */}
+      {/* 升级：所有属性均与数值店独立，等级永久保留，计算时效果与数值店累加 */}
       <div className="flex flex-col gap-1.5">
         {REBIRTH_MERGED_UPGRADES.map(({ id, label }) => {
-          const up = state.upgrades[id] || { unlocked: false, level: 0, capBonus: 0 };
-          const level = up.level || 0;
-          const maxLevel = getUpgradeMaxLevel(id, up);
-          const cost = getRebirthMergedUpgradeCost(id, level);
+          // 「基础数值」存于 rebirthBaseValueLevel，其余存于 rebirthMergedLevels（均与数值店独立）
+          const level =
+            id === 'baseValue'
+              ? state.rebirthBaseValueLevel || 0
+              : state.rebirthMergedLevels?.[id] || 0;
+          const cost =
+            id === 'baseValue'
+              ? getRebirthBaseValueCost(level)
+              : getRebirthMergedUpgradeCost(id, level);
           const canBuy = state.rebirthPoints >= cost.toNumber();
           return (
             <PressableRow
@@ -128,7 +148,8 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                   </span>
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">
-                  上限 Lv.{maxLevel} · {currentValueText(id, attrs)} · {nextGainText(id, level)}
+                  {capText(id) ? `${capText(id)} · ` : ''}
+                  {currentValueText(id, attrs)} · {nextGainText(id, level, attrs)}
                 </div>
               </div>
               <UpgradeButton id={`btn-rebirth-merged-${id}`} disabled={!canBuy}>

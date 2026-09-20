@@ -126,31 +126,54 @@ export function getRebirthToCollapseCost(exchangedTimes: number): BigNum {
 
 
 /**
- * 「数值升级」每级提升量（斐波那契数列，BigNum 防溢出）：
+ * 「数值店·数值升级」每级提升量（斐波那契数列，BigNum 防溢出）：
  * 1, 2, 3, 5, 8, 13, 21 ...（第 1、2 级为 1、2；第 n 级 = 前两级之和）
+ * 注意：仅作用于数值店等级，与永劫店的「基础数值」完全独立。
  */
-const REBIRTH_BASE_VALUE_GAIN_SEQ: BigNum[] = [new BigNum(1, 0), new BigNum(2, 0)];
+const BASE_VALUE_GAIN_SEQ: BigNum[] = [new BigNum(1, 0), new BigNum(2, 0)];
+export function getBaseValueLevelGain(level: number): BigNum {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return new BigNum(0, 0);
+  while (BASE_VALUE_GAIN_SEQ.length < lv) {
+    const len = BASE_VALUE_GAIN_SEQ.length;
+    BASE_VALUE_GAIN_SEQ.push(BASE_VALUE_GAIN_SEQ[len - 1].add(BASE_VALUE_GAIN_SEQ[len - 2]));
+  }
+  return BASE_VALUE_GAIN_SEQ[lv - 1];
+}
+
+/** 「数值店·数值升级」效果系数：累计加成整体 × 0.7（仅效果，升级消耗不变） */
+export const BASE_VALUE_EFFECT_FACTOR = 0.7;
+
+/** 「数值店·数值升级」累计加成：Σ(每级提升量) × 0.7 = (a(level+2) − 2) × 0.7 */
+export function getBaseValueBonus(level: number): BigNum {
+  if (level <= 0) return new BigNum(0, 0);
+  return getBaseValueLevelGain(level + 2)
+    .sub(new BigNum(2, 0))
+    .mulScalar(BASE_VALUE_EFFECT_FACTOR);
+}
+
+/**
+ * 「永劫店·基础数值」每级提升量（斐波那契 × 10）：
+ * 10, 20, 30, 50, 80, 130 ...（第 n 级 = 10 × F(n+1)，与数值店加成累加）
+ */
 export function getRebirthBaseValueGain(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   if (lv <= 0) return new BigNum(0, 0);
-  while (REBIRTH_BASE_VALUE_GAIN_SEQ.length < lv) {
-    const len = REBIRTH_BASE_VALUE_GAIN_SEQ.length;
-    REBIRTH_BASE_VALUE_GAIN_SEQ.push(
-      REBIRTH_BASE_VALUE_GAIN_SEQ[len - 1].add(REBIRTH_BASE_VALUE_GAIN_SEQ[len - 2])
-    );
-  }
-  return REBIRTH_BASE_VALUE_GAIN_SEQ[lv - 1];
+  return getFibonacciBig(lv + 1).mulScalar(10);
 }
 
-/** 数值升级效果系数：累计加成整体削减 30%（仅效果，升级消耗不变） */
-export const BASE_VALUE_EFFECT_FACTOR = 0.7;
-
-/** 数值升级累计加成：Σ(每级提升量) × 0.7 = (a(level+2) − a(2)) × 0.7，即 a(level+2) − 2 再乘系数 */
-export function getBaseValueBonus(level: number): BigNum {
+/** 「永劫店·基础数值」累计加成：Σ(每级提升量) = 10 × (F(level+3) − 2)，即 10, 30, 60, 110 ... */
+export function getRebirthBaseValueBonus(level: number): BigNum {
   if (level <= 0) return new BigNum(0, 0);
-  return getRebirthBaseValueGain(level + 2)
+  return getFibonacciBig(level + 3)
     .sub(new BigNum(2, 0))
-    .mulScalar(BASE_VALUE_EFFECT_FACTOR);
+    .mulScalar(10);
+}
+
+/** 「永劫店·基础数值」升级消耗（斐波那契）：第 n 次购买消耗 F(n+1)，即 1, 2, 3, 5, 8, 13 ... */
+export function getRebirthBaseValueCost(currentLevel: number): BigNum {
+  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
+  return getFibonacciBig(lv + 2);
 }
 
 export interface UpgradeDetail {
@@ -267,9 +290,9 @@ export function getRebirthMergedUpgradeCost(_id: UpgradeId, level: number): BigN
   return new BigNum(lv + 1, 0);
 }
 
-/** 暴击概率: 基础 20%，每级 +5%，上限 100% */
+/** 暴击概率: 基础 20%，每级 +0.5%（0.005），上限 100%；连击概率每级同为 +0.5% */
 export const CRIT_CHANCE_BASE = 0.2;
-export const CRIT_CHANCE_STEP = 0.05;
+export const CRIT_CHANCE_STEP = 0.005;
 
 /** 暴击倍数 / 连击倍数: 每次升级 +30% */
 export const MULTIPLIER_STEP = 0.3;
@@ -306,7 +329,7 @@ export function isUpgradeMaxed(id: UpgradeId, up: UpgradeState): boolean {
     return getAutoClickRate(up.level).intervalMs <= AUTO_FREQ_INTERVAL_MIN;
   }
   if (id === 'comboChance') {
-    return Math.min(1.0, up.level * 0.05) >= 1.0;
+    return Math.min(1.0, up.level * CRIT_CHANCE_STEP) >= 1.0;
   }
   if (id === 'critChance') {
     return Math.min(1.0, CRIT_CHANCE_BASE + up.level * CRIT_CHANCE_STEP) >= 1.0;
@@ -377,8 +400,8 @@ export function getUpgradeCost(
     return getAutoFrequencyUpgradeCost(currentLevel);
   }
 
-  // 2^n：已升 currentLevel 级，下一次升级消耗 2^currentLevel（1, 2, 4, 8, 16 ...）
-  return pow2(currentLevel);
+  // 初始消耗 10，之后倍增：10 × 2^currentLevel（10, 20, 40, 80, 160 ...）
+  return pow2(currentLevel).mulScalar(10);
 }
 
 /**
@@ -436,55 +459,73 @@ export function calculateGameAttributes(state: GameState) {
   const comboMultUp = state.upgrades.comboMultiplier;
   const critChanceUp = state.upgrades.critChance;
 
-  // 0. 永劫基础属性已合并至「数值店」升级等级（统一数据源，重生/坍缩后永久保留）
+  // 0. 数值店与永劫店的「数值升级」完全独立：
+  //    数值店等级（upgrades.baseValue.level）随转世清零；永劫店等级（rebirthBaseValueLevel）永久保留
 
-  // 1. 基础数值: 默认 BASE_VALUE_INITIAL + 永劫基础数值，数值升级提升值: 斐波那契数列 1,2,3,5,8 ... 再 × 0.5（效果削减50%）
-  const baseBonus = baseValueUp.unlocked
+  // 1. 基础数值 = 默认值 + 数值店加成 + 永劫店加成（两店效果为累加关系，互不影响）
+  //    数值店: 0.7 × 斐波那契；永劫店: 10 × 斐波那契
+  const shopBaseBonus = baseValueUp.unlocked
     ? getBaseValueBonus(baseValueUp.level)
     : new BigNum(0, 0);
+  const rebirthBaseBonus = getRebirthBaseValueBonus(state.rebirthBaseValueLevel || 0);
   const baseValue = new BigNum(BASE_VALUE_INITIAL, 0)
-    .add(baseBonus);
+    .add(shopBaseBonus)
+    .add(rebirthBaseBonus);
 
   // 2. 数值倍率
   const valueMultiplier = state.baseValueMultiplier;
 
-  // 3. 自动点击频率: 初始1次/1000ms, 每次减少间隔50ms, 最高50次/ms
+  // 永劫店各属性的独立等级（永久道基），与数值店分开计级，效果在下方逐项累加
+  const rbLevels = state.rebirthMergedLevels || ({} as Record<UpgradeId, number>);
+
+  // 3. 自动点击频率：数值店与永劫店独立计级，效果累加
+  //    数值店按自身曲线缩短间隔；永劫店每级额外 -30ms，下限 10ms（须已解锁自动点击）
   let autoClicksPerSec = 0;
   let autoIntervalMs = AUTO_FREQ_INTERVAL_BASE;
   let autoClicksPerMs = 0;
 
   if (autoClickUp.unlocked) {
     const autoFreqLevel = autoFreqUp.unlocked ? autoFreqUp.level : 0;
-    const rate = getAutoClickRate(autoFreqLevel);
-    autoIntervalMs = rate.intervalMs;
-    autoClicksPerMs = rate.clicksPerMs;
-    autoClicksPerSec = rate.clicksPerSec;
+    const rbAutoFreqLevel = rbLevels.autoFrequency || 0;
+    autoIntervalMs = Math.max(
+      AUTO_FREQ_INTERVAL_MIN,
+      getAutoClickRate(autoFreqLevel).intervalMs - rbAutoFreqLevel * AUTO_FREQ_INTERVAL_STEP
+    );
+    autoClicksPerSec = AUTO_FREQ_INTERVAL_BASE / autoIntervalMs;
   }
 
-  // 4. 连击概率: 每次升级 +0.05，最高 100%
-  let comboChance = 0;
-  if (comboChanceUp.unlocked) {
-    comboChance = Math.min(1.0, comboChanceUp.level * 0.05);
-  }
+  // 4. 连击概率: 数值店每级 +0.5% + 永劫店每级 +0.5%，上限 100%
+  const rbComboChanceLevel = rbLevels.comboChance || 0;
+  let comboChance = Math.min(
+    1.0,
+    (comboChanceUp.unlocked ? comboChanceUp.level * CRIT_CHANCE_STEP : 0) +
+      rbComboChanceLevel * CRIT_CHANCE_STEP
+  );
 
-  // 5. 连击倍数: 基础 100% + 每次升级 +30%（即 1.0 + 0.3 × level）
-  let comboMultiplier = 1.0;
-  if (comboMultUp.unlocked) {
-    comboMultiplier += comboMultUp.level * MULTIPLIER_STEP;
-  }
+  // 5. 连击倍数: 基础 100% + 数值店每级 +30% + 永劫店每级 +30%
+  const rbComboMultLevel = rbLevels.comboMultiplier || 0;
+  let comboMultiplier =
+    1.0 +
+    (comboMultUp.unlocked ? comboMultUp.level * MULTIPLIER_STEP : 0) +
+    rbComboMultLevel * MULTIPLIER_STEP;
 
-  // 6. 暴击倍数: 基础 100% + 成就奖励 + 每次升级 +30%（即 1.0 + 成就加成 + 0.3 × level）
+  // 6. 暴击倍数: 基础 100% + 成就奖励 + 数值店每级 +30% + 永劫店每级 +30%
   const achievementCritBonus = getAchievementCritBonus(state);
-  let critMultiplier = 1.0 + achievementCritBonus;
-  if (critMultUp.unlocked) {
-    critMultiplier += critMultUp.level * MULTIPLIER_STEP;
-  }
+  const rbCritMultLevel = rbLevels.critMultiplier || 0;
+  let critMultiplier =
+    1.0 +
+    achievementCritBonus +
+    (critMultUp.unlocked ? critMultUp.level * MULTIPLIER_STEP : 0) +
+    rbCritMultLevel * MULTIPLIER_STEP;
 
-  // 7. 暴击概率: 基础 20% + 暴击概率升级每级 +5%，上限 100%
-  let critChance = Math.min(1.0, state.baseCritRate);
-  if (critChanceUp.unlocked) {
-    critChance = Math.min(1.0, state.baseCritRate + critChanceUp.level * CRIT_CHANCE_STEP);
-  }
+  // 7. 暴击概率: 基础暴击率 + 数值店每级 +0.5% + 永劫店每级 +0.5%，上限 100%
+  const rbCritChanceLevel = rbLevels.critChance || 0;
+  let critChance = Math.min(
+    1.0,
+    state.baseCritRate +
+      (critChanceUp.unlocked ? critChanceUp.level * CRIT_CHANCE_STEP : 0) +
+      rbCritChanceLevel * CRIT_CHANCE_STEP
+  );
 
   // 8. 永劫点数
   const rebirthPoints = state.rebirthPoints;

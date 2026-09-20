@@ -218,9 +218,9 @@ export const REBIRTH_SHOP_ORDER: UpgradeId[] = [
 ];
 
 /**
- * 永劫基础属性已合并进「数值店」升级等级：
- * 在永劫店购买即等同于提升数值店对应升级的等级，且该等级永久保留（重生/坍缩不清零）。
- * 下列即这 6 项合并升级及其展示名。
+ * 永劫店升级条目及其展示名。
+ * 所有属性均与数值店完全独立：等级存于 rebirthMergedLevels / rebirthBaseValueLevel，
+ * 永久保留（重生/坍缩不清零），计算时效果与数值店累加。
  */
 export const REBIRTH_MERGED_UPGRADES: { id: UpgradeId; label: string }[] = [
   { id: 'baseValue', label: '基础数值' },
@@ -364,6 +364,8 @@ export const INITIAL_STATE: GameState = {
     comboMultiplier: 0,
     critChance: 0,
   },
+  /** 永劫店「基础数值」的独立升级等级（永久，默认 0） */
+  rebirthBaseValueLevel: 0,
   /** 往生殿：各属性已购升级等级，默认全为 0 */
   afterlifeUpgradeLevels: {
     baseValue: 0,

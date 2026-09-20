@@ -108,10 +108,15 @@ export interface GameState {
   /** 是否已解锁「往生殿」特权（于坍缩店消耗 20 点坍缩点数解锁，永久生效，默认不显示） */
   afterlifeShopUnlocked: boolean;
   /**
-   * 永劫店累计购买的各属性等级（永久道基，永不清零）。
-   * 数值店用数值购买的等级超出此部分，将在永劫/坍缩时重置。
+   * 永劫店各属性的独立升级等级（永久道基，永不清零）。
+   * 与数值店完全独立，计算时效果累加；「基础数值」另存于 rebirthBaseValueLevel。
    */
   rebirthMergedLevels: Record<UpgradeId, number>;
+  /**
+   * 永劫店「基础数值」的独立升级等级（永久，永不清零）。
+   * 与数值店「数值升级」完全独立、效果累加：每级提升 10×斐波那契（10,20,30,50...），消耗 1,2,3,5,8...（斐波那契）
+   */
+  rebirthBaseValueLevel: number;
   /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值店的升级消耗，消耗按 2×斐波那契增长 */
   afterlifeUpgradeLevels: Record<UpgradeId, number>;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */

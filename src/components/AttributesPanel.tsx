@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { GameState } from '../types';
 import { BigNum } from '../utils/bigNumber';
-import { BASE_VALUE_INITIAL, calculateGameAttributes, getValueCap } from '../utils/gameMath';
+import {
+  BASE_VALUE_INITIAL,
+  calculateGameAttributes,
+  getValueCap,
+  getBaseValueBonus,
+  getRebirthBaseValueBonus,
+} from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
 
 
@@ -45,6 +51,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
 
   const attrs = calculateGameAttributes(state);
   const baseValueUp = state.upgrades.baseValue;
+  const rebirthBvLevel = state.rebirthBaseValueLevel || 0;
 
   // Format auto-click string
   let autoClickDisplay = '0 /s';
@@ -62,9 +69,11 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       id: 'attr-base-upgrade',
       label: '数值升级',
       value: baseValueUp.unlocked
-        ? `Lv.${baseValueUp.level} (+${attrs.baseValue.sub(BASE_VALUE_INITIAL).formatChinese(1)})`
+        ? `Lv.${baseValueUp.level} (+${getBaseValueBonus(baseValueUp.level).formatChinese(1)})`
         : `${BASE_VALUE_INITIAL}`,
-      detail: `当前单次基础: ${attrs.baseValue.formatChinese(1)}`,
+      detail: `当前单次基础: ${attrs.baseValue.formatChinese(1)}${
+        rebirthBvLevel > 0 ? ` · 永劫 +${getRebirthBaseValueBonus(rebirthBvLevel).formatChinese(1)}` : ''
+      }`,
     },
  
     {

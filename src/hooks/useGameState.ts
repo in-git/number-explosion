@@ -15,6 +15,8 @@ import {
   getRebirthStartValue,
   getRebirthPointUpgradeCost,
   getRebirthMergedUpgradeCost,
+  getRebirthBaseValueCost,
+  getRebirthBaseValueGain,
   getExtraRebirthPoints,
   getRebirthToCollapseCost,
   getRebirthPointsFromValue,
@@ -488,33 +490,45 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 永劫商店：消耗永劫点数，提升数值店对应升级等级（已合并，购买部分永久保留） */
+  /** 永劫商店：消耗永劫点数升级（所有属性均与数值店独立，效果在计算时与数值店累加） */
   const handleBuyRebirthMergedUpgrade = useCallback(
     (id: UpgradeId) => {
       const prev = stateRef.current;
-      const up = prev.upgrades[id] || { unlocked: false, level: 0, capBonus: 0 };
-      const level = up.level || 0;
+      const label = UPGRADE_METADATA[id]?.name ?? id;
+
+      // 「基础数值」独立升级：等级存于 rebirthBaseValueLevel，与数值店互不影响，效果与数值店加成累加
+      if (id === 'baseValue') {
+        const bvLevel = prev.rebirthBaseValueLevel || 0;
+        const bvCost = getRebirthBaseValueCost(bvLevel);
+        const bvCostNum = bvCost.toNumber();
+        if (prev.rebirthPoints < bvCostNum) return;
+        setState((p) => ({
+          ...p,
+          rebirthPoints: p.rebirthPoints - bvCostNum,
+          rebirthBaseValueLevel: (p.rebirthBaseValueLevel || 0) + 1,
+        }));
+        addToast(
+          '道基淬炼',
+          `基础数值 +${getRebirthBaseValueGain(bvLevel + 1).formatChinese(1)}（Lv.${bvLevel + 1}）· 消耗 ${bvCost.formatChinese(0)} 点永劫点数`
+        );
+        return;
+      }
+
+      // 其余属性：与数值店完全独立，等级仅存于 rebirthMergedLevels，计算时与数值店效果累加
+      const level = prev.rebirthMergedLevels?.[id] || 0;
       const cost = getRebirthMergedUpgradeCost(id, level).toNumber();
       if (prev.rebirthPoints < cost) return;
-      const label = UPGRADE_METADATA[id]?.name ?? id;
-      setState((p) => {
-        const cur = p.upgrades[id] || { unlocked: false, level: 0, capBonus: 0 };
-        return {
-          ...p,
-          rebirthPoints: p.rebirthPoints - cost,
-          rebirthMergedLevels: {
-            ...p.rebirthMergedLevels,
-            [id]: (p.rebirthMergedLevels?.[id] || 0) + 1,
-          },
-          upgrades: {
-            ...p.upgrades,
-            [id]: { ...cur, unlocked: true, level: cur.level + 1 },
-          },
-        };
-      });
+      setState((p) => ({
+        ...p,
+        rebirthPoints: p.rebirthPoints - cost,
+        rebirthMergedLevels: {
+          ...p.rebirthMergedLevels,
+          [id]: (p.rebirthMergedLevels?.[id] || 0) + 1,
+        },
+      }));
       addToast(
         '道基淬炼',
-        `永劫基础属性「${label}」提升 1 级（Lv.${level + 1}）· 消耗 ${cost} 点永劫点数`
+        `永劫「${label}」提升 1 级（Lv.${level + 1}）· 消耗 ${cost} 点永劫点数`
       );
     },
     [addToast]
@@ -802,12 +816,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthCount: prev.rebirthCount + 1,
       rebirthPoints: prev.rebirthPoints + gain,
       // 已购「功法无需解锁」特权：重生后仍保持解锁态，可直接升级
-      // 数值店等级重置：仅保留永劫店购买的等级（永久道基）
-      upgrades: resetUpgradeLevels(
-        prev.upgrades,
-        prev.upgradesAutoUnlocked,
-        prev.rebirthMergedLevels
-      ),
+      // 数值店等级全部清零；永劫店等级（rebirthMergedLevels / rebirthBaseValueLevel）为永久道基，不受影响
+      upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
     }));
 
     setCurrentBigNum(startValue);
@@ -835,11 +845,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       clickCount: 0,
       rebirthPoints: prev.rebirthPoints - COLLAPSE_COST,
       collapsePoints: prev.collapsePoints + collapseGain,
-      upgrades: resetUpgradeLevels(
-        prev.upgrades,
-        prev.upgradesAutoUnlocked,
-        prev.rebirthMergedLevels
-      ),
+      upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
     }));
 
     setCurrentBigNum(startValue);

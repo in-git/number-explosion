@@ -56,10 +56,10 @@ function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
   }
 
   if (id === 'comboChance') {
-    const chance = Math.min(1.0, level * 0.05);
+    const chance = Math.min(1.0, level * CRIT_CHANCE_STEP);
     return {
-      currentDesc: `${(chance * 100).toFixed(0)}%`,
-      nextDesc: chance >= 1.0 ? '上限 100%' : '+5%',
+      currentDesc: `${(chance * 100).toFixed(1)}%`,
+      nextDesc: chance >= 1.0 ? '上限 100%' : '+0.5%',
     };
   }
 
@@ -69,11 +69,11 @@ function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
     return { currentDesc: `${(mult * 100).toFixed(0)}%`, nextDesc: `+${MULTIPLIER_STEP * 100}%` };
   }
 
-  // 暴击概率: 基础20%，每级 +5%，上限100%
+  // 暴击概率: 基础20%，每级 +0.5%，上限100%
   const chance = Math.min(1.0, CRIT_CHANCE_BASE + level * CRIT_CHANCE_STEP);
   return {
-    currentDesc: `${(chance * 100).toFixed(0)}%`,
-    nextDesc: chance >= 1.0 ? '上限 100%' : '+5%',
+    currentDesc: `${(chance * 100).toFixed(1)}%`,
+    nextDesc: chance >= 1.0 ? '上限 100%' : '+0.5%',
   };
 }
 
@@ -111,7 +111,12 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
     const meta = UPGRADE_METADATA[id];
     const upgradeState = state.upgrades[id];
     const maxLevel = getUpgradeMaxLevel(id, upgradeState);
-    const desc = getUpgradeDesc(id, upgradeState.level);
+    const rawDesc = getUpgradeDesc(id, upgradeState.level);
+    // 数值升级：把等级上限以纯文本放到描述最前面（其余功法上限已在徽章中显示）
+    const desc =
+      id === 'baseValue'
+        ? { ...rawDesc, currentDesc: `上限 Lv.${maxLevel} · ${rawDesc.currentDesc}` }
+        : rawDesc;
     // 往生殿折扣：按当前属性等级降低该属性的数值店升级消耗
     const currentCost = applyAfterlifeDiscount(
       getUpgradeCost(id, upgradeState.level, maxLevel),
