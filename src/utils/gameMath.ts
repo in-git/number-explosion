@@ -66,14 +66,26 @@ export function getFibonacciBonus(level: number): BigNum {
   return getFibonacciBig(level + 2).sub(1);
 }
 
+/** 2^n，n 较大时转为科学计数法避免溢出 */
+function pow2(n: number): BigNum {
+  if (n < 60) {
+    return new BigNum(Math.pow(2, n), 0);
+  }
+  // 2^n = 10^(n * log10(2))
+  const totalExp = n * Math.log10(2);
+  const e = Math.floor(totalExp);
+  const m = Math.pow(10, totalExp - e);
+  return new BigNum(m, e);
+}
+
 /**
- * 「永劫点数获取」升级
- * - 购买下一级（当前等级 L）消耗 F(L+1) 点坍缩点：1, 1, 2, 3, 5, 8 ...（斐波拉契数列）
+ * 「永劫爆炸」（永劫点数获取）升级
+ * - 购买第 n 次（n 从 1 起）消耗 2^(n-1) 点坍缩点：1, 2, 4, 8, 16 ...（2 的幂）
  * - 每级在永劫时额外 +1 点永劫点数
  */
 export function getRebirthPointUpgradeCost(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  return getFibonacciBig(lv + 1);
+  return pow2(lv);
 }
 
 /** 每 100 万数值折算 1 点永劫点数 */
@@ -111,17 +123,13 @@ export function getRebirthToCollapseCost(exchangedTimes: number): BigNum {
   return getFibonacciBig(n - REBIRTH_TO_COLLAPSE_FREE_TIMES).add(REBIRTH_TO_COLLAPSE_RAISE_BASE);
 }
 
-/** 背包回收价：原价 × 10% */
-export const GOODS_SELL_RATE = 0.1;
-export function getGoodsSellPrice(baseCost: number): BigNum {
-  return BigNum.fromNumber(baseCost).mulScalar(GOODS_SELL_RATE);
-}
+
 
 /**
- * 永劫店「基础数值」每级提升量（自定义斐波那契数列，BigNum 防溢出）：
- * 50, 70, 120, 190, 310, 500, 810 ...（第 1、2 级为 50、70；第 n 级 = 前两级之和）
+ * 「数值升级」每级提升量（斐波那契数列，BigNum 防溢出）：
+ * 1, 2, 3, 5, 8, 13, 21 ...（第 1、2 级为 1、2；第 n 级 = 前两级之和）
  */
-const REBIRTH_BASE_VALUE_GAIN_SEQ: BigNum[] = [new BigNum(50, 0), new BigNum(70, 0)];
+const REBIRTH_BASE_VALUE_GAIN_SEQ: BigNum[] = [new BigNum(1, 0), new BigNum(2, 0)];
 export function getRebirthBaseValueGain(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   if (lv <= 0) return new BigNum(0, 0);
@@ -134,10 +142,15 @@ export function getRebirthBaseValueGain(level: number): BigNum {
   return REBIRTH_BASE_VALUE_GAIN_SEQ[lv - 1];
 }
 
-/** 数值升级累计加成：Σ(每级提升量) = a(level+2) − a(2)，即 a(level+2) − 70 */
+/** 数值升级效果系数：累计加成整体削减 30%（仅效果，升级消耗不变） */
+export const BASE_VALUE_EFFECT_FACTOR = 0.7;
+
+/** 数值升级累计加成：Σ(每级提升量) × 0.7 = (a(level+2) − a(2)) × 0.7，即 a(level+2) − 2 再乘系数 */
 export function getBaseValueBonus(level: number): BigNum {
   if (level <= 0) return new BigNum(0, 0);
-  return getRebirthBaseValueGain(level + 2).sub(new BigNum(70, 0));
+  return getRebirthBaseValueGain(level + 2)
+    .sub(new BigNum(2, 0))
+    .mulScalar(BASE_VALUE_EFFECT_FACTOR);
 }
 
 export interface UpgradeDetail {
@@ -246,13 +259,11 @@ export function getValueCapCost(level: number): BigNum {
 
 /**
  * 永劫商店：单独升级某项永劫基础属性的消耗（永劫点数）
- * - 基础数值：按斐波拉契数列递增（1, 1, 2, 3, 5, 8 ...），第 n 次购买消耗 F(n)
- * - 其余属性：线性递增，第 n 次购买消耗 n 点（1, 2, 3, 4 ...）
+ * - 所有属性：等差数列递增（差值 1），第 n 次购买消耗 n 点（1, 2, 3, 4 ...）
  * 消耗依据当前升级等级（即已购买次数）计算。
  */
-export function getRebirthMergedUpgradeCost(id: UpgradeId, level: number): BigNum {
+export function getRebirthMergedUpgradeCost(_id: UpgradeId, level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  if (id === 'baseValue') return getFibonacciBig(lv + 1);
   return new BigNum(lv + 1, 0);
 }
 
@@ -277,21 +288,9 @@ export function getUpgradeMaxLevel(id: UpgradeId, up: UpgradeState): number {
   return BASE_MAX_LEVEL + (up.capBonus || 0) * LEVEL_CAP_PER_POINT;
 }
 
-/** 2^n，n 较大时转为科学计数法避免溢出 */
-function pow2(n: number): BigNum {
-  if (n < 60) {
-    return new BigNum(Math.pow(2, n), 0);
-  }
-  // 2^n = 10^(n * log10(2))
-  const totalExp = n * Math.log10(2);
-  const e = Math.floor(totalExp);
-  const m = Math.pow(10, totalExp - e);
-  return new BigNum(m, e);
-}
-
 /**
- * 升级消耗值，严格遵循规格:
- * - 数值升级/自动点击频率/连击概率/暴击倍数/连击倍数: 解锁消耗值 × 2^n（n = 已升级次数）
+ * 升级消耗值:
+ * - 各项功法升级消耗为等差数列（差值 1），第 n 次升级消耗 n 点（1, 2, 3, 4 ...）
  * - 自动点击: 不可升级
  */
 /** 该功法是否已臻圆满（达到等级上限，或功能性到顶） */
@@ -316,20 +315,13 @@ export function isUpgradeMaxed(id: UpgradeId, up: UpgradeState): boolean {
 }
 
 /**
- * 自动点击频率：升级消耗按斐波拉契递增
- * 第 n 次（n 从 1 起）= 100 × n + F(n - 1)，即 100, 201, 301, 402, 503, 605 ...
+ * 自动点击频率：升级消耗为斐波那契数列（提高升级代价）
+ * 第 n 次（n 从 1 起）消耗 F(n+1) 点，即 1, 2, 3, 5, 8, 13, 21 ...
  */
-export const AUTO_FREQ_COST_STEP = 100;
 export function getAutoFrequencyUpgradeCost(currentLevel: number): BigNum {
   const n = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) + 1 : 1;
-  return new BigNum(AUTO_FREQ_COST_STEP * n, 0).add(getFibonacciBig(n - 1));
+  return getFibonacciBig(n + 1);
 }
-
-/**
- * 升级消耗折扣（仅作用于「升级」成本，不影响解锁成本）
- * 自动点击频率已改为斐波拉契消耗，不再享有折扣
- */
-export const UPGRADE_COST_DISCOUNT: Partial<Record<UpgradeId, number>> = {};
 
 /**
  * 往生店：「数值店升级消耗折扣」特权
@@ -338,8 +330,7 @@ export const UPGRADE_COST_DISCOUNT: Partial<Record<UpgradeId, number>> = {};
  *     · 第 1 级：固定降低 5%
  *     · 第 L 级（L≥2）：5% + 斐波那契 F(L+4) × 20%
  *       即 5%、5+8×0.2、5+13×0.2、5+21×0.2 …（8/13/21 为斐波那契数列）
- * - 每级消耗（坍缩点）按斐波那契递增：F(当前等级+1)
- *     即第 1 级 1、第 2 级 2、第 3 级 3、第 4 级 5、第 5 级 8 …
+ * - 每级消耗（坍缩点）为等差数列（差值 1）：第 1 级 1、第 2 级 2、第 3 级 3、第 4 级 4、第 5 级 5 …
  */
 /** 达到指定等级时的折扣百分比（0 表示未购买） */
 export function getAfterlifeDiscountPercent(level: number): number {
@@ -356,10 +347,10 @@ export function getAfterlifeNextDiscount(currentLevel: number): number {
   return getAfterlifeDiscountPercent(lv + 1);
 }
 
-/** 购买第 (currentLevel+1) 级所需坍缩点数：F(currentLevel + 2)（即 1, 2, 3, 5, 8 …） */
+/** 购买第 (currentLevel+1) 级所需坍缩点数：等差数列（差值 1），即 1, 2, 3, 4, 5 … */
 export function getAfterlifeUpgradeCost(currentLevel: number): number {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return getFibonacci(lv + 2);
+  return lv + 1;
 }
 
 /** 将往生店折扣应用到一次数值店升级消耗上（折扣封顶 100%，消耗不为负） */
@@ -386,11 +377,8 @@ export function getUpgradeCost(
     return getAutoFrequencyUpgradeCost(currentLevel);
   }
 
-  const base = UPGRADE_METADATA[id].baseUnlockCost;
-  const discount = UPGRADE_COST_DISCOUNT[id] ?? 1;
-
-  // 2^n次数的数值
-  return pow2(currentLevel).mul(base * discount);
+  // 2^n：已升 currentLevel 级，下一次升级消耗 2^currentLevel（1, 2, 4, 8, 16 ...）
+  return pow2(currentLevel);
 }
 
 /**
@@ -400,7 +388,7 @@ export function getUpgradeCost(
  *   等级上限默认 20，欲再提速须在坍缩商店购买等级上限
  */
 export const AUTO_FREQ_INTERVAL_BASE = 1000;
-export const AUTO_FREQ_INTERVAL_STEP = 50;
+export const AUTO_FREQ_INTERVAL_STEP = 30;
 /** 常规态最短间隔（Lv.19） */
 export const AUTO_FREQ_SLOW_MIN = 50;
 /** 极速阶段每级缩短的间隔（ms） */
@@ -450,7 +438,7 @@ export function calculateGameAttributes(state: GameState) {
 
   // 0. 永劫基础属性已合并至「数值店」升级等级（统一数据源，重生/坍缩后永久保留）
 
-  // 1. 基础数值: 默认 BASE_VALUE_INITIAL + 永劫基础数值，数值升级提升值: 斐波拉契数列 × 0.9
+  // 1. 基础数值: 默认 BASE_VALUE_INITIAL + 永劫基础数值，数值升级提升值: 斐波那契数列 1,2,3,5,8 ... 再 × 0.5（效果削减50%）
   const baseBonus = baseValueUp.unlocked
     ? getBaseValueBonus(baseValueUp.level)
     : new BigNum(0, 0);

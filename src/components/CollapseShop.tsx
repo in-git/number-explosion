@@ -22,7 +22,7 @@ import { PressableRow } from './PressableRow';
 interface CollapseShopProps {
   state: GameState;
   onBuyValueCap: () => void;
-  /** 购买「永劫点数获取」：消耗按斐波拉契递增的坍缩点数，每次永劫额外 +1 点 */
+  /** 购买「永劫点数获取」：消耗按 2^n 递增的坍缩点数，每次永劫额外 +1 点 */
   onBuyRebirthPointLevel: () => void;
   /** 消耗 1 点坍缩点数，为指定功法 +50 级上限（由永劫商店迁移而来） */
   onBuyLevelCap: (id: UpgradeId) => void;
@@ -61,7 +61,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
   const canExchange = Number.isFinite(exchangeCostNum) && state.rebirthPoints >= exchangeCostNum;
   const cheapLeft = Math.max(0, REBIRTH_TO_COLLAPSE_FREE_TIMES - exchanged);
 
-  // 永劫点数获取：当前等级 + 下一级消耗（斐波拉契）
+  // 永劫点数获取：当前等级 + 下一级消耗（2 的幂）
   const rpLevel = state.rebirthPointLevel || 0;
   const rpCost = getRebirthPointUpgradeCost(rpLevel);
   const canBuyRp = BigNum.fromNumber(state.collapsePoints).gte(rpCost);
@@ -120,7 +120,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
         </UpgradeButton>
       </PressableRow>
 
-      {/* 永劫点数获取：每次永劫额外 +1 点，消耗斐波拉契递增的坍缩点数 */}
+      {/* 永劫点数获取：每次永劫额外 +1 点，消耗 2^n 递增的坍缩点数 */}
       <PressableRow
         id="shop-item-rebirth-point"
         disabled={!canBuyRp}

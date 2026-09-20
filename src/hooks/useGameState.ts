@@ -533,7 +533,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('坍缩觉醒', `消耗 ${COLLAPSE_COST} 点永劫值 · 太虚坍缩已开启`);
   }, [addToast]);
 
-  /** 坍缩商店：消耗按斐波那契递增的坍缩点数，提升数值上限（每级提升量亦按斐波那契式递增） */
+  /** 坍缩商店：消耗按等差数列递增（差值 1）的坍缩点数，提升数值上限 */
   const handleBuyValueCap = useCallback(() => {
     const prev = stateRef.current;
     const nextLevel = (prev.valueCapLevel || 0) + 1;
@@ -551,7 +551,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     );
   }, [addToast]);
 
-  /** 坍缩商店：购买「永劫点数获取」，消耗按斐波拉契递增的坍缩点数 */
+  /** 坍缩商店：购买「永劫点数获取」，消耗按 2^n 递增的坍缩点数 */
   const handleBuyRebirthPointLevel = useCallback(() => {
     const prev = stateRef.current;
     const level = prev.rebirthPointLevel || 0;
@@ -617,14 +617,31 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   /** 永劫商店：消耗 1 点永劫点数购买「功法无需解锁」特权（永久生效） */
   const handleBuyAutoUnlock = useCallback(() => {
     let done = false;
+    console.log('[功法通明] 尝试购买', {
+      当前永劫点数: stateRef.current.rebirthPoints,
+      消耗: AUTO_UNLOCK_COST,
+      已购特权: stateRef.current.upgradesAutoUnlocked,
+    });
     setState((prev) => {
-      if (prev.upgradesAutoUnlocked || prev.rebirthPoints < AUTO_UNLOCK_COST) return prev;
+      if (prev.upgradesAutoUnlocked || prev.rebirthPoints < AUTO_UNLOCK_COST) {
+        console.log('[功法通明] 购买未生效', {
+          原因: prev.upgradesAutoUnlocked ? '已购买过该特权' : '永劫点数不足',
+          当前永劫点数: prev.rebirthPoints,
+        });
+        return prev;
+      }
       done = true;
 
       // 已购特权：全部功法即刻处于已解锁状态，重生后亦不再回退
       const upgrades = { ...prev.upgrades };
       (Object.keys(upgrades) as UpgradeId[]).forEach((id) => {
         upgrades[id] = { ...upgrades[id], unlocked: true };
+      });
+
+      console.log('[功法通明] 购买成功', {
+        消耗: AUTO_UNLOCK_COST,
+        剩余永劫点数: prev.rebirthPoints - AUTO_UNLOCK_COST,
+        解锁功法: Object.keys(upgrades),
       });
 
       return {
@@ -714,9 +731,24 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   /** 永劫商店：消耗 1 点永劫点数解锁排行 */
   const handleUnlockRanking = useCallback(() => {
     let done = false;
+    console.log('[解锁排行] 尝试购买', {
+      当前永劫点数: stateRef.current.rebirthPoints,
+      消耗: RANKING_UNLOCK_COST,
+      已解锁: stateRef.current.rankingUnlocked,
+    });
     setState((prev) => {
-      if (prev.rankingUnlocked || prev.rebirthPoints < RANKING_UNLOCK_COST) return prev;
+      if (prev.rankingUnlocked || prev.rebirthPoints < RANKING_UNLOCK_COST) {
+        console.log('[解锁排行] 购买未生效', {
+          原因: prev.rankingUnlocked ? '已解锁过' : '永劫点数不足',
+          当前永劫点数: prev.rebirthPoints,
+        });
+        return prev;
+      }
       done = true;
+      console.log('[解锁排行] 购买成功', {
+        消耗: RANKING_UNLOCK_COST,
+        剩余永劫点数: prev.rebirthPoints - RANKING_UNLOCK_COST,
+      });
       return {
         ...prev,
         rebirthPoints: prev.rebirthPoints - RANKING_UNLOCK_COST,

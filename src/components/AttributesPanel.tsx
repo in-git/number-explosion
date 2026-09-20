@@ -63,10 +63,16 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       label: '数值升级',
       value: baseValueUp.unlocked
         ? `Lv.${baseValueUp.level} (+${attrs.baseValue.sub(BASE_VALUE_INITIAL).formatChinese(1)})`
-        : `基础 (${BASE_VALUE_INITIAL})`,
+        : `${BASE_VALUE_INITIAL}`,
       detail: `当前单次基础: ${attrs.baseValue.formatChinese(1)}`,
     },
  
+    {
+      id: 'attr-value-cap',
+      label: '数值上限',
+      value: getValueCap(state.valueCapLevel || 0).formatChinese(2),
+      detail: '坍缩店提升上限 · 达到上限后数值不再增长',
+    },
     {
       id: 'attr-highest-value',
       label: '最高数值',
@@ -178,8 +184,9 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     
         </div>
 
-        {/* 资源区：置顶常显，为 0 的不显示 */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5 border-b border-[#262220]">
+        {/* 资源区：置顶常显，为 0 的不显示；全部为空时整块（含下划线）不渲染 */}
+        {(attrs.rebirthPoints > 0 || attrs.collapsePoints > 0 || state.afterlifePoints > 0) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5 border-b border-[#262220]">
           {attrs.rebirthPoints > 0 && (
             <div className="flex items-center gap-1.5">
               <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">永劫点数</span>
@@ -188,12 +195,6 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
               </span>
             </div>
           )}
-          <div className="flex items-center gap-1.5">
-            <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">数值上限</span>
-            <span className="font-mono text-xs sm:text-sm font-bold text-[#e6ded1] tracking-tight">
-              {getValueCap(state.valueCapLevel || 0).formatChinese(2)}
-            </span>
-          </div>
           {attrs.collapsePoints > 0 && (
             <div className="flex items-center gap-1.5">
               <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">坍缩</span>
@@ -210,7 +211,8 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
               </span>
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Compact attribute list */}
         <div

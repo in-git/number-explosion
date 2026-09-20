@@ -8,7 +8,6 @@ import {
 import {
   ACHIEVEMENTS,
   DEFAULT_NICKNAME,
-  GOODS_CATEGORIES,
   INITIAL_STATE,
   STORAGE_KEY,
 } from '../config';
@@ -52,19 +51,6 @@ function sanitizeBigNumData(raw: unknown, fallback: BigNumData): BigNumData {
     return { m, e };
   }
   return fallback;
-}
-
-/** 清洗万物店已购记录：只保留仍在售的商品，数量取整且非负 */
-function sanitizeGoodsPurchases(raw: unknown): Record<string, number> {
-  const src = (raw || {}) as Record<string, unknown>;
-  const validIds = new Set(GOODS_CATEGORIES.flatMap((c) => c.items.map((i) => i.id)));
-  const next: Record<string, number> = {};
-  Object.entries(src).forEach(([id, count]) => {
-    if (!validIds.has(id)) return;
-    const n = typeof count === 'number' && Number.isFinite(count) ? Math.floor(count) : 0;
-    if (n > 0) next[id] = n;
-  });
-  return next;
 }
 
 /**

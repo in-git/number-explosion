@@ -7,6 +7,7 @@ import {
   getBaseValueBonus,
   getAutoClickRate,
   calculateGameAttributes,
+  getUpgradeMaxLevel,
   MULTIPLIER_STEP,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
@@ -104,6 +105,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         {REBIRTH_MERGED_UPGRADES.map(({ id, label }) => {
           const up = state.upgrades[id] || { unlocked: false, level: 0, capBonus: 0 };
           const level = up.level || 0;
+          const maxLevel = getUpgradeMaxLevel(id, up);
           const cost = getRebirthMergedUpgradeCost(id, level);
           const canBuy = state.rebirthPoints >= cost.toNumber();
           return (
@@ -126,7 +128,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                   </span>
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">
-                  {currentValueText(id, attrs)} · {nextGainText(id, level)}
+                  上限 Lv.{maxLevel} · {currentValueText(id, attrs)} · {nextGainText(id, level)}
                 </div>
               </div>
               <UpgradeButton id={`btn-rebirth-merged-${id}`} disabled={!canBuy}>
@@ -137,8 +139,8 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         })}
       </div>
 
-      {/* 功法通明 */}
-      {onBuyAutoUnlock && (
+      {/* 功法通明（已购后隐藏） */}
+      {onBuyAutoUnlock && !state.upgradesAutoUnlocked && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
             id="shop-item-unlock-autounlock"
@@ -163,8 +165,8 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         </div>
       )}
 
-      {/* 解锁排行 */}
-      {onUnlockRanking && (
+      {/* 解锁排行（已解锁后隐藏） */}
+      {onUnlockRanking && !state.rankingUnlocked && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
             id="shop-item-unlock-ranking"
