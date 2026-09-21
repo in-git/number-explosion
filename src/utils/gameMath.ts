@@ -328,14 +328,14 @@ export const TRIBULATION_STRIKE_INTERVAL_MS = 3000;
 /** 无渡劫丹时，单道雷劫的通过率 */
 export const TRIBULATION_STRIKE_CHANCE = 0.5;
 
-/** 渡劫殿：炼制一炉「数值重置丹」的耗时基数（ms）—— 一天 */
-export const VALUE_RESET_PILL_BASE_MS = 24 * 60 * 60 * 1000;
-/** 渡劫殿：炼制一炉「永劫重置丹」的耗时基数（ms）—— 两天 */
-export const REBIRTH_RESET_PILL_BASE_MS = 2 * 24 * 60 * 60 * 1000;
+/** 渡劫殿：炼制一炉「数值重置丹」的耗时基数（ms）—— 一分钟 */
+export const VALUE_RESET_PILL_BASE_MS = 60 * 1000;
+/** 渡劫殿：炼制一炉「永劫重置丹」的耗时基数（ms）—— 三分钟 */
+export const REBIRTH_RESET_PILL_BASE_MS = 3 * 60 * 1000;
 /** 渡劫殿：炼制进度推进节拍（ms），同时也是进度条的数据刷新间隔 */
 export const RESET_PILL_TICK_MS = 1_000;
 /** 渡劫殿：产出 1 点「渡劫点」的间隔（ms） */
-export const TRIBULATION_POINT_INTERVAL_MS = 60_000;
+export const TRIBULATION_POINT_INTERVAL_MS = 10_000;
 /** 渡劫殿：自动结算「永劫点」的起始间隔（ms） */
 export const AUTO_REBIRTH_BASE_INTERVAL_MS = 30_000;
 /** 渡劫殿：每结算一次「永劫点」，下一次的间隔增量（ms） */
@@ -356,7 +356,7 @@ export function getAutoRebirthIntervalMs(settledTimes: number): number {
 
 /**
  * 渡劫殿：炼制一炉重置丹的耗时（恒定，不随炼制次数累加）。
- * 数值重置丹 1 天；永劫重置丹 2 天。
+ * 数值重置丹 1 分钟；永劫重置丹 3 分钟。
  */
 export function getResetPillDurationMs(pill: 'value' | 'rebirth'): number {
   return pill === 'rebirth' ? REBIRTH_RESET_PILL_BASE_MS : VALUE_RESET_PILL_BASE_MS;

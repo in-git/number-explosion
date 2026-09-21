@@ -182,6 +182,11 @@ export const UpgradesList: React.FC = () => {
         ]),
   ];
 
+  // 渡劫成功后：数值殿每次升级另须消耗渡劫点，点数不足则不可升级
+  const needTribPoint = !!state.tribulationSuccess;
+  const hasTribPoint =
+    !needTribPoint || (state.tribulationPoints || 0) >= UPGRADE_TRIBULATION_POINT_COST;
+
   const rows = visibleUpgrades.map((id) => {
     const meta = UPGRADE_METADATA[id];
     const upgradeState = state.upgrades[id];
@@ -211,11 +216,6 @@ export const UpgradesList: React.FC = () => {
   const orderedRows = [...rows.filter((r) => !r.isMaxed), ...rows.filter((r) => r.isMaxed)];
   const shownRows = hideMaxed ? orderedRows.filter((r) => !r.isMaxed) : orderedRows;
 
-  // 渡劫成功后：数值殿每次升级另须消耗渡劫点，点数不足则不可升级
-  const needTribPoint = !!state.tribulationSuccess;
-  const hasTribPoint =
-    !needTribPoint || (state.tribulationPoints || 0) >= UPGRADE_TRIBULATION_POINT_COST;
-
   // 数值重置丹（一次性重置全部功法）：渡劫成功后可用，须持丹且至少一项功法已有等级
   const hasResettableLevel = (Object.keys(state.upgrades) as UpgradeId[]).some(
     (id) => id !== 'autoFrequency' && state.upgrades[id].unlocked && state.upgrades[id].level > 0
@@ -244,7 +244,6 @@ export const UpgradesList: React.FC = () => {
               >
                 {state.tribulationPoints || 0}
               </span>
-              <span className="ml-1 text-[#6f6656]">每次升级 -{UPGRADE_TRIBULATION_POINT_COST}</span>
             </span>
           )}
         </div>
@@ -261,6 +260,13 @@ export const UpgradesList: React.FC = () => {
           {hideMaxed ? '显示已满级' : '隐藏已满级'}
         </button>
       </div>
+
+      {/* 渡劫成功后单独一行提示：每次升级均须消耗 1 点渡劫点 */}
+      {state.tribulationSuccess && (
+        <div className="-mt-0.5 text-[10px] font-serif text-[#8a7a63]">
+          每次升级都会消耗一个渡劫点
+        </div>
+      )}
 
       {/* 长按提示 / 数值重置丹 / 一键升级 */}
       <div className="flex items-center justify-between gap-2 text-[10px] font-serif text-[#8a7a63] -mt-0.5">

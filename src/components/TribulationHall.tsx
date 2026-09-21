@@ -14,13 +14,13 @@ const sec = (ms: number): string => {
   return Number.isInteger(s) ? `${s}s` : `${s.toFixed(1)}s`;
 };
 
-/** 一天的毫秒数 */
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** 耗时文案：以「天」为单位（重置丹耗时均为整天数） */
+/** 耗时文案：按量级自动取「天 / 小时 / 分钟 / 秒」，只保留最大的一级单位 */
 const durText = (ms: number): string => {
-  const days = ms / DAY_MS;
-  return Number.isInteger(days) ? `${days}天` : `${days.toFixed(1)}天`;
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  if (totalSec % 86400 === 0) return `${totalSec / 86400}天`;
+  if (totalSec % 3600 === 0) return `${totalSec / 3600}小时`;
+  if (totalSec % 60 === 0) return `${totalSec / 60}分钟`;
+  return `${totalSec}秒`;
 };
 
 /** 剩余时间文案：只保留最大的两级单位 */
@@ -208,7 +208,7 @@ const PillItem: React.FC<PillItemProps> = ({
 /**
  * 渡劫殿：渡劫成功（飞升成仙）后开启。
  * 炼制两种重置丹（数值重置丹 / 永劫重置丹）：点击「炼制」即开炉，炼制中不可操作；
- * 耗时恒定不累加：数值重置丹每炉 1 天，永劫重置丹每炉 2 天。
+ * 耗时恒定不累加：数值重置丹每炉 1 分钟，永劫重置丹每炉 3 分钟。
  */
 export const TribulationHall: React.FC = () => {
   const { state, currentBigNum: currentValue } = useGameData();
