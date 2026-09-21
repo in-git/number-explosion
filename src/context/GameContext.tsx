@@ -44,7 +44,13 @@ export interface GameActions {
   handleGambleSettle: (type: SettleType, amount: BigNum) => void;
   handleGambleSettlePoints: (currency: PointsCurrency, type: SettleType, amount: number) => void;
   handleBuyLevelCap: (id: UpgradeId) => void;
+  /** 坍缩殿：功法等级上限一次连购到点数耗尽，返回实际购买次数 */
+  handleBuyLevelCapMax: (id: UpgradeId) => number;
   handleBuyRebirthPointLevel: () => void;
+  /** 坍缩殿：永劫爆炸一次连购到买不动，返回实际购买次数 */
+  handleBuyRebirthPointLevelMax: () => number;
+  /** 坍缩殿：数值上限一次连购到买不动，返回实际购买次数 */
+  handleBuyValueCapMax: () => number;
   handleBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
   /** 永劫殿：把某项属性一次升到当前可及的圆满等级（升级量 MAX），返回实际升级数 */
   handleBuyRebirthMergedUpgradeMax: (id: UpgradeId) => number;
@@ -63,7 +69,11 @@ export interface GameActions {
   handleUnlockAfterlifeShop: () => void;
   handleExchangeAfterlifePoint: (amount: number | 'all') => void;
   handleBuyAfterlifeUpgrade: (id: UpgradeId) => void;
+  /** 往生殿：属性强化一次连购到买不动，返回实际购买次数 */
+  handleBuyAfterlifeUpgradeMax: (id: UpgradeId) => number;
   handleBuyRebirthCapUpgrade: () => void;
+  /** 往生殿：永劫点上限一次连购到买不动，返回实际购买次数 */
+  handleBuyRebirthCapUpgradeMax: () => number;
   handleUnlockOneKeyUpgrade: () => void;
   handleLogin: (account: UserAccountData) => void;
   handleLogout: () => void;
@@ -132,7 +142,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleGambleSettle,
     handleGambleSettlePoints,
     handleBuyLevelCap,
+    handleBuyLevelCapMax,
     handleBuyRebirthPointLevel,
+    handleBuyRebirthPointLevelMax,
+    handleBuyValueCapMax,
     handleBuyRebirthMergedUpgrade,
     handleBuyRebirthMergedUpgradeMax,
     handleUnlockCollapse,
@@ -150,7 +163,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleUnlockAfterlifeShop,
     handleExchangeAfterlifePoint,
     handleBuyAfterlifeUpgrade,
+    handleBuyAfterlifeUpgradeMax,
     handleBuyRebirthCapUpgrade,
+    handleBuyRebirthCapUpgradeMax,
     handleUnlockOneKeyUpgrade,
     handleLogin,
     handleLogout,
@@ -196,7 +211,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleGambleSettle,
       handleGambleSettlePoints,
       handleBuyLevelCap,
+      handleBuyLevelCapMax,
       handleBuyRebirthPointLevel,
+      handleBuyRebirthPointLevelMax,
+      handleBuyValueCapMax,
       handleBuyRebirthMergedUpgrade,
       handleBuyRebirthMergedUpgradeMax,
       handleUnlockCollapse,
@@ -214,7 +232,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleUnlockAfterlifeShop,
       handleExchangeAfterlifePoint,
       handleBuyAfterlifeUpgrade,
+      handleBuyAfterlifeUpgradeMax,
       handleBuyRebirthCapUpgrade,
+      handleBuyRebirthCapUpgradeMax,
       handleUnlockOneKeyUpgrade,
       handleLogin,
       handleLogout,
@@ -240,7 +260,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleGambleSettle,
       handleGambleSettlePoints,
       handleBuyLevelCap,
+      handleBuyLevelCapMax,
       handleBuyRebirthPointLevel,
+      handleBuyRebirthPointLevelMax,
+      handleBuyValueCapMax,
       handleBuyRebirthMergedUpgrade,
       handleBuyRebirthMergedUpgradeMax,
       handleUnlockCollapse,
@@ -258,7 +281,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleUnlockAfterlifeShop,
       handleExchangeAfterlifePoint,
       handleBuyAfterlifeUpgrade,
+      handleBuyAfterlifeUpgradeMax,
       handleBuyRebirthCapUpgrade,
+      handleBuyRebirthCapUpgradeMax,
       handleUnlockOneKeyUpgrade,
       handleLogin,
       handleLogout,

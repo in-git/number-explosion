@@ -835,6 +835,36 @@ export function getBulkRebirthUpgradeResult(
 }
 
 /**
+ * 通用「连购」规划：在预算内按 costNum(当前等级) 逐次购买，
+ * 返回实际可购买次数与总消耗。各商殿「升级量 MAX」的按钮展示与结算共用同一套算法，
+ * 故按钮显示的次数即实际会购买的次数。
+ * @param startLevel 起始等级（第 1 次购买按该等级计价）
+ * @param budget 可用预算（点数）
+ * @param costNum 该等级下一次购买的消耗（返回非有限值时视为不可再买）
+ */
+export function planBulkBuy(
+  startLevel: number,
+  budget: number,
+  costNum: (level: number) => number
+): { times: number; spent: number } {
+  const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
+  const limit = Number.isFinite(budget) && budget > 0 ? Math.floor(budget) : 0;
+
+  let times = 0;
+  let spent = 0;
+
+  for (;;) {
+    const cost = costNum(start + times);
+    if (!Number.isFinite(cost) || cost <= 0) break;
+    if (limit < spent + cost) break;
+    spent += cost;
+    times += 1;
+  }
+
+  return { times, spent };
+}
+
+/**
  * 两殿频率效果累加（单一计算入口）：
  * 数值殿与永劫殿各自独立计级、互不影响（各 20 级满级，各存各的等级），
  * 总间隔 = 1000ms −（数值殿等级 + 永劫殿等级）× 49.5ms，下限 10ms（100次/s）

@@ -238,7 +238,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
               <div className="flex items-center gap-1.5">
                 <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">往生点</span>
                 <span className="font-mono text-xs sm:text-sm font-bold text-[#d897fa] tracking-tight">
-                  {state.afterlifePoints} 点
+                  {BigNum.fromNumber(state.afterlifePoints).formatChinese(0)} 点
                 </span>
               </div>
             )}

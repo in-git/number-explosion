@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UpgradeId } from '../types';
 import { useGameActions, useGameData } from '../context/GameContext';
 import {
@@ -10,6 +10,7 @@ import {
   getRebirthPointUpgradeCost,
   getRebirthPointBonusPerMillion,
   getRebirthToCollapseCost,
+  planBulkBuy,
   COLLAPSE_COST,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
@@ -23,11 +24,20 @@ export const CollapseShop: React.FC = () => {
   const { state } = useGameData();
   const {
     handleBuyValueCap: onBuyValueCap,
+    handleBuyValueCapMax: onBuyValueCapMax,
     handleBuyRebirthPointLevel: onBuyRebirthPointLevel,
+    handleBuyRebirthPointLevelMax: onBuyRebirthPointLevelMax,
     handleBuyLevelCap: onBuyLevelCap,
+    handleBuyLevelCapMax: onBuyLevelCapMax,
     handleExchangeRebirthToCollapse: onExchangeRebirthToCollapse,
     handleUnlockAfterlifeShop: onUnlockAfterlifeShop,
   } = useGameActions();
+
+  /**
+   * 升级量模式（与其他商殿一致）：false = 每次购买 1 次（默认）；true = 一次买到买不动。
+   * 下方每个购买按钮均按此模式结算。
+   */
+  const [maxMode, setMaxMode] = useState(false);
 
   const level = state.valueCapLevel || 0;
   const rebirths = state.rebirthCount || 0;
@@ -35,6 +45,8 @@ export const CollapseShop: React.FC = () => {
   const nextCap = getValueCap(level + 1, rebirths);
   const valueCapCost = getValueCapCost(level + 1);
   const canBuy = state.collapsePoints >= valueCapCost.toNumber();
+  // 功法等级上限：每次固定 1 点坍缩点数（与「数值上限」的消耗无关）
+  const canBuyLevelCap = state.collapsePoints >= 1;
 
   // 永劫点数 → 坍缩点数兑换（单次消耗恒定）
   const exchanged = state.rebirthToCollapseCount || 0;
@@ -43,7 +55,6 @@ export const CollapseShop: React.FC = () => {
   // 全部兑换：当前可兑换的最大次数及其消耗
   const exchangeAllCount = exchangeStep > 0 ? Math.floor(state.rebirthPoints / exchangeStep) : 0;
   const canExchange = exchangeStep > 0 && state.rebirthPoints >= exchangeStep;
-  const canExchange10 = exchangeStep > 0 && state.rebirthPoints >= exchangeStep * 10;
   const canExchangeAll = exchangeAllCount > 0;
 
   // 永劫爆炸：当前等级 + 下一级消耗（2 的幂）
@@ -57,6 +68,18 @@ export const CollapseShop: React.FC = () => {
 
   // 往生殿：消耗坍缩点（非永劫点）解锁
   const canUnlockAfterlifeShop = state.collapsePoints >= AFTERLIFE_SHOP_UNLOCK_COST;
+
+  // MAX 模式下的可购买次数（仅该模式计算；与结算同源，故按钮显示即实际购买次数）
+  const collapsePointsNow = Math.max(0, state.collapsePoints);
+  const rpMaxTimes = maxMode
+    ? planBulkBuy(rpLevel, collapsePointsNow, (lv) => getRebirthPointUpgradeCost(lv).toNumber())
+        .times
+    : 0;
+  const valueCapMaxTimes = maxMode
+    ? planBulkBuy(level, collapsePointsNow, (lv) => getValueCapCost(lv + 1).toNumber()).times
+    : 0;
+  // 功法等级上限每次固定 1 点，故可直接买光当前点数
+  const levelCapMaxTimes = maxMode ? Math.floor(collapsePointsNow) : 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -72,51 +95,56 @@ export const CollapseShop: React.FC = () => {
             {BigNum.fromNumber(state.collapsePoints).formatChinese(0)}
           </span>
         </div>
+
+        {/* 一键升级：升级量开关 —— 1 = 每次购买 1 次，max = 一次买到买不动；下方按钮随之联动 */}
+        {state.oneKeyUpgradeUnlocked && (
+          <button
+            id="btn-collapse-upgrade-all"
+            onClick={() => setMaxMode((v) => !v)}
+            aria-pressed={maxMode}
+            title={
+              maxMode
+                ? '升级量 max：每次购买直接买到买不动 · 点击切回 1 次'
+                : '升级量 1：每次购买 1 次 · 点击切至 max'
+            }
+            className={`ml-auto px-2 py-0.5 text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
+              maxMode
+                ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
+                : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+            }`}
+          >
+            {maxMode ? 'max' : '1'}
+          </button>
+        )}
       </div>
 
-      {/* 点化坍缩：永劫点数 → 坍缩点数；卡片，支持 +1 / +10 / 全部 */}
+      {/* 点化坍缩：永劫点数 → 坍缩点数；普通卡片，按「升级量」开关购买 1 次或全部 */}
       <div
         id="shop-item-exchange-collapse"
-        className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-[#161d2b] border border-[#2e4a6e] select-none"
+        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] select-none"
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
-            点化坍缩
-          </span>
-          <span className="text-[10px] font-serif text-[#7d8fa3] flex-shrink-0">
-            永劫:坍缩=3:1
-          </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
+              点化坍缩
+            </span>
+            <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
+              3:1
+            </span>
+          </div>
+          <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
+            每 3 点永劫点数兑 1 点坍缩点数
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <UpgradeButton
-            id="btn-exchange-collapse-1"
-            disabled={!canExchange}
-            onClick={() => onExchangeRebirthToCollapse(1)}
-            ariaLabel="兑换 1 点坍缩点数"
-            className="flex-1 min-w-0! justify-center! text-center!"
-          >
-            +1
-          </UpgradeButton>
-          <UpgradeButton
-            id="btn-exchange-collapse-10"
-            disabled={!canExchange10}
-            onClick={() => onExchangeRebirthToCollapse(10)}
-            ariaLabel="兑换 10 点坍缩点数"
-            className="flex-1 min-w-0! justify-center! text-center!"
-          >
-            +10
-          </UpgradeButton>
-          <UpgradeButton
-            id="btn-exchange-collapse-all"
-            disabled={!canExchangeAll}
-            onClick={() => onExchangeRebirthToCollapse('all')}
-            ariaLabel="全部兑换"
-            className="flex-1 min-w-0! justify-center! text-center!"
-          >
-            +{BigNum.fromNumber(exchangeAllCount).formatChinese(0)}
-          </UpgradeButton>
-        </div>
+        <UpgradeButton
+          id="btn-exchange-collapse"
+          disabled={maxMode ? !canExchangeAll : !canExchange}
+          onClick={() => onExchangeRebirthToCollapse(maxMode ? 'all' : 1)}
+          ariaLabel="点化坍缩"
+        >
+          {maxMode ? `${BigNum.fromNumber(exchangeAllCount).formatChinese(0)}次` : '1次'}
+        </UpgradeButton>
       </div>
 
       {/* 永劫爆炸：永劫时每 100 万数值额外 +0.2 点/级，消耗 2^n 递增的坍缩点数；仅按右侧按钮触发 */}
@@ -137,13 +165,17 @@ export const CollapseShop: React.FC = () => {
 
         <UpgradeButton
           id="btn-buy-rebirth-point"
-          disabled={!canBuyRp}
+          disabled={maxMode ? rpMaxTimes <= 0 : !canBuyRp}
           onPress={() => {
+            if (maxMode) {
+              onBuyRebirthPointLevelMax();
+              return;
+            }
             if (!canBuyRp) return;
             onBuyRebirthPointLevel();
           }}
         >
-          {rpCost.formatChinese(0)} 点
+          {maxMode ? `${BigNum.fromNumber(rpMaxTimes).formatChinese(0)}次` : '1次'}
         </UpgradeButton>
       </div>
 
@@ -166,13 +198,17 @@ export const CollapseShop: React.FC = () => {
 
         <UpgradeButton
           id="btn-buy-value-cap"
-          disabled={!canBuy}
+          disabled={maxMode ? valueCapMaxTimes <= 0 : !canBuy}
           onPress={() => {
+            if (maxMode) {
+              onBuyValueCapMax();
+              return;
+            }
             if (!canBuy) return;
             onBuyValueCap();
           }}
         >
-          {valueCapCost.formatChinese(0)} 点
+          {maxMode ? `${BigNum.fromNumber(valueCapMaxTimes).formatChinese(0)}次` : '1次'}
         </UpgradeButton>
       </div>
 
@@ -195,7 +231,7 @@ export const CollapseShop: React.FC = () => {
                     {meta.name}
                   </span>
                   <span className='text-xs'>
-                    Lv.{up.capBonus || 0}
+                    Lv.{BigNum.fromNumber(up.capBonus || 0).formatChinese(0)}
                   </span>
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif  mt-0.5">
@@ -205,13 +241,17 @@ export const CollapseShop: React.FC = () => {
 
               <UpgradeButton
                 id={`btn-shop-cap-${id}`}
-                disabled={!canBuy}
+                disabled={maxMode ? levelCapMaxTimes <= 0 : !canBuyLevelCap}
                 onPress={() => {
-                  if (!canBuy) return;
+                  if (maxMode) {
+                    onBuyLevelCapMax(id);
+                    return;
+                  }
+                  if (!canBuyLevelCap) return;
                   onBuyLevelCap(id);
                 }}
               >
-                1 点
+                {maxMode ? `${BigNum.fromNumber(levelCapMaxTimes).formatChinese(0)}次` : '1次'}
               </UpgradeButton>
             </div>
           );

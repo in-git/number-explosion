@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UpgradeId } from '../types';
 import { BigNum } from '../utils/bigNumber';
 import { useGameActions, useGameData, useModals } from '../context/GameContext';
@@ -16,6 +16,7 @@ import {
   getRebirthCapUpgradeCost,
   getRebirthCapStep,
   getRebirthPointsCap,
+  planBulkBuy,
 } from '../utils/gameMath';
 import { UpgradeButton } from './UpgradeButton';
 
@@ -24,11 +25,19 @@ export const AfterlifeShop: React.FC = () => {
   const {
     handleExchangeAfterlifePoint: onExchangeAfterlifePoint,
     handleBuyAfterlifeUpgrade: onBuyAfterlifeUpgrade,
+    handleBuyAfterlifeUpgradeMax: onBuyAfterlifeUpgradeMax,
     handleBuyRebirthCapUpgrade: onBuyRebirthCapUpgrade,
+    handleBuyRebirthCapUpgradeMax: onBuyRebirthCapUpgradeMax,
     handleUnlockOneKeyUpgrade: onUnlockOneKeyUpgrade,
     handleUnlockTribulation: onUnlockTribulation,
   } = useGameActions();
   const modals = useModals();
+
+  /**
+   * 升级量模式（与其他商殿一致）：false = 每次购买 1 次（默认）；true = 一次买到买不动。
+   * 下方每个购买按钮均按此模式结算。
+   */
+  const [maxMode, setMaxMode] = useState(false);
 
   /** 打开「天雷峰」：关闭往生殿，打开渡劫弹窗 */
   const onOpenTribulation = () => {
@@ -51,7 +60,6 @@ export const AfterlifeShop: React.FC = () => {
   // 全部兑换：当前可兑换的最大次数及其消耗
   const exchangeAllCount = Math.floor(state.collapsePoints / exchangeStep);
   const canExchange = state.collapsePoints >= exchangeStep;
-  const canExchange10 = state.collapsePoints >= exchangeStep * 10;
   const canExchangeAll = exchangeAllCount > 0;
 
   // 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点 1,2,3,4,5…
@@ -61,6 +69,12 @@ export const AfterlifeShop: React.FC = () => {
   const nextCapStep = getRebirthCapStep(capLevel + 1);
   const rebirthCapCost = getRebirthCapUpgradeCost(capLevel);
   const canBuyRebirthCap = state.afterlifePoints >= rebirthCapCost;
+
+  // MAX 模式下的可购买次数（仅该模式计算；与结算同源，故按钮显示即实际购买次数）
+  const afterlifePointsNow = Math.max(0, state.afterlifePoints);
+  const capMaxTimes = maxMode
+    ? planBulkBuy(capLevel, afterlifePointsNow, (lv) => getRebirthCapUpgradeCost(lv)).times
+    : 0;
 
   // 一键升级：消耗 10 往生点解锁，解锁后数值殿 / 永劫殿才显示「升级量」开关
   const canUnlockOneKey = state.afterlifePoints >= ONE_KEY_UPGRADE_UNLOCK_COST;
@@ -78,57 +92,64 @@ export const AfterlifeShop: React.FC = () => {
             {BigNum.fromNumber(state.collapsePoints).formatChinese(0)}
           </span>
         </div>
-        <div className="text-[10px] font-mono text-[#8a7a63]">
-          往生点{' '}
-          <span className="text-[#d897fa]">
-            {BigNum.fromNumber(state.afterlifePoints).formatChinese(0)}
-          </span>
+        <div className="flex items-center gap-2">
+          <div className="text-[10px] font-mono text-[#8a7a63]">
+            往生点{' '}
+            <span className="text-[#d897fa]">
+              {BigNum.fromNumber(state.afterlifePoints).formatChinese(0)}
+            </span>
+          </div>
+
+          {/* 一键升级：升级量开关 —— 1 = 每次购买 1 次，max = 一次买到买不动；下方按钮随之联动 */}
+          {state.oneKeyUpgradeUnlocked && (
+            <button
+              id="btn-afterlife-upgrade-all"
+              onClick={() => setMaxMode((v) => !v)}
+              aria-pressed={maxMode}
+              title={
+                maxMode
+                  ? '升级量 max：每次购买直接买到买不动 · 点击切回 1 次'
+                  : '升级量 1：每次购买 1 次 · 点击切至 max'
+              }
+              className={`ml-auto px-2 py-0.5 text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
+                maxMode
+                  ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
+                  : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+              }`}
+            >
+              {maxMode ? 'max' : '1'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 兑换往生点：坍缩点 → 往生点；卡片，支持 +1 / +10 / 全部 */}
+      {/* 兑换往生点：坍缩点 → 往生点；普通卡片，按「升级量」开关兑换 1 次或全部 */}
       <div
         id="afterlife-item-exchange"
-        className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-[#211f1c] border border-[#383229] select-none"
+        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] select-none"
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
-            兑换往生点
-          </span>
-          <span className="text-[10px] font-serif text-[#998e7e] flex-shrink-0">
-            兑换比例: 10:1
-          </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
+              兑换往生点
+            </span>
+            <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
+              10:1
+            </span>
+          </div>
+          <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
+            每 {exchangeStep} 点坍缩点数兑 1 点往生点
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <UpgradeButton
-            id="btn-afterlife-exchange-1"
-            disabled={!canExchange}
-            onClick={() => onExchangeAfterlifePoint(1)}
-            ariaLabel="兑换 1 点往生点"
-            className="flex-1 min-w-0! justify-center! text-center!"
-          >
-            +1
-          </UpgradeButton>
-          <UpgradeButton
-            id="btn-afterlife-exchange-10"
-            disabled={!canExchange10}
-            onClick={() => onExchangeAfterlifePoint(10)}
-            ariaLabel="兑换 10 点往生点"
-            className="flex-1 min-w-0! justify-center! text-center!"
-          >
-            +10
-          </UpgradeButton>
-          <UpgradeButton
-            id="btn-afterlife-exchange-all"
-            disabled={!canExchangeAll}
-            onClick={() => onExchangeAfterlifePoint('all')}
-            ariaLabel="全部兑换"
-            className="flex-1 min-w-0! justify-center! text-center!"
-          >
-            +{BigNum.fromNumber(exchangeAllCount).formatChinese(0)}
-          </UpgradeButton>
-        </div>
+        <UpgradeButton
+          id="btn-afterlife-exchange"
+          disabled={maxMode ? !canExchangeAll : !canExchange}
+          onClick={() => onExchangeAfterlifePoint(maxMode ? 'all' : 1)}
+          ariaLabel="兑换往生点"
+        >
+          {maxMode ? `${BigNum.fromNumber(exchangeAllCount).formatChinese(0)}次` : '1次'}
+        </UpgradeButton>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -141,6 +162,10 @@ export const AfterlifeShop: React.FC = () => {
           const next = getAfterlifeNextUpgradeMultiplier(id, level);
           const cost = getAfterlifeUpgradeCost(level);
           const canBuy = state.afterlifePoints >= cost;
+          // MAX 模式：本批实际可购买次数
+          const maxTimes = maxMode
+            ? planBulkBuy(level, afterlifePointsNow, (lv) => getAfterlifeUpgradeCost(lv)).times
+            : 0;
 
           return (
             <div
@@ -156,25 +181,30 @@ export const AfterlifeShop: React.FC = () => {
                     {label}
                   </span>
                   <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#a69b8b] flex-shrink-0">
-                    Lv.{level}
+                    Lv.{BigNum.fromNumber(level).formatChinese(0)}
                   </span>
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
                   强化 永劫殿 <span className="text-[#76d18c]">[{label}]</span> 累计加成{' '}
                   <span className="text-[#d897fa] font-mono font-bold">
-                    ×{current} → ×{next}
+                    ×{BigNum.fromNumber(current).formatChinese(0)} → ×
+                    {BigNum.fromNumber(next).formatChinese(0)}
                   </span>
                 </div>
               </div>
 
               <UpgradeButton
                 id={`btn-afterlife-${id}`}
-                disabled={!canBuy}
+                disabled={maxMode ? maxTimes <= 0 : !canBuy}
                 onPress={() => {
+                  if (maxMode) {
+                    onBuyAfterlifeUpgradeMax(id);
+                    return;
+                  }
                   if (canBuy) onBuyAfterlifeUpgrade(id);
                 }}
               >
-                {BigNum.fromNumber(cost).formatChinese(0)} 点
+                {maxMode ? `${BigNum.fromNumber(maxTimes).formatChinese(0)}次` : '1次'}
               </UpgradeButton>
             </div>
           );
@@ -194,7 +224,7 @@ export const AfterlifeShop: React.FC = () => {
               永劫点上限
             </span>
             <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#a69b8b] flex-shrink-0">
-              Lv.{capLevel}
+              Lv.{BigNum.fromNumber(capLevel).formatChinese(0)}
             </span>
           </div>
           <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
@@ -211,12 +241,16 @@ export const AfterlifeShop: React.FC = () => {
 
         <UpgradeButton
           id="btn-afterlife-rebirth-cap"
-          disabled={!canBuyRebirthCap}
+          disabled={maxMode ? capMaxTimes <= 0 : !canBuyRebirthCap}
           onPress={() => {
+            if (maxMode) {
+              onBuyRebirthCapUpgradeMax();
+              return;
+            }
             if (canBuyRebirthCap) onBuyRebirthCapUpgrade();
           }}
         >
-          {BigNum.fromNumber(rebirthCapCost).formatChinese(0)} 点
+          {maxMode ? `${BigNum.fromNumber(capMaxTimes).formatChinese(0)}次` : '1次'}
         </UpgradeButton>
       </div>
 
@@ -291,7 +325,7 @@ export const AfterlifeShop: React.FC = () => {
               </span>
             </div>
             <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-              数值殿 / 永劫殿开启「升级量」开关 · 可一键升到圆满
+              数值殿 / 永劫殿 / 坍缩殿 / 往生殿开启「升级量」开关 · 可买到买不动
             </div>
           </div>
           <UpgradeButton

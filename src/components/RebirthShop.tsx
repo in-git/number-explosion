@@ -7,7 +7,7 @@ import {
   getBulkRebirthUpgradeResult,
   getRebirthMergedUpgradeCost,
   getRebirthBaseValueCost,
-  getRebirthBaseValueGain,
+  getRebirthBaseValueBonus,
   calculateGameAttributes,
   MULTIPLIER_STEP,
   CRIT_CHANCE_STEP,
@@ -44,28 +44,46 @@ const pctText = (ratio: number): string => {
   return `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}%`;
 };
 
-/** 每项描述：当前值 → 升级后值（永劫殿独立效果，与数值殿格式一致；已封顶时提示已至上限） */
+/** 数值高亮：把效果文案中的关键数字点亮，便于一眼看清 */
+const Num: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <span className="font-bold text-[#e8c46a]">{children}</span>
+);
+
+/**
+ * 每项描述：当前值 → 升级后值（永劫殿独立效果，与数值殿格式一致；已封顶时提示已至上限）
+ * @param levels 本次升级级数：×1 为 1；MAX 为本次实际能升的级数（预览随之取更远的档）
+ */
 const effectText = (
   id: UpgradeId,
   level: number,
   attrs: ReturnType<typeof calculateGameAttributes>,
-  afterlifeLevel: number = 0
-): string => {
+  afterlifeLevel: number = 0,
+  levels: number = 1
+): React.ReactNode => {
+  const gain = Number.isFinite(levels) && levels > 1 ? Math.floor(levels) : 1;
+
   switch (id) {
     case 'baseValue': {
-      // 独立公式：每级固定 +2（线性增长），并受往生殿「数值升级」基础倍数放大
-      const cur = `基础 ${attrs.baseValue.formatChinese(1)}`;
-      const next = `基础 ${attrs.baseValue
-        .add(getRebirthBaseValueGain(level + 1, afterlifeLevel))
-        .formatChinese(1)}`;
-      return `${cur} → ${next}`;
+      // 独立公式：每级固定 +2（线性增长），并受往生殿「数值升级」基础倍数放大。
+      // 注意 getRebirthBaseValueGain 与等级无关（恒为 +2×倍数），
+      // 故 gain 级的增量须取「升 gain 级前后累计加成之差」，不能只按 1 级算。
+      const gainTotal = getRebirthBaseValueBonus(level + gain, afterlifeLevel).sub(
+        getRebirthBaseValueBonus(level, afterlifeLevel)
+      );
+      const cur = attrs.baseValue.formatChinese(1);
+      const next = attrs.baseValue.add(gainTotal).formatChinese(1);
+      return (
+        <>
+          基础 <Num>{cur}</Num> → 基础 <Num>{next}</Num>
+        </>
+      );
     }
     case 'autoFrequency': {
       const cur = `${attrs.autoClicksPerSec.toFixed(1)}次/s`;
       if (attrs.autoIntervalMs <= AUTO_FREQ_INTERVAL_MIN) return `${cur} → 已至上限`;
       const nextInterval = Math.max(
         AUTO_FREQ_INTERVAL_MIN,
-        attrs.autoIntervalMs - AUTO_FREQ_INTERVAL_STEP
+        attrs.autoIntervalMs - AUTO_FREQ_INTERVAL_STEP * gain
       );
       return `${cur} → ${(AUTO_FREQ_INTERVAL_BASE / nextInterval).toFixed(1)}次/s`;
     }
@@ -74,16 +92,16 @@ const effectText = (
       // 每级 +30% × 往生殿强化倍数
       const step = MULTIPLIER_STEP * getAfterlifeUpgradeMultiplier(id, afterlifeLevel);
       const cur = id === 'critMultiplier' ? attrs.critMultiplier : attrs.comboMultiplier;
-      return `${pctText(cur)} → ${pctText(cur + step)}`;
+      return `${pctText(cur)} → ${pctText(cur + step * gain)}`;
     }
     case 'critChance':
       return attrs.critChance >= 1.0
         ? `${pctText(attrs.critChance)} → 已至上限`
-        : `${pctText(attrs.critChance)} → ${pctText(Math.min(1, attrs.critChance + CRIT_CHANCE_STEP))}`;
+        : `${pctText(attrs.critChance)} → ${pctText(Math.min(1, attrs.critChance + CRIT_CHANCE_STEP * gain))}`;
     case 'comboChance':
       return attrs.comboChance >= 1.0
         ? `${pctText(attrs.comboChance)} → 已至上限`
-        : `${pctText(attrs.comboChance)} → ${pctText(Math.min(1, attrs.comboChance + COMBO_CHANCE_STEP))}`;
+        : `${pctText(attrs.comboChance)} → ${pctText(Math.min(1, attrs.comboChance + COMBO_CHANCE_STEP * gain))}`;
     default:
       return '';
   }
@@ -160,28 +178,8 @@ export const RebirthShop: React.FC = () => {
           id="rebirth-reset-pill-row"
           className="flex items-center gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229]"
         >
-          {/* 一键升级居左、永劫重置丹居右 */}
+          {/* 永劫重置丹居左、一键升级居右（与数值殿一致） */}
           <div className="flex flex-1 min-w-0 items-center justify-between gap-2">
-            {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，MAX = 一次升到圆满；下方按钮随之联动 */}
-            {state.oneKeyUpgradeUnlocked && (
-              <button
-                id="btn-rebirth-upgrade-all"
-                onClick={() => setMaxMode((v) => !v)}
-                aria-pressed={maxMode}
-                title={
-                  maxMode
-                    ? '升级量 MAX：每次升级直接升到圆满 · 点击切回 1 级'
-                    : '升级量 1：每次升级 1 级 · 点击切至 MAX'
-                }
-                className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
-                  maxMode
-                    ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
-                    : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
-                }`}
-              >
-                升级量 {maxMode ? 'MAX' : '1'}
-              </button>
-            )}
             {/* 永劫重置丹：消耗 1 颗，一次性重置全部属性 */}
             {state.tribulationSuccess && (
               <button
@@ -196,6 +194,26 @@ export const RebirthShop: React.FC = () => {
                 }`}
               >
                 永劫重置丹 {state.rebirthResetPills || 0}
+              </button>
+            )}
+            {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，max = 一次升到圆满；下方按钮随之联动 */}
+            {state.oneKeyUpgradeUnlocked && (
+              <button
+                id="btn-rebirth-upgrade-all"
+                onClick={() => setMaxMode((v) => !v)}
+                aria-pressed={maxMode}
+                title={
+                  maxMode
+                    ? '升级量 max：每次升级直接升到圆满 · 点击切回 1'
+                    : '升级量 1：每次升级 1 级 · 点击切至 max'
+                }
+                className={`ml-auto px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
+                  maxMode
+                    ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
+                    : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+                }`}
+              >
+                {maxMode ? 'max' : '1'}
               </button>
             )}
           </div>
@@ -242,6 +260,8 @@ export const RebirthShop: React.FC = () => {
           const canBuy = bulk
             ? bulk.levels > 0
             : cost !== null && state.rebirthPoints >= cost.toNumber() && hasTribPoint;
+          // 效果预览级数：MAX 模式预览「本次升满后」的效果（一级都买不起时退回 1 级预览）
+          const previewLevels = maxMode ? Math.max(1, bulk?.levels ?? 0) : 1;
           return (
             <div
               key={id}
@@ -256,12 +276,12 @@ export const RebirthShop: React.FC = () => {
                     {label}
                   </span>
                   <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574]">
-                    Lv.{level}
+                    Lv.{BigNum.fromNumber(level).formatChinese(0)}
                   </span>
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">
                   {capText(id) ? `${capText(id)} · ` : ''}
-                  {effectText(id, level, attrs, afterlifeLevel)}
+                  {effectText(id, level, attrs, afterlifeLevel, previewLevels)}
                 </div>
                 {afterlifeMult > 1 && (
                   <div className="text-[10px] font-serif text-[#d897fa] mt-0.5">
@@ -284,11 +304,12 @@ export const RebirthShop: React.FC = () => {
                 }}
                 ariaLabel={maxMode ? '升到圆满' : '升级'}
               >
-                {freqMaxed
-                  ? '圆满'
-                  : maxMode && bulk && bulk.levels > 0
-                    ? `MAX ${BigNum.fromNumber(bulk.cost).formatChinese(0)} 点`
-                    : `${cost!.formatChinese(0)} 点`}
+                {/* 展示本次可升级数（单位「次」）：×1 恒为 1 次，MAX 为实际能升的级数；已满级显示 max */}
+                {cost === null
+                  ? 'max'
+                  : maxMode
+                    ? `${BigNum.fromNumber(bulk?.levels ?? 0).formatChinese(0)}次`
+                    : '1次'}
               </UpgradeButton>
             </div>
           );

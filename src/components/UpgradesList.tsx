@@ -37,14 +37,22 @@ const pctText = (ratio: number): string => {
  * 功法效果文案。
  * @param level 当前等级（用于计算升级消耗）
  * @param keptLevel 数值重置丹保留的等级：效果按「当前等级 + 保留等级」计，故用丹后效果不丢
+ * @param levels 本次升级级数：×1 为 1；MAX 为本次实际能升的级数（预览随之取更远的档）
  */
-function getUpgradeDesc(id: UpgradeId, level: number, keptLevel: number = 0): UpgradeDesc {
+function getUpgradeDesc(
+  id: UpgradeId,
+  level: number,
+  keptLevel: number = 0,
+  levels: number = 1
+): UpgradeDesc {
+  const gain = Number.isFinite(levels) && levels > 1 ? Math.floor(levels) : 1;
+
   if (id === 'baseValue') {
     // 格式：升级前的数值 -> 升级后预览（升级后的值以绿色显示）
     // 往生殿强化作用于永劫殿，数值殿此处只看自身累计加成
     const effective = level + keptLevel;
     const currentBonus = getBaseValueBonus(effective);
-    const nextBonus = getBaseValueBonus(effective + 1);
+    const nextBonus = getBaseValueBonus(effective + gain);
     return {
       currentDesc: `+${currentBonus.formatChinese(1)}`,
       nextDesc: `+${nextBonus.formatChinese(1)}`,
@@ -58,7 +66,7 @@ function getUpgradeDesc(id: UpgradeId, level: number, keptLevel: number = 0): Up
   // 所有条目统一：当前值 -> 升级后值（频率只显示 次/s）
   if (id === 'autoFrequency') {
     const rate = getAutoClickRate(level);
-    const next = getAutoClickRate(level + 1);
+    const next = getAutoClickRate(level + gain);
     return {
       currentDesc: `${rate.clicksPerSec.toFixed(1)}次/s`,
       nextDesc:
@@ -70,7 +78,7 @@ function getUpgradeDesc(id: UpgradeId, level: number, keptLevel: number = 0): Up
 
   if (id === 'comboChance') {
     const cur = Math.min(1.0, level * COMBO_CHANCE_STEP);
-    const next = Math.min(1.0, (level + 1) * COMBO_CHANCE_STEP);
+    const next = Math.min(1.0, (level + gain) * COMBO_CHANCE_STEP);
     return {
       currentDesc: pctText(cur),
       nextDesc: cur >= 1.0 ? '上限 100%' : pctText(next),
@@ -82,13 +90,13 @@ function getUpgradeDesc(id: UpgradeId, level: number, keptLevel: number = 0): Up
     const base = id === 'critMultiplier' ? CRIT_MULT_BASE : 1.0;
     return {
       currentDesc: pctText(base + level * MULTIPLIER_STEP),
-      nextDesc: pctText(base + (level + 1) * MULTIPLIER_STEP),
+      nextDesc: pctText(base + (level + gain) * MULTIPLIER_STEP),
     };
   }
 
   // 暴击概率: 基础5%，每级 +1%（0.01），上限100%
   const cur = Math.min(1.0, CRIT_CHANCE_BASE + level * CRIT_CHANCE_STEP);
-  const next = Math.min(1.0, CRIT_CHANCE_BASE + (level + 1) * CRIT_CHANCE_STEP);
+  const next = Math.min(1.0, CRIT_CHANCE_BASE + (level + gain) * CRIT_CHANCE_STEP);
   return {
     currentDesc: pctText(cur),
     nextDesc: cur >= 1.0 ? '上限 100%' : pctText(next),
@@ -193,16 +201,21 @@ export const UpgradesList: React.FC = () => {
     const maxLevel = getUpgradeMaxLevel(id, upgradeState, rebirthLevel);
     // 数值重置丹保留的等级：只计入效果，不计入升级消耗
     const keptLevel = state.valueResetLevels?.[id] || 0;
-    const desc = getUpgradeDesc(id, upgradeState.level, keptLevel);
     // 往生殿的倍数与优惠均已迁移至永劫殿，数值殿升级一律原价
     const currentCost = getUpgradeCost(id, upgradeState.level, maxLevel);
 
-    // MAX 模式：本批「连升到圆满」实际可升的级数与总消耗（仅该模式需要算）
+    // MAX 模式：本批「连升到圆满」实际可升的级数（按钮即展示这个数）
     const bulk = maxMode
       ? getBulkUpgradeResult(id, upgradeState, rebirthLevel, currentValue, pointLevelLimit)
       : null;
-    // 展示的消耗：MAX 模式下一级都买不起时，退回 1 级的消耗便于玩家判断差距
-    const shownCost = bulk && bulk.levels > 0 ? bulk.cost : currentCost;
+    const bulkLevels = bulk?.levels ?? 0;
+    // 效果预览：MAX 模式预览「本次升满后」的效果（一级都买不起时退回 1 级预览）
+    const desc = getUpgradeDesc(
+      id,
+      upgradeState.level,
+      keptLevel,
+      maxMode ? Math.max(1, bulkLevels) : 1
+    );
 
     return {
       id,
@@ -211,8 +224,7 @@ export const UpgradesList: React.FC = () => {
       maxLevel,
       desc,
       currentCost,
-      shownCost,
-      bulkLevels: bulk?.levels ?? 0,
+      bulkLevels,
       isMaxed: isUpgradeMaxed(id, upgradeState, rebirthLevel),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
       canAffordUpgrade: bulk ? bulk.levels > 0 : !!currentCost && currentValue.gte(currentCost) && hasTribPoint,
@@ -294,7 +306,7 @@ export const UpgradesList: React.FC = () => {
               数值重置丹 {state.valueResetPills || 0}
             </button>
           )}
-          {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，MAX = 一次升到圆满；下方按钮随之联动 */}
+          {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，max = 一次升到圆满；下方按钮随之联动 */}
           {state.oneKeyUpgradeUnlocked && (
             <button
               id="btn-upgrade-all"
@@ -302,16 +314,16 @@ export const UpgradesList: React.FC = () => {
               aria-pressed={maxMode}
               title={
                 maxMode
-                  ? '升级量 MAX：每次升级直接升到圆满 · 点击切回 1 级'
-                  : '升级量 1：每次升级 1 级 · 点击切至 MAX'
+                  ? '升级量 max：每次升级直接升到圆满 · 点击切回 1'
+                  : '升级量 1：每次升级 1 级 · 点击切至 max'
               }
-              className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 cursor-pointer ${
+              className={`ml-auto px-2 py-0.5 rounded border transition-colors flex-shrink-0 cursor-pointer ${
                 maxMode
                   ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
                   : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
               }`}
             >
-              升级量 {maxMode ? 'MAX' : '1'}
+              {maxMode ? 'max' : '1'}
             </button>
           )}
         </div>
@@ -387,7 +399,9 @@ export const UpgradesList: React.FC = () => {
                       {meta.name}
                     </span>
                     <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#a69b8b] flex-shrink-0">
-                      {`Lv.${upgradeState.level} / ${maxLevel}`}
+                      {`Lv.${BigNum.fromNumber(upgradeState.level).formatChinese(0)} / ${BigNum.fromNumber(
+                        maxLevel
+                      ).formatChinese(0)}`}
                     </span>
                   </div>
                   <div className="text-[10px] text-[#998e7e] font-serif flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
@@ -398,9 +412,9 @@ export const UpgradesList: React.FC = () => {
                 </div>
 
                 {/* 仅按此按钮升级；支持长按连升（含移动端）。
-                    升级量 1 → 升 1 级；升级量 MAX → 一次升到圆满，展示的即本批总消耗 */}
+                    按钮展示本次可升级数（单位「次」）：×1 恒为 1 次，MAX 为实际能升的级数 */}
                 {isMaxed || !currentCost ? (
-                  <UpgradeButton disabled>圆满</UpgradeButton>
+                  <UpgradeButton disabled>max</UpgradeButton>
                 ) : (
                   <UpgradeButton
                     id={`btn-upgrade-${id}`}
@@ -417,9 +431,7 @@ export const UpgradesList: React.FC = () => {
                     }}
                     ariaLabel={maxMode ? '升到圆满' : '升级'}
                   >
-                    {maxMode && row.bulkLevels > 0 && row.shownCost
-                      ? `MAX ${row.shownCost.formatChinese(2)}`
-                      : currentCost.formatChinese(2)}
+                    {maxMode ? `${BigNum.fromNumber(row.bulkLevels).formatChinese(0)}次` : '1次'}
                   </UpgradeButton>
                 )}
               </>
