@@ -170,10 +170,10 @@ export function getRebirthBaseValueBonus(level: number): BigNum {
     .mulScalar(10);
 }
 
-/** 「永劫店·基础数值」升级消耗（斐波那契）：第 n 次购买消耗 F(n+1)，即 1, 2, 3, 5, 8, 13 ... */
+/** 「永劫店·基础数值」升级消耗（斐波那契）：第 n 次购买消耗 F(n)，即 1, 1, 2, 3, 5, 8 ... */
 export function getRebirthBaseValueCost(currentLevel: number): BigNum {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return getFibonacciBig(lv + 2);
+  return getFibonacciBig(lv + 1);
 }
 
 export interface UpgradeDetail {
@@ -206,23 +206,23 @@ export const UPGRADE_METADATA: Record<UpgradeId, { name: string; requiredClicks:
   },
   comboChance: {
     name: '连击概率',
-    requiredClicks: 60,
+    requiredClicks: 50,
     baseUnlockCost: 100,
   },
-  critMultiplier: {
-    name: '暴击倍数',
-    requiredClicks: 80,
-    baseUnlockCost: 200,
+  critChance: {
+    name: '暴击概率',
+    requiredClicks: 100,
+    baseUnlockCost: 800,
   },
   comboMultiplier: {
     name: '连击倍数',
     requiredClicks: 100,
     baseUnlockCost: 400,
   },
-  critChance: {
-    name: '暴击概率',
-    requiredClicks: 120,
-    baseUnlockCost: 800,
+  critMultiplier: {
+    name: '暴击倍数',
+    requiredClicks: 200,
+    baseUnlockCost: 200,
   },
 };
 
@@ -282,17 +282,25 @@ export function getValueCapCost(level: number): BigNum {
 
 /**
  * 永劫商店：单独升级某项永劫基础属性的消耗（永劫点数）
- * - 所有属性：等差数列递增（差值 1），第 n 次购买消耗 n 点（1, 2, 3, 4 ...）
+ * - 自动点击频率：消耗始终为 1 点
+ * - 其余属性：等差数列递增（差值 1），第 n 次购买消耗 n 点（1, 2, 3, 4 ...）
  * 消耗依据当前升级等级（即已购买次数）计算。
  */
-export function getRebirthMergedUpgradeCost(_id: UpgradeId, level: number): BigNum {
+export function getRebirthMergedUpgradeCost(id: UpgradeId, level: number): BigNum {
+  // 自动点击频率：永劫店升级消耗始终为 1 点
+  if (id === 'autoFrequency') return new BigNum(1, 0);
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   return new BigNum(lv + 1, 0);
 }
 
-/** 暴击概率: 基础 20%，每级 +0.5%（0.005），上限 100%；连击概率每级同为 +0.5% */
-export const CRIT_CHANCE_BASE = 0.2;
-export const CRIT_CHANCE_STEP = 0.005;
+/** 连击概率: 每级 +5%（0.05），上限 100% */
+export const COMBO_CHANCE_STEP = 0.05;
+/** 暴击概率: 基础 5%，每级 +1%（0.01），上限 100%（两店通用步长） */
+export const CRIT_CHANCE_BASE = 0.05;
+export const CRIT_CHANCE_STEP = 0.01;
+
+/** 暴击倍数: 默认基数 5%（0.05），升级/成就/永劫店加成在此之上累加 */
+export const CRIT_MULT_BASE = 0.05;
 
 /** 暴击倍数 / 连击倍数: 每次升级 +30% */
 export const MULTIPLIER_STEP = 0.3;
@@ -305,9 +313,11 @@ export const LEVEL_CAP_PER_POINT = 50;
 /**
  * 某功法当前的等级上限 = 默认 20 级 + 永劫商店中购买的次数 × 50 级
  * - 自动点击: 不可升级，上限恒为 0
+ * - 自动点击频率: 固定 20 级满级，不随等级上限特权扩展
  */
 export function getUpgradeMaxLevel(id: UpgradeId, up: UpgradeState): number {
   if (id === 'autoClickUnlock') return 0; // 自动点击不可升级
+  if (id === 'autoFrequency') return BASE_MAX_LEVEL; // 频率固定 20 级满级
   return BASE_MAX_LEVEL + (up.capBonus || 0) * LEVEL_CAP_PER_POINT;
 }
 
@@ -329,7 +339,7 @@ export function isUpgradeMaxed(id: UpgradeId, up: UpgradeState): boolean {
     return getAutoClickRate(up.level).intervalMs <= AUTO_FREQ_INTERVAL_MIN;
   }
   if (id === 'comboChance') {
-    return Math.min(1.0, up.level * CRIT_CHANCE_STEP) >= 1.0;
+    return Math.min(1.0, up.level * COMBO_CHANCE_STEP) >= 1.0;
   }
   if (id === 'critChance') {
     return Math.min(1.0, CRIT_CHANCE_BASE + up.level * CRIT_CHANCE_STEP) >= 1.0;
@@ -338,12 +348,12 @@ export function isUpgradeMaxed(id: UpgradeId, up: UpgradeState): boolean {
 }
 
 /**
- * 自动点击频率：升级消耗为斐波那契数列（提高升级代价）
- * 第 n 次（n 从 1 起）消耗 F(n+1) 点，即 1, 2, 3, 5, 8, 13, 21 ...
+ * 自动点击频率：升级消耗为斐波那契数列 × 10（初始 10，提高升级代价）
+ * 第 n 次（n 从 1 起）消耗 10 × F(n+1) 点，即 10, 20, 30, 50, 80 ...
  */
 export function getAutoFrequencyUpgradeCost(currentLevel: number): BigNum {
   const n = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) + 1 : 1;
-  return getFibonacciBig(n + 1);
+  return getFibonacciBig(n + 1).mulScalar(10);
 }
 
 /**
@@ -405,22 +415,17 @@ export function getUpgradeCost(
 }
 
 /**
- * 自动点击频率: 初始 1次/1000ms（默认 1 次/s），逐级缩短间隔，最快 10ms 一次（100次/s）
- * - Lv.0 ~ 19: 间隔 1000ms 每级 -50ms，递减至 50ms（1次/s → 20次/s）
- * - Lv.20 起: 间隔每级 -2ms，Lv.39 达最快 10ms（100次/s）
- *   等级上限默认 20，欲再提速须在坍缩商店购买等级上限
+ * 自动点击频率: 初始 1次/1000ms，每级缩短 49.5ms，20 级升满至 10ms 一次（100次/s）
+ * - 数值店与永劫店的等级合并进同一条 20 级进度（两店规则一样）
  */
 export const AUTO_FREQ_INTERVAL_BASE = 1000;
-export const AUTO_FREQ_INTERVAL_STEP = 30;
-/** 常规态最短间隔（Lv.19） */
-export const AUTO_FREQ_SLOW_MIN = 50;
-/** 极速阶段每级缩短的间隔（ms） */
-export const AUTO_FREQ_INTERVAL_STEP_FAST = 2;
-/** 最快间隔：10ms 一次（100次/s），再快已无意义 */
+/** 最快间隔：10ms 一次（100次/s） */
 export const AUTO_FREQ_INTERVAL_MIN = 10;
-const AUTO_FREQ_MS_LEVEL = Math.floor(
-  (AUTO_FREQ_INTERVAL_BASE - AUTO_FREQ_SLOW_MIN) / AUTO_FREQ_INTERVAL_STEP
-); // 19
+/** 满级级数：20 级升满 */
+export const AUTO_FREQ_MAX_LEVEL = 20;
+/** 每级缩短的间隔：(1000 − 10) / 20 = 49.5ms */
+export const AUTO_FREQ_INTERVAL_STEP =
+  (AUTO_FREQ_INTERVAL_BASE - AUTO_FREQ_INTERVAL_MIN) / AUTO_FREQ_MAX_LEVEL;
 
 export interface AutoClickRate {
   intervalMs: number; // 触发间隔（ms）
@@ -431,17 +436,10 @@ export interface AutoClickRate {
 
 export function getAutoClickRate(level: number): AutoClickRate {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-
-  const intervalMs =
-    lv <= AUTO_FREQ_MS_LEVEL
-      ? // 常规段：1000ms 起每级 -50ms，至 50ms
-        Math.max(AUTO_FREQ_SLOW_MIN, AUTO_FREQ_INTERVAL_BASE - lv * AUTO_FREQ_INTERVAL_STEP)
-      : // 极速段：50ms 起每级 -2ms，最快 10ms（100次/s）
-        Math.max(
-          AUTO_FREQ_INTERVAL_MIN,
-          AUTO_FREQ_SLOW_MIN - (lv - AUTO_FREQ_MS_LEVEL) * AUTO_FREQ_INTERVAL_STEP_FAST
-        );
-
+  const intervalMs = Math.max(
+    AUTO_FREQ_INTERVAL_MIN,
+    AUTO_FREQ_INTERVAL_BASE - lv * AUTO_FREQ_INTERVAL_STEP
+  );
   return { intervalMs, clicksPerMs: 0, clicksPerSec: AUTO_FREQ_INTERVAL_BASE / intervalMs };
 }
 
@@ -487,19 +485,20 @@ export function calculateGameAttributes(state: GameState) {
   if (autoClickUp.unlocked) {
     const autoFreqLevel = autoFreqUp.unlocked ? autoFreqUp.level : 0;
     const rbAutoFreqLevel = rbLevels.autoFrequency || 0;
+    // 两店等级合并进同一条 20 级频率进度：每级 -49.5ms，满级 10ms（100次/s）
     autoIntervalMs = Math.max(
       AUTO_FREQ_INTERVAL_MIN,
-      getAutoClickRate(autoFreqLevel).intervalMs - rbAutoFreqLevel * AUTO_FREQ_INTERVAL_STEP
+      AUTO_FREQ_INTERVAL_BASE - (autoFreqLevel + rbAutoFreqLevel) * AUTO_FREQ_INTERVAL_STEP
     );
     autoClicksPerSec = AUTO_FREQ_INTERVAL_BASE / autoIntervalMs;
   }
 
-  // 4. 连击概率: 数值店每级 +0.5% + 永劫店每级 +0.5%，上限 100%
+  // 4. 连击概率: 数值店每级 +5% + 永劫店每级 +5%，上限 100%
   const rbComboChanceLevel = rbLevels.comboChance || 0;
   let comboChance = Math.min(
     1.0,
-    (comboChanceUp.unlocked ? comboChanceUp.level * CRIT_CHANCE_STEP : 0) +
-      rbComboChanceLevel * CRIT_CHANCE_STEP
+    (comboChanceUp.unlocked ? comboChanceUp.level * COMBO_CHANCE_STEP : 0) +
+      rbComboChanceLevel * COMBO_CHANCE_STEP
   );
 
   // 5. 连击倍数: 基础 100% + 数值店每级 +30% + 永劫店每级 +30%
@@ -509,16 +508,16 @@ export function calculateGameAttributes(state: GameState) {
     (comboMultUp.unlocked ? comboMultUp.level * MULTIPLIER_STEP : 0) +
     rbComboMultLevel * MULTIPLIER_STEP;
 
-  // 6. 暴击倍数: 基础 100% + 成就奖励 + 数值店每级 +30% + 永劫店每级 +30%
+  // 6. 暴击倍数: 默认 5% + 成就奖励 + 数值店每级 +30% + 永劫店每级 +30%
   const achievementCritBonus = getAchievementCritBonus(state);
   const rbCritMultLevel = rbLevels.critMultiplier || 0;
   let critMultiplier =
-    1.0 +
+    CRIT_MULT_BASE +
     achievementCritBonus +
     (critMultUp.unlocked ? critMultUp.level * MULTIPLIER_STEP : 0) +
     rbCritMultLevel * MULTIPLIER_STEP;
 
-  // 7. 暴击概率: 基础暴击率 + 数值店每级 +0.5% + 永劫店每级 +0.5%，上限 100%
+  // 7. 暴击概率: 基础暴击率 + 数值店每级 +1% + 永劫店每级 +1%，上限 100%
   const rbCritChanceLevel = rbLevels.critChance || 0;
   let critChance = Math.min(
     1.0,

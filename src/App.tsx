@@ -55,6 +55,8 @@ export default function App() {
         collapseGain={game.collapseGain}
         onUnlockUpgrade={game.handleUnlockUpgrade}
         onUpgradeLevel={game.handleUpgradeLevel}
+        onUnlockAchievements={game.handleUnlockAchievements}
+        onUnlockTitles={game.handleUnlockTitles}
         onBuyLevelCap={game.handleBuyLevelCap}
         onBuyRebirthMergedUpgrade={game.handleBuyRebirthMergedUpgrade}
         onUnlockCollapse={game.handleUnlockCollapse}
@@ -70,6 +72,7 @@ export default function App() {
         onBuyRebirthPointLevel={game.handleBuyRebirthPointLevel}
         onExchangeRebirthToCollapse={game.handleExchangeRebirthToCollapse}
         onGambleSettle={game.handleGambleSettle}
+        onGambleSettlePoints={game.handleGambleSettlePoints}
         onConfirmRebirth={game.confirmRebirth}
         onConfirmCollapse={game.confirmCollapse}
         onSetDebugValue={game.debugSetValue}

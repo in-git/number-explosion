@@ -23,15 +23,20 @@ export const SERVER_TIME_SYNC_INTERVAL_MS = 60 * 1000;
 /** 永劫门槛：数值达 100万 */
 export const REBIRTH_THRESHOLD = new BigNum(1, 6);
 
-/** 功法顺序（解锁播报 / 升级列表 / 商店 共用） */
+/** 数值店：开启成就系统的花费（数值，默认关闭） */
+export const ACHIEVEMENTS_UNLOCK_COST = 500_000;
+/** 数值店：开启称号系统的花费（数值，默认关闭） */
+export const TITLE_UNLOCK_COST = 2_000_000;
+
+/** 功法顺序（解锁播报 / 升级列表 / 商店 共用）：先概率类，后倍数类 */
 export const UPGRADE_ORDER: UpgradeId[] = [
   'baseValue',
   'autoClickUnlock',
   'autoFrequency',
   'comboChance',
-  'critMultiplier',
-  'comboMultiplier',
   'critChance',
+  'comboMultiplier',
+  'critMultiplier',
 ];
 
 /**
@@ -354,6 +359,10 @@ export const INITIAL_STATE: GameState = {
   upgradesAutoUnlocked: false,
   /** 往生殿特权：默认关闭（于坍缩店消耗 20 点坍缩点数解锁） */
   afterlifeShopUnlocked: false,
+  /** 成就系统：默认关闭（数值店花费 50 万解锁） */
+  achievementsUnlocked: false,
+  /** 称号系统：默认关闭（数值店花费 200 万解锁） */
+  titleUnlocked: false,
   /** 永劫店累计购买的等级（永久道基，默认全为 0） */
   rebirthMergedLevels: {
     baseValue: 0,
@@ -387,7 +396,8 @@ export const INITIAL_STATE: GameState = {
   /** 永劫点数兑换坍缩点数的累计次数 */
   rebirthToCollapseCount: 0,
   notifiedUnlocks: [],
-  baseCritRate: 0,
+  /** 基础暴击率：默认 5% */
+  baseCritRate: 0.05,
   baseValueMultiplier: 1.0,
   /** 最后一次活跃的服务器时间戳（ms），用于离线收益结算 */
   lastActiveAt: 0,

@@ -107,6 +107,10 @@ export interface GameState {
   upgradesAutoUnlocked: boolean;
   /** 是否已解锁「往生殿」特权（于坍缩店消耗 20 点坍缩点数解锁，永久生效，默认不显示） */
   afterlifeShopUnlocked: boolean;
+  /** 成就系统是否已开启（数值店花费 50 万数值解锁，默认关闭） */
+  achievementsUnlocked: boolean;
+  /** 称号系统是否已开启（数值店花费 200 万数值解锁，默认关闭） */
+  titleUnlocked: boolean;
   /**
    * 永劫店各属性的独立升级等级（永久道基，永不清零）。
    * 与数值店完全独立，计算时效果累加；「基础数值」另存于 rebirthBaseValueLevel。
@@ -140,7 +144,7 @@ export interface GameState {
   /** 已经弹出过解锁提示的条目（功法 id / 'rebirth' / 'collapse'），持久化避免刷新后重复提示 */
   notifiedUnlocks: string[];
 
-  // 基础暴击率（默认20%）
+  // 基础暴击率（默认5%）
   baseCritRate: number;
   // 基础数值倍率（默认1.0）
   baseValueMultiplier: number;

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { GameState } from '../types';
 import { REBIRTH_THRESHOLD } from '../config';
+import { getTitle } from '../utils/title';
 
 interface ShopEntriesProps {
   state: GameState;
@@ -67,9 +68,11 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   const rankingUnlocked = !!state.rankingUnlocked;
   // 永劫门槛：数值必须 ≥ 100 万（坍缩入口已移至坍缩商店，不再复用此按钮）
   const canOpenRebirth = canRebirth;
+  // 称号：按历世最高数值自动达成
+  const title = getTitle(state);
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-2 flex flex-col gap-2">
+    <div className="w-full max-w-md mx-auto px-4 py-2 flex flex-col gap-2">
       {/* 商店：同一排网格 */}
       <div className={SHOP_GRID}>
         {/* 升级商店 */}
@@ -171,15 +174,35 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           </button>
         )}
 
-        {/* 成就（累计点击成就） */}
-        <button
-          id="btn-open-achievements"
-          onClick={onOpenAchievementsModal}
-          className={`${LIST_CARD} bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
-        >
-          <div className={LIST_TITLE}>成 就</div>
-          <Trophy size={18} className="text-[#8c8273] flex-shrink-0" />
-        </button>
+        {/* 称号 + 成就：同一排（需在数值店分别开启对应系统后显示） */}
+        {(state.titleUnlocked || state.achievementsUnlocked) && (
+          <div className="flex gap-2">
+            {state.titleUnlocked && (
+              <div
+                id="home-title"
+                className={`${LIST_CARD} flex-1 min-w-0 bg-[#1a1715] border-[#2b2721]`}
+              >
+                <div className={LIST_TITLE}>称 号</div>
+                <span
+                  className="font-serif font-bold text-sm whitespace-nowrap truncate"
+                  style={{ color: title.color }}
+                >
+                  {title.name}
+                </span>
+              </div>
+            )}
+            {state.achievementsUnlocked && (
+              <button
+                id="btn-open-achievements"
+                onClick={onOpenAchievementsModal}
+                className={`${LIST_CARD} flex-1 bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
+              >
+                <div className={LIST_TITLE}>成 就</div>
+                <Trophy size={18} className="text-[#8c8273] flex-shrink-0" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 设置（数值设定 / 重修道途） */}
         <button

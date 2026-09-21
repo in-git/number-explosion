@@ -11,19 +11,26 @@ import {
   getAutoClickRate,
   CRIT_CHANCE_BASE,
   CRIT_CHANCE_STEP,
+  COMBO_CHANCE_STEP,
+  CRIT_MULT_BASE,
   MULTIPLIER_STEP,
   applyAfterlifeDiscount,
   getAfterlifeDiscountPercent,
 } from '../utils/gameMath';
-import { UPGRADE_ORDER } from '../config';
+import { UPGRADE_ORDER, ACHIEVEMENTS_UNLOCK_COST, TITLE_UNLOCK_COST } from '../config';
 import { UpgradeButton } from './UpgradeButton';
-import { PressableRow } from './PressableRow';
 
 interface UpgradesListProps {
   state: GameState;
   currentValue: BigNum;
   onUnlock: (id: UpgradeId, cost: BigNum) => void;
   onUpgrade: (id: UpgradeId, cost: BigNum) => void;
+  /** 成就系统是否已开启 */
+  achievementsUnlocked: boolean;
+  /** 称号系统是否已开启 */
+  titleUnlocked: boolean;
+  onUnlockAchievements: () => void;
+  onUnlockTitles: () => void;
 }
 
 interface UpgradeDesc {
@@ -31,12 +38,19 @@ interface UpgradeDesc {
   nextDesc: string;
 }
 
+/** 百分比文案：整百分数不带小数，否则保留 1 位 */
+const pctText = (ratio: number): string => {
+  const v = Math.round(ratio * 1000) / 10;
+  return `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}%`;
+};
+
 function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
   if (id === 'baseValue') {
+    // 格式：升级前的数值 -> 升级后预览（升级后的值以绿色显示）
     const currentBonus = getBaseValueBonus(level);
     const nextBonus = getBaseValueBonus(level + 1);
     return {
-      currentDesc: `基础 +${currentBonus.formatChinese(1)}`,
+      currentDesc: `+${currentBonus.formatChinese(1)}`,
       nextDesc: `+${nextBonus.formatChinese(1)}`,
     };
   }
@@ -45,35 +59,43 @@ function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
     return { currentDesc: '自动行功运化', nextDesc: '不可升级' };
   }
 
+  // 所有条目统一：当前值 -> 升级后值（频率只显示 次/s）
   if (id === 'autoFrequency') {
     const rate = getAutoClickRate(level);
     const next = getAutoClickRate(level + 1);
-    const step = rate.intervalMs - next.intervalMs;
     return {
-      currentDesc: `${rate.intervalMs}ms · ${rate.clicksPerSec.toFixed(1)}次/s`,
-      nextDesc: step > 0 ? `间隔 -${step}ms` : '已至极速',
+      currentDesc: `${rate.clicksPerSec.toFixed(1)}次/s`,
+      nextDesc:
+        next.intervalMs < rate.intervalMs
+          ? `${next.clicksPerSec.toFixed(1)}次/s`
+          : '已至极速',
     };
   }
 
   if (id === 'comboChance') {
-    const chance = Math.min(1.0, level * CRIT_CHANCE_STEP);
+    const cur = Math.min(1.0, level * COMBO_CHANCE_STEP);
+    const next = Math.min(1.0, (level + 1) * COMBO_CHANCE_STEP);
     return {
-      currentDesc: `${(chance * 100).toFixed(1)}%`,
-      nextDesc: chance >= 1.0 ? '上限 100%' : '+0.5%',
+      currentDesc: pctText(cur),
+      nextDesc: cur >= 1.0 ? '上限 100%' : pctText(next),
     };
   }
 
-  // 暴击倍数 / 连击倍数: 基础100%，等差数列 +30%
+  // 连击倍数: 基础100%；暴击倍数: 基础5%；每级 +30%
   if (id === 'comboMultiplier' || id === 'critMultiplier') {
-    const mult = 1.0 + level * MULTIPLIER_STEP;
-    return { currentDesc: `${(mult * 100).toFixed(0)}%`, nextDesc: `+${MULTIPLIER_STEP * 100}%` };
+    const base = id === 'critMultiplier' ? CRIT_MULT_BASE : 1.0;
+    return {
+      currentDesc: pctText(base + level * MULTIPLIER_STEP),
+      nextDesc: pctText(base + (level + 1) * MULTIPLIER_STEP),
+    };
   }
 
-  // 暴击概率: 基础20%，每级 +0.5%，上限100%
-  const chance = Math.min(1.0, CRIT_CHANCE_BASE + level * CRIT_CHANCE_STEP);
+  // 暴击概率: 基础5%，每级 +1%（0.01），上限100%
+  const cur = Math.min(1.0, CRIT_CHANCE_BASE + level * CRIT_CHANCE_STEP);
+  const next = Math.min(1.0, CRIT_CHANCE_BASE + (level + 1) * CRIT_CHANCE_STEP);
   return {
-    currentDesc: `${(chance * 100).toFixed(1)}%`,
-    nextDesc: chance >= 1.0 ? '上限 100%' : '+0.5%',
+    currentDesc: pctText(cur),
+    nextDesc: cur >= 1.0 ? '上限 100%' : pctText(next),
   };
 }
 
@@ -82,6 +104,10 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
   currentValue,
   onUnlock,
   onUpgrade,
+  achievementsUnlocked,
+  titleUnlocked,
+  onUnlockAchievements,
+  onUnlockTitles,
 }) => {
   // 隐藏不可继续升级（已满级）的功法
   const [hideMaxed, setHideMaxed] = useState(false);
@@ -106,6 +132,34 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       </div>
     );
   }
+
+  // 系统开启：成就（50 万）/ 称号（200 万），未开启时显示一次性购买项，购买后隐藏
+  const specialUnlocks = [
+    ...(achievementsUnlocked
+      ? []
+      : [
+          {
+            id: 'achievements',
+            name: '成就系统',
+            desc: '历世成就 · 达成后永久生效',
+            costText: BigNum.fromNumber(ACHIEVEMENTS_UNLOCK_COST).formatChinese(0),
+            affordable: currentValue.gte(BigNum.fromNumber(ACHIEVEMENTS_UNLOCK_COST)),
+            onUnlock: onUnlockAchievements,
+          },
+        ]),
+    ...(titleUnlocked
+      ? []
+      : [
+          {
+            id: 'title',
+            name: '称号系统',
+            desc: '按历世最高数值自动获得修仙境界称号',
+            costText: BigNum.fromNumber(TITLE_UNLOCK_COST).formatChinese(0),
+            affordable: currentValue.gte(BigNum.fromNumber(TITLE_UNLOCK_COST)),
+            onUnlock: onUnlockTitles,
+          },
+        ]),
+  ];
 
   const rows = visibleUpgrades.map((id) => {
     const meta = UPGRADE_METADATA[id];
@@ -171,7 +225,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
 
       {/* 长按提示 / 往生店折扣提示 */}
       <div className="text-[10px] font-serif text-[#8a7a63] text-center -mt-0.5">
-        {'长按条目可持续升级'}
+        {'点击条目右侧按钮升级'}
         {Object.values(state.afterlifeUpgradeLevels || {}).some((v) => v > 0) && (
           <span className="text-[#7bd88f]"> · 往生殿：升级消耗按属性折扣</span>
         )}
@@ -238,9 +292,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
               );
             }
 
-            // 所有升级均支持长按持续升级：单击升级一次，长按连续连升
-            const canUpgrade = !isMaxed && !!currentCost && row.canAffordUpgrade;
-
+            // 仅升级按钮可触发升级，避免误触整行
             const rowInner = (
               <>
                 <div className="flex-1 min-w-0">
@@ -258,17 +310,28 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                   <div className="text-[10px] text-[#998e7e] font-serif flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                     <span className="break-words">{desc.currentDesc}</span>
                     <span className="text-[#6e6456] flex-shrink-0">→</span>
-                    <span className="text-[#807667] break-words">{desc.nextDesc}</span>
+                    {/* 数值升级：升级后的预览值用绿色突出 */}
+                    <span
+                      className={`break-words ${
+                        id === 'baseValue' ? 'text-[#76d18c]' : 'text-[#807667]'
+                      }`}
+                    >
+                      {desc.nextDesc}
+                    </span>
                   </div>
                 </div>
 
-                {/* 点击整行即可升级，此处仅作消耗展示 */}
+                {/* 仅按此按钮升级；支持长按连升（含移动端） */}
                 {isMaxed || !currentCost ? (
                   <UpgradeButton disabled>圆满</UpgradeButton>
                 ) : (
                   <UpgradeButton
                     id={`btn-upgrade-${id}`}
                     disabled={!row.canAffordUpgrade}
+                    onPress={() => {
+                      if (!currentCost || !row.canAffordUpgrade) return;
+                      onUpgrade(id, currentCost);
+                    }}
                     ariaLabel="升级"
                   >
                     {currentCost.formatChinese(2)}
@@ -277,25 +340,50 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
               </>
             );
 
-            const rowClassName = `flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canUpgrade ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
-            }`;
+            const rowClassName =
+              'flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229]';
 
             return (
-              <PressableRow
+              <div
                 key={id}
                 id={`upgrade-item-${id}`}
-                disabled={!canUpgrade}
-                onPress={() => {
-                  if (!currentCost) return;
-                  onUpgrade(id, currentCost);
-                }}
                 className={`${rowClassName} select-none`}
               >
                 {rowInner}
-              </PressableRow>
+              </div>
             );
           })}
+        </div>
+      )}
+
+      {/* 系统开启：成就（50万）/ 称号（200万），置底展示；一次性数值消耗，购买后隐藏；仅按钮可点 */}
+      {specialUnlocks.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {specialUnlocks.map((s) => (
+            <div
+              key={s.id}
+              className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
+                s.affordable ? 'hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
+                    {s.name}
+                  </span>
+                </div>
+                <div className="text-[10px] text-[#998e7e] font-serif truncate">{s.desc}</div>
+              </div>
+              <UpgradeButton
+                id={`btn-unlock-${s.id}`}
+                disabled={!s.affordable}
+                onClick={s.onUnlock}
+                ariaLabel="开启"
+              >
+                {s.costText}
+              </UpgradeButton>
+            </div>
+          ))}
         </div>
       )}
     </div>

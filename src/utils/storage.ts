@@ -126,6 +126,8 @@ export function loadGameState(): GameState {
       }),
       rankingUnlocked: !!parsed.rankingUnlocked,
       upgradesAutoUnlocked: !!parsed.upgradesAutoUnlocked,
+      achievementsUnlocked: !!parsed.achievementsUnlocked,
+      titleUnlocked: !!parsed.titleUnlocked,
       account: sanitizeAccount(parsed.account),
       lastCredentials: sanitizeCredentials(parsed.lastCredentials),
       valueCapLevel: Number.isFinite(parsed.valueCapLevel)

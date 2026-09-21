@@ -56,7 +56,7 @@ export const CoreNumberDisplay: React.FC<CoreNumberDisplayProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto px-4 pt-6 pb-4">
+    <div className="relative w-full max-w-md mx-auto px-4 pt-6 pb-4">
       {/* Heavy carved stone tablet frame */}
       <div
         id="core-number-tablet"

@@ -2,7 +2,7 @@ import React from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { GameState, UpgradeId, UserAccountData } from '../types';
 import { GameModalsState } from '../hooks/useGameModals';
-import { FunShop, SettleType } from './FunShop';
+import { FunShop, SettleType, PointsCurrency } from './FunShop';
 import { ModalShell } from './ModalShell';
 import { UpgradesList } from './UpgradesList';
 import { RebirthShop } from './RebirthShop';
@@ -21,6 +21,10 @@ interface GameModalsProps {
   collapseGain: number;
   onUnlockUpgrade: (id: UpgradeId, cost: BigNum) => void;
   onUpgradeLevel: (id: UpgradeId, cost: BigNum) => void;
+  /** 数值店：开启成就系统（50 万数值） */
+  onUnlockAchievements: () => void;
+  /** 数值店：开启称号系统（200 万数值） */
+  onUnlockTitles: () => void;
   onBuyLevelCap: (id: UpgradeId) => void;
   onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
   onUnlockCollapse: () => void;
@@ -49,6 +53,8 @@ interface GameModalsProps {
 
 
   onGambleSettle: (type: SettleType, amount: BigNum) => void;
+  /** 奇趣店：点数类货币结算 */
+  onGambleSettlePoints: (currency: PointsCurrency, type: SettleType, amount: number) => void;
   onConfirmRebirth: () => void;
   onConfirmCollapse: () => void;
   onSetDebugValue: (val: BigNum) => void;
@@ -67,6 +73,8 @@ export const GameModals: React.FC<GameModalsProps> = ({
   collapseGain,
   onUnlockUpgrade,
   onUpgradeLevel,
+  onUnlockAchievements,
+  onUnlockTitles,
   onBuyLevelCap,
   onBuyRebirthMergedUpgrade,
   onUnlockCollapse,
@@ -82,6 +90,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyRebirthPointLevel,
   onExchangeRebirthToCollapse,
   onGambleSettle,
+  onGambleSettlePoints,
   onConfirmRebirth,
   onConfirmCollapse,
   onSetDebugValue,
@@ -102,6 +111,10 @@ export const GameModals: React.FC<GameModalsProps> = ({
         currentValue={currentValue}
         onUnlock={onUnlockUpgrade}
         onUpgrade={onUpgradeLevel}
+        achievementsUnlocked={state.achievementsUnlocked}
+        titleUnlocked={state.titleUnlocked}
+        onUnlockAchievements={onUnlockAchievements}
+        onUnlockTitles={onUnlockTitles}
       />
     </ModalShell>
 
@@ -167,7 +180,11 @@ export const GameModals: React.FC<GameModalsProps> = ({
     >
       <FunShop
         currentValue={currentValue}
+        rebirthPoints={state.rebirthPoints || 0}
+        collapsePoints={state.collapsePoints || 0}
+        afterlifePoints={state.afterlifePoints || 0}
         onSettle={onGambleSettle}
+        onSettlePoints={onGambleSettlePoints}
         onClose={modals.funShop.close}
       />
     </ModalShell>

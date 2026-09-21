@@ -4,7 +4,7 @@ import monkPortrait from '../assets/images/monk_cultivator_1789732911134.jpg';
 
 /** 顶部标题条：道号（重修道途入口已移至设置面板） */
 export const AppHeader: React.FC = () => (
-  <header className="relative z-10 w-full max-w-4xl mx-auto px-4 pt-4 pb-1 flex items-center justify-between border-b border-[#2d2822]">
+  <header className="relative z-10 w-full max-w-md mx-auto px-4 pt-4 pb-1 flex items-center justify-between border-b border-[#2d2822]">
     <div className="flex items-center gap-3">
       <div className="w-10 h-10 rounded-lg overflow-hidden border border-[#4d4233] bg-[#1a1714] shadow-md flex-shrink-0">
         <img

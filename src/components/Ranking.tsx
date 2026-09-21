@@ -15,6 +15,7 @@ import {
 } from '../utils/leaderboardApi';
 import { fetchRegions } from '../utils/authApi';
 import { leaderboardSocket } from '../utils/leaderboardSocket';
+import { canAscendRank } from '../utils/title';
 
 interface RankingProps {
   state: GameState;
@@ -24,6 +25,8 @@ interface RankingProps {
   onRegionSelected: (regionId: string, regionName: string) => void;
   /** 退出登录 */
   onLogout: () => void;
+  /** 登顶条件不满足时的提示回调 */
+  onNotify?: (title: string, content: string) => void;
 }
 
 /** tabbar：数值排行 / 富豪排行 在前，其后时长、重生、连点 */
@@ -94,6 +97,7 @@ export const Ranking: React.FC<RankingProps> = ({
   onLogin,
   onRegionSelected,
   onLogout,
+  onNotify,
 }) => {
   const [board, setBoard] = useState<LeaderboardId>('value');
   const [showAuth, setShowAuth] = useState(false);
@@ -308,19 +312,36 @@ export const Ranking: React.FC<RankingProps> = ({
         )}
       </div>
 
-      {/* 底部悬浮：登顶 */}
+      {/* 底部悬浮：登顶（须达「炼气」境） */}
       <div className="sticky bottom-0 pt-2 -mx-1 px-1 pb-1">
         <button
           id="btn-rank-ascend"
-          onClick={() => (state.account ? onLogout() : setShowAuth(true))}
+          onClick={() => {
+            if (state.account) {
+              onLogout();
+              return;
+            }
+            if (!canAscendRank(state)) {
+              onNotify?.('登顶未成', '道行不足 · 需达「炼气」境（最高数值 1 亿）方可登顶');
+              return;
+            }
+            setShowAuth(true);
+          }}
           className={`w-full py-3 rounded-xl border-2 text-sm font-serif font-bold tracking-[0.2em] text-[#f5ebd7] shadow-[0_6px_18px_rgba(0,0,0,0.7)] cursor-pointer active:translate-y-0.5 transition-all ${
             state.account
               ? 'border-[#5a2f2f] bg-[#3d1f1f] hover:bg-[#4d2828]'
-              : 'border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c]'
+              : canAscendRank(state)
+                ? 'border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c]'
+                : 'border-[#4a3a3a] bg-[#2b2020] opacity-70'
           }`}
         >
           {state.account ? '退 出 登 录' : '登 顶'}
         </button>
+        {!state.account && !canAscendRank(state) && (
+          <div className="mt-1 text-center text-[10px] font-serif text-[#d99797]">
+            登顶需达「炼气」境 · 最高数值 ≥ 1亿
+          </div>
+        )}
       </div>
     </div>
   );

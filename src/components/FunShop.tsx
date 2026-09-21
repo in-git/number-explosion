@@ -5,40 +5,46 @@ import {
   CircleDashed,
   Hand,
   Scissors,
-  Target,
   Flame,
-  Percent,
-  LogOut,
+  Infinity as InfinityIcon,
+  Orbit,
+  Sparkles,
 } from 'lucide-react';
 import { BigNum } from '../utils/bigNumber';
 
 export type SettleType = 'gain' | 'loss';
 
+/** 可梭哈的货币：数值 / 永劫点 / 坍缩点 / 往生点 */
+export type GambleCurrency = 'value' | 'rebirth' | 'collapse' | 'afterlife';
+export type PointsCurrency = Exclude<GambleCurrency, 'value'>;
+
 interface FunShopProps {
   currentValue: BigNum;
-  /** type='gain' 表示净赚 amount；type='loss' 表示没收 amount */
+  rebirthPoints: number;
+  collapsePoints: number;
+  afterlifePoints: number;
+  /** 数值结算：type='gain' 净赚 amount；type='loss' 没收 amount */
   onSettle: (type: SettleType, amount: BigNum) => void;
-  /** 不玩了 / 收手离场：关闭模态框 */
+  /** 点数类货币结算：同上，金额为整数点数 */
+  onSettlePoints: (currency: PointsCurrency, type: SettleType, amount: number) => void;
+  /** 收手离场：关闭模态框 */
   onClose: () => void;
 }
 
 // 石头0 / 剪刀1 / 布2：石头胜剪刀，剪刀胜布，布胜石头
 const RPS = ['石头', '剪刀', '布'];
 const COIN = ['正面', '反面'];
-const NUMBER_POOL = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-type GameId = 'rps' | 'coin' | 'numbers';
+type GameId = 'rps' | 'coin';
 /** 天意随机抽取的玩法池 */
-const GAMES: GameId[] = ['rps', 'coin', 'numbers'];
+const GAMES: GameId[] = ['rps', 'coin'];
 const GAME_TITLES: Record<GameId, string> = {
   rps: '石头剪子布',
   coin: '猜硬币',
-  numbers: '猜号码',
 };
 const GAME_RULES: Record<GameId, string> = {
   rps: '胜 ×1.5 · 负 尽数没收 · 平 原样退回',
   coin: '中 ×2 · 未中 尽数没收',
-  numbers: '自选 3 号 · 全中 ×30 · 中二 ×2 · 余者无',
 };
 
 /** 石头 / 剪刀 / 布 的图标 */
@@ -69,34 +75,65 @@ const BIG_CARD_ACTIVE =
 /** 大卡片 · 禁用 */
 const BIG_CARD_DISABLED = 'bg-[#181614] border-[#2b2721] text-[#595246] cursor-not-allowed';
 
-export const FunShop: React.FC<FunShopProps> = ({ currentValue, onSettle, onClose }) => {
-  /** bet: 选择投入；game: 天意指定的玩法 */
+/** 各货币在押注阶段的小标签 */
+const CURRENCY_LABELS: Record<PointsCurrency, string> = {
+  rebirth: '永劫点',
+  collapse: '坍缩点',
+  afterlife: '往生点',
+};
+
+export const FunShop: React.FC<FunShopProps> = ({
+  currentValue,
+  rebirthPoints,
+  collapsePoints,
+  afterlifePoints,
+  onSettle,
+  onSettlePoints,
+  onClose,
+}) => {
+  /** bet: 选择梭哈的货币；game: 天意指定的玩法 */
   const [stage, setStage] = useState<'bet' | 'game'>('bet');
-  const [betPercent, setBetPercent] = useState(100);
-  /** 进入玩法时锁定押注，避免自动点击期间数值变动 */
+  const [currency, setCurrency] = useState<GambleCurrency | null>(null);
+  /** 数值押注快照 */
   const [stake, setStake] = useState<BigNum>(new BigNum(0, 0));
+  /** 点数类押注快照（整数点数） */
+  const [pointStake, setPointStake] = useState(0);
   const [game, setGame] = useState<GameId | null>(null);
-  const [picked, setPicked] = useState<number[]>([]);
   const [result, setResult] = useState<GameResult | null>(null);
 
-  const canBet = currentValue.gt(0);
-  const betName = betPercent >= 100 ? '梭哈' : '一半';
   const locked = result !== null;
+  const isValue = currency === 'value';
 
-  /** 选定投入并随机抽取一个玩法 */
-  const startGame = (percent: number) => {
-    const amount = currentValue.mulScalar(percent / 100);
-    if (!amount.gt(0)) return;
-    setBetPercent(percent);
-    setStake(amount);
-    setPicked([]);
+  /** 各货币当前余额 */
+  const balanceOf = (c: GambleCurrency): BigNum => {
+    if (c === 'value') return currentValue;
+    const n =
+      c === 'rebirth' ? rebirthPoints : c === 'collapse' ? collapsePoints : afterlifePoints;
+    return BigNum.fromNumber(Math.max(0, n));
+  };
+
+  /** 选定梭哈的货币并随机抽取一个玩法 */
+  const startGame = (c: GambleCurrency) => {
+    const balance = balanceOf(c);
+    if (!balance.gt(0)) return;
+    setCurrency(c);
+    if (c === 'value') setStake(balance);
+    else setPointStake(Math.floor(balance.toNumber()));
     setResult(null);
     setGame(GAMES[Math.floor(Math.random() * GAMES.length)]);
     setStage('game');
   };
 
-  const settle = (type: SettleType, amount: BigNum, res: GameResult) => {
-    onSettle(type, amount);
+  /** 统一结算：数值走 BigNum，点数走整数 */
+  const settle = (type: SettleType, amount: BigNum | number, res: GameResult) => {
+    if (!currency) return;
+    if (currency === 'value') {
+      onSettle(type, amount instanceof BigNum ? amount : BigNum.fromNumber(amount));
+    } else {
+      const amt =
+        typeof amount === 'number' ? Math.floor(amount) : Math.floor(amount.toNumber());
+      onSettlePoints(currency, type, amt);
+    }
     setResult(res);
   };
 
@@ -105,13 +142,13 @@ export const FunShop: React.FC<FunShopProps> = ({ currentValue, onSettle, onClos
     if (locked) return;
     const cpu = Math.floor(Math.random() * 3);
     if ((player + 1) % 3 === cpu) {
-      settle('gain', stake.mulScalar(0.5), {
+      settle('gain', isValue ? stake.mulScalar(0.5) : Math.floor(pointStake * 0.5), {
         title: GAME_TITLES.rps,
         detail: `你出 ${RPS[player]} · 电脑出 ${RPS[cpu]} · 胜！押注 ×1.5`,
         win: true,
       });
     } else if ((cpu + 1) % 3 === player) {
-      settle('loss', stake, {
+      settle('loss', isValue ? stake : pointStake, {
         title: GAME_TITLES.rps,
         detail: `你出 ${RPS[player]} · 电脑出 ${RPS[cpu]} · 负，押注尽数没收`,
         win: false,
@@ -130,13 +167,13 @@ export const FunShop: React.FC<FunShopProps> = ({ currentValue, onSettle, onClos
     if (locked) return;
     const flip = Math.floor(Math.random() * 2);
     if (flip === side) {
-      settle('gain', stake.mulScalar(1), {
+      settle('gain', isValue ? stake : pointStake, {
         title: GAME_TITLES.coin,
         detail: `你猜 ${COIN[side]} · 开出 ${COIN[flip]} · 猜中！押注 ×2`,
         win: true,
       });
     } else {
-      settle('loss', stake, {
+      settle('loss', isValue ? stake : pointStake, {
         title: GAME_TITLES.coin,
         detail: `你猜 ${COIN[side]} · 开出 ${COIN[flip]} · 未中，押注尽数没收`,
         win: false,
@@ -144,99 +181,59 @@ export const FunShop: React.FC<FunShopProps> = ({ currentValue, onSettle, onClos
     }
   };
 
-  const toggleNumber = (n: number) => {
-    if (locked) return;
-    setPicked((prev) =>
-      prev.includes(n) ? prev.filter((x) => x !== n) : prev.length >= 3 ? prev : [...prev, n]
-    );
-  };
-
-  const drawNumbers = (): number[] => {
-    const pool = [...NUMBER_POOL];
-    const draw: number[] = [];
-    for (let i = 0; i < 3; i++) {
-      draw.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-    }
-    return draw;
-  };
-
-  // 猜号码：全中 ×30（净 +29 倍）；中两个 ×2（净 +1 倍）；其余无奖励、没收押注
-  const playNumbers = () => {
-    if (locked || picked.length !== 3) return;
-    const draw = drawNumbers();
-    const hits = picked.filter((n) => draw.includes(n)).length;
-
-    if (hits === 3) {
-      settle('gain', stake.mulScalar(29), {
-        title: GAME_TITLES.numbers,
-        detail: `开奖 ${draw.join(' · ')} · 全中！押注 ×30`,
-        win: true,
-      });
-    } else if (hits === 2) {
-      settle('gain', stake.mulScalar(1), {
-        title: GAME_TITLES.numbers,
-        detail: `开奖 ${draw.join(' · ')} · 中 2 个！押注 ×2`,
-        win: true,
-      });
-    } else {
-      settle('loss', stake, {
-        title: GAME_TITLES.numbers,
-        detail: `开奖 ${draw.join(' · ')} · 仅中 ${hits} 个，无奖励`,
-        win: false,
-      });
-    }
-  };
-
-  /** 第一环节：只决定投入多少 */
+  /** 第一环节：选择梭哈哪种货币 */
   if (stage === 'bet') {
-    const options = [
+    const options: {
+      id: GambleCurrency;
+      label: string;
+      sub: string;
+      icon: React.ReactNode;
+      tone: string;
+    }[] = [
       {
-        id: 'all',
-        label: '梭哈',
-        sub: `全押 ${currentValue.formatChinese(2)}`,
-        percent: 100,
+        id: 'value',
+        label: '梭哈数值',
+        sub: currentValue.formatChinese(2),
         icon: <Flame size={24} />,
         tone: 'bg-[#2a1a18] border-[#5a2f2f] hover:border-[#b25454]',
       },
       {
-        id: 'half',
-        label: '一半',
-        sub: `投入 ${currentValue.mulScalar(0.5).formatChinese(2)}`,
-        percent: 50,
-        icon: <Percent size={24} />,
-        tone: 'bg-[#231f18] border-[#5b4b33] hover:border-[#8a653f]',
+        id: 'rebirth',
+        label: '梭哈永劫点',
+        sub: `${rebirthPoints} 点`,
+        icon: <InfinityIcon size={24} />,
+        tone: 'bg-[#18202b] border-[#2e4a6e] hover:border-[#5b9bd8]',
       },
       {
-        id: 'quit',
-        label: '不玩了',
-        sub: '见好就收 · 全身而退',
-        percent: 0,
-        icon: <LogOut size={24} />,
-        tone: 'bg-[#1a1816] border-[#332e27] hover:border-[#5b5142]',
+        id: 'collapse',
+        label: '梭哈坍缩点',
+        sub: `${collapsePoints} 重`,
+        icon: <Orbit size={24} />,
+        tone: 'bg-[#1b1622] border-[#4a2e5e] hover:border-[#8938b8]',
+      },
+      {
+        id: 'afterlife',
+        label: '梭哈往生点',
+        sub: `${afterlifePoints} 点`,
+        icon: <Sparkles size={24} />,
+        tone: 'bg-[#20182b] border-[#54336e] hover:border-[#a05fd8]',
       },
     ];
 
     return (
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between text-[11px] font-serif px-1">
-          <span className="text-[#7a6f5e]">当前数值</span>
-          <span className="font-mono font-bold text-[#e8b56f]">
-            {currentValue.formatChinese(2)}
-          </span>
-        </div>
-
         <div className="text-center text-[11px] font-serif text-[#807565]">
-          掷下造化 · 与天对赌
+          掷下造化 · 与天对赌 · 择一梭哈
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {options.map((o) => {
-            const disabled = o.percent > 0 && !canBet;
+            const disabled = !balanceOf(o.id).gt(0);
             return (
               <button
                 key={o.id}
                 id={`btn-fun-bet-${o.id}`}
-                onClick={() => (o.percent === 0 ? onClose() : startGame(o.percent))}
+                onClick={() => startGame(o.id)}
                 disabled={disabled}
                 className={`${BIG_CARD} ${
                   disabled ? BIG_CARD_DISABLED : `${o.tone} text-[#f2ede4] cursor-pointer`
@@ -254,22 +251,32 @@ export const FunShop: React.FC<FunShopProps> = ({ currentValue, onSettle, onClos
           })}
         </div>
 
-        {!canBet && (
-          <div className="text-center text-[11px] text-[#8a6a5a] font-serif">
-            当前数值为零，先点击石碑积累造化
-          </div>
-        )}
+        <div className="text-center text-[10px] font-serif text-[#6f6656]">
+          余额为零的货币不可梭哈
+        </div>
       </div>
     );
   }
 
   /** 第二环节：天意指定的玩法 */
+  const stakeText = isValue ? stake.formatChinese(2) : `${pointStake} 点`;
+  const currencyLabel =
+    currency === 'rebirth'
+      ? CURRENCY_LABELS.rebirth
+      : currency === 'collapse'
+        ? CURRENCY_LABELS.collapse
+        : currency === 'afterlife'
+          ? CURRENCY_LABELS.afterlife
+          : '数值';
+
   return (
     <div className="flex flex-col gap-3">
       {/* 本局押注 */}
       <div className="flex items-center justify-between gap-2 rounded-lg border border-[#3d372e] bg-[#211e1a] px-3 py-2">
-        <span className="text-[11px] font-serif text-[#a69c8d]">本局押注（{betName}）</span>
-        <span className="text-xs font-mono font-bold text-[#e8b56f]">{stake.formatChinese(2)}</span>
+        <span className="text-[11px] font-serif text-[#a69c8d]">
+          本局押注（梭哈 · {currencyLabel}）
+        </span>
+        <span className="text-xs font-mono font-bold text-[#e8b56f]">{stakeText}</span>
       </div>
 
       {/* 玩法标题与规则 */}
@@ -319,44 +326,6 @@ export const FunShop: React.FC<FunShopProps> = ({ currentValue, onSettle, onClos
         </div>
       )}
 
-      {/* 猜号码 */}
-      {game === 'numbers' && (
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-5 gap-2">
-            {NUMBER_POOL.map((n) => {
-              const active = picked.includes(n);
-              return (
-                <button
-                  key={n}
-                  id={`btn-fun-number-${n}`}
-                  onClick={() => toggleNumber(n)}
-                  disabled={locked}
-                  className={`flex items-center justify-center h-14 rounded-xl border-2 text-base font-mono font-bold text-center transition-all active:translate-y-0.5 ${
-                    locked
-                      ? BIG_CARD_DISABLED
-                      : active
-                        ? 'bg-[#543b23] border-[#8a653f] text-[#fcefdc] cursor-pointer'
-                        : 'bg-[#1a1816] border-[#2b2721] text-[#8f8574] hover:border-[#453a2d] hover:text-[#b8aa98] cursor-pointer'
-                  } ${picked.length >= 3 && !active ? 'opacity-40' : ''}`}
-                >
-                  {n}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            id="btn-fun-numbers-draw"
-            onClick={playNumbers}
-            disabled={locked || picked.length !== 3}
-            className={`w-full py-3 rounded-xl border-2 text-sm font-serif font-bold text-center transition-all active:translate-y-0.5 ${
-              locked || picked.length !== 3 ? BIG_CARD_DISABLED : BIG_CARD_ACTIVE
-            }`}
-          >
-            开奖（已选 {picked.length}/3）
-          </button>
-        </div>
-      )}
-
       {/* 结果回显 */}
       {result && (
         <div
@@ -389,11 +358,13 @@ export const FunShop: React.FC<FunShopProps> = ({ currentValue, onSettle, onClos
         <div className="grid grid-cols-2 gap-2">
           <button
             id="btn-fun-replay"
-            onClick={() => startGame(betPercent)}
+            onClick={() => currency && startGame(currency)}
             className={`${BIG_CARD} py-4 ${BIG_CARD_ACTIVE}`}
           >
             <span className="text-sm font-serif font-bold tracking-wider">再赌一把</span>
-            <span className="text-[10px] font-serif text-[#998e7e]">沿用「{betName}」</span>
+            <span className="text-[10px] font-serif text-[#998e7e]">
+              继续梭哈{currencyLabel}
+            </span>
           </button>
           <button
             id="btn-fun-leave"

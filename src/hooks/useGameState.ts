@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { GameState, UpgradeId, UserAccountData, OfflineGainReport } from '../types';
-import { SettleType } from '../components/FunShop';
+import { SettleType, PointsCurrency } from '../components/FunShop';
 import {
   UPGRADE_METADATA,
   executeClickCalculation,
@@ -9,6 +9,7 @@ import {
   getOfflineGain,
   COLLAPSE_COST,
   LEVEL_CAP_PER_POINT,
+  AUTO_FREQ_MAX_LEVEL,
   getValueCap,
   getValueCapStep,
   getValueCapCost,
@@ -24,6 +25,7 @@ import {
   getAfterlifeDiscountPercent,
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
+import { canAscendRank } from '../utils/title';
 import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { getServerNow, syncServerTime } from '../utils/serverTime';
 import {
@@ -38,6 +40,8 @@ import {
   REBIRTH_THRESHOLD,
   SERVER_TIME_SYNC_INTERVAL_MS,
   UPGRADE_ORDER,
+  ACHIEVEMENTS_UNLOCK_COST,
+  TITLE_UNLOCK_COST,
 } from '../config';
 import { FloatingTextType } from './useFloatingTexts';
 
@@ -241,6 +245,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    */
   const checkAchievements = useCallback(
     (progress?: { totalClicks?: number; playTimeMs?: number }) => {
+      // 成就系统未开启（数值店解锁前）不结算成就
+      if (!stateRef.current.achievementsUnlocked) return;
       const cur = stateRef.current;
       const totalClicks = progress?.totalClicks ?? cur.totalClickCount ?? 0;
       const playTimeMs = progress?.playTimeMs ?? cur.playTimeMs ?? 0;
@@ -380,6 +386,51 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [commitValue]
   );
 
+  /** 数值店：花费 50 万数值开启成就系统 */
+  const handleUnlockAchievements = useCallback(() => {
+    const cost = BigNum.fromNumber(ACHIEVEMENTS_UNLOCK_COST);
+    const currentVal = bigNumRef.current;
+    if (stateRef.current.achievementsUnlocked || !currentVal.gte(cost)) return;
+    commitValue(currentVal.sub(cost));
+    setState((prev) => ({ ...prev, achievementsUnlocked: true }));
+    addToast('成就开启', `消耗 ${cost.formatChinese(0)} 数值 · 成就系统已开启`);
+  }, [addToast, commitValue]);
+
+  /** 数值店：花费 200 万数值开启称号系统 */
+  const handleUnlockTitles = useCallback(() => {
+    const cost = BigNum.fromNumber(TITLE_UNLOCK_COST);
+    const currentVal = bigNumRef.current;
+    if (stateRef.current.titleUnlocked || !currentVal.gte(cost)) return;
+    commitValue(currentVal.sub(cost));
+    setState((prev) => ({ ...prev, titleUnlocked: true }));
+    addToast('称号开启', `消耗 ${cost.formatChinese(0)} 数值 · 称号系统已开启`);
+  }, [addToast, commitValue]);
+
+  /** 奇趣商店结算：点数类货币（永劫点 / 坍缩点 / 往生点） */
+  const handleGambleSettlePoints = useCallback(
+    (currency: PointsCurrency, type: SettleType, amount: number) => {
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      const key =
+        currency === 'rebirth'
+          ? 'rebirthPoints'
+          : currency === 'collapse'
+            ? 'collapsePoints'
+            : 'afterlifePoints';
+      const label =
+        currency === 'rebirth' ? '永劫点数' : currency === 'collapse' ? '坍缩点数' : '往生点';
+      setState((prev) => {
+        const cur = (prev[key as 'rebirthPoints' | 'collapsePoints' | 'afterlifePoints']) || 0;
+        const next = Math.max(0, type === 'gain' ? cur + amount : cur - amount);
+        return { ...prev, [key]: next };
+      });
+      addToast(
+        type === 'gain' ? '造化垂青' : '造化尽散',
+        `${label} ${type === 'gain' ? '+' : '−'}${amount.toLocaleString('zh-CN')}`
+      );
+    },
+    [addToast]
+  );
+
   /** 自动点击循环 */
   useEffect(() => {
     let lastTime = performance.now();
@@ -516,6 +567,11 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       // 其余属性：与数值店完全独立，等级仅存于 rebirthMergedLevels，计算时与数值店效果累加
       const level = prev.rebirthMergedLevels?.[id] || 0;
+      // 自动点击频率：两店等级合并共 20 级满级，满级后不可再购
+      if (id === 'autoFrequency') {
+        const vsFreqLevel = prev.upgrades.autoFrequency?.level || 0;
+        if (vsFreqLevel + level >= AUTO_FREQ_MAX_LEVEL) return;
+      }
       const cost = getRebirthMergedUpgradeCost(id, level).toNumber();
       if (prev.rebirthPoints < cost) return;
       setState((p) => ({
@@ -587,9 +643,14 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     );
   }, [addToast]);
 
-  /** 排行·登顶：注册/登录成功，记录账号 */
+  /** 排行·登顶：注册/登录成功，记录账号（须达「炼气」境） */
   const handleLogin = useCallback(
     (account: UserAccountData) => {
+      // 登顶门槛：最高数值须达 1 亿（炼气境）
+      if (!canAscendRank(stateRef.current)) {
+        addToast('登顶未成', '道行不足 · 需达「炼气」境（最高数值 1 亿）方可登顶');
+        return;
+      }
       setState((prev) => ({ ...prev, account }));
       addToast('天道留名', `账号「${account.userName}」已注册登录`);
     },
@@ -615,9 +676,14 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     if (done) addToast('退出登录', '已退出当前账号 · 账号密码已留存');
   }, [addToast]);
 
-  /** 排行·登顶：入驻大区（信息已由接口层上报后台） */
+  /** 排行·登顶：入驻大区（信息已由接口层上报后台，须达「炼气」境） */
   const handleSelectRegion = useCallback(
     (regionId: string, regionName: string) => {
+      // 登顶门槛：最高数值须达 1 亿（炼气境）
+      if (!canAscendRank(stateRef.current)) {
+        addToast('登顶未成', '道行不足 · 需达「炼气」境（最高数值 1 亿）方可登顶');
+        return;
+      }
       setState((prev) =>
         prev.account
           ? { ...prev, account: { ...prev.account, regionId, regionName } }
@@ -900,7 +966,10 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUserClick,
     handleUnlockUpgrade,
     handleUpgradeLevel,
+    handleUnlockAchievements,
+    handleUnlockTitles,
     handleGambleSettle,
+    handleGambleSettlePoints,
     handleBuyLevelCap,
     handleBuyRebirthPointLevel,
     handleBuyRebirthMergedUpgrade,

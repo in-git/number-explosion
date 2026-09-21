@@ -8,12 +8,14 @@ import {
   getRebirthBaseValueGain,
   calculateGameAttributes,
   MULTIPLIER_STEP,
+  CRIT_CHANCE_STEP,
+  COMBO_CHANCE_STEP,
   AUTO_FREQ_INTERVAL_STEP,
   AUTO_FREQ_INTERVAL_MIN,
   AUTO_FREQ_INTERVAL_BASE,
+  AUTO_FREQ_MAX_LEVEL,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
-import { PressableRow } from './PressableRow';
 import { UpgradeButton } from './UpgradeButton';
 
 interface RebirthShopProps {
@@ -45,45 +47,46 @@ const capText = (id: UpgradeId): string => {
   }
 };
 
-/** 每项单次提升文案（永劫店独立效果，计算时与数值店累加；效果已封顶时提示已至上限） */
-const nextGainText = (id: UpgradeId, level: number, attrs: ReturnType<typeof calculateGameAttributes>): string => {
+/** 百分比文案：整百分数不带小数，否则保留 1 位 */
+const pctText = (ratio: number): string => {
+  const v = Math.round(ratio * 1000) / 10;
+  return `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}%`;
+};
+
+/** 每项描述：当前值 → 升级后值（永劫店独立效果，与数值店格式一致；已封顶时提示已至上限） */
+const effectText = (
+  id: UpgradeId,
+  level: number,
+  attrs: ReturnType<typeof calculateGameAttributes>
+): string => {
   switch (id) {
     case 'baseValue': {
       // 独立公式：每级提升 10×斐波那契（10, 20, 30, 50 ...）
-      const add = getRebirthBaseValueGain(level + 1);
-      return `+${add.formatChinese(1)} 基础数值`;
+      const cur = `基础 ${attrs.baseValue.formatChinese(1)}`;
+      const next = `基础 ${attrs.baseValue.add(getRebirthBaseValueGain(level + 1)).formatChinese(1)}`;
+      return `${cur} → ${next}`;
     }
-    case 'autoFrequency':
-      return attrs.autoIntervalMs <= AUTO_FREQ_INTERVAL_MIN
-        ? '已至上限'
-        : `自动间隔 -${AUTO_FREQ_INTERVAL_STEP}ms`;
+    case 'autoFrequency': {
+      const cur = `当前 ${attrs.autoClicksPerSec.toFixed(1)}次/s`;
+      if (attrs.autoIntervalMs <= AUTO_FREQ_INTERVAL_MIN) return `${cur} → 已至上限`;
+      const nextInterval = Math.max(
+        AUTO_FREQ_INTERVAL_MIN,
+        attrs.autoIntervalMs - AUTO_FREQ_INTERVAL_STEP
+      );
+      return `${cur} → 下一级 ${(AUTO_FREQ_INTERVAL_BASE / nextInterval).toFixed(1)}次/s`;
+    }
     case 'critMultiplier':
+      return `${pctText(attrs.critMultiplier)} → ${pctText(attrs.critMultiplier + MULTIPLIER_STEP)}`;
     case 'comboMultiplier':
-      return `倍数 +${MULTIPLIER_STEP * 100}%`;
+      return `${pctText(attrs.comboMultiplier)} → ${pctText(attrs.comboMultiplier + MULTIPLIER_STEP)}`;
     case 'critChance':
-      return attrs.critChance >= 1.0 ? '已至上限' : '概率 +0.5%';
+      return attrs.critChance >= 1.0
+        ? `${pctText(attrs.critChance)} → 已至上限`
+        : `${pctText(attrs.critChance)} → ${pctText(Math.min(1, attrs.critChance + CRIT_CHANCE_STEP))}`;
     case 'comboChance':
-      return attrs.comboChance >= 1.0 ? '已至上限' : '概率 +0.5%';
-    default:
-      return '';
-  }
-};
-
-/** 每项当前实际效果文案（含功法等级 / 成就加成，与属性面板同源） */
-const currentValueText = (id: UpgradeId, attrs: ReturnType<typeof calculateGameAttributes>): string => {
-  switch (id) {
-    case 'baseValue':
-      return `当前基础 ${attrs.baseValue.formatChinese(1)}`;
-    case 'autoFrequency':
-      return `当前 ${attrs.autoClicksPerSec.toFixed(1)} 次/s`;
-    case 'critMultiplier':
-      return `当前 ${BigNum.fromNumber(attrs.critMultiplier * 100).formatChinese(0)}%`;
-    case 'comboMultiplier':
-      return `当前 ${BigNum.fromNumber(attrs.comboMultiplier * 100).formatChinese(0)}%`;
-    case 'critChance':
-      return `当前 ${BigNum.fromNumber(attrs.critChance * 100).formatChinese(1)}%`;
-    case 'comboChance':
-      return `当前 ${BigNum.fromNumber(attrs.comboChance * 100).formatChinese(1)}%`;
+      return attrs.comboChance >= 1.0
+        ? `${pctText(attrs.comboChance)} → 已至上限`
+        : `${pctText(attrs.comboChance)} → ${pctText(Math.min(1, attrs.comboChance + COMBO_CHANCE_STEP))}`;
     default:
       return '';
   }
@@ -112,7 +115,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
             {BigNum.fromNumber(state.rebirthPoints).formatChinese(0)}
           </span>
         </div>
-        <div className="text-[10px] font-serif text-[#8a7a63]">长按条目可持续升级</div>
+        <div className="text-[10px] font-serif text-[#8a7a63]">点击条目右侧按钮购买</div>
       </div>
 
       {/* 升级：所有属性均与数值店独立，等级永久保留，计算时效果与数值店累加 */}
@@ -123,20 +126,23 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
             id === 'baseValue'
               ? state.rebirthBaseValueLevel || 0
               : state.rebirthMergedLevels?.[id] || 0;
-          const cost =
-            id === 'baseValue'
+          // 自动点击频率：两店等级合并共 20 级满级
+          const freqMaxed =
+            id === 'autoFrequency' &&
+            (state.upgrades.autoFrequency?.level || 0) + level >= AUTO_FREQ_MAX_LEVEL;
+          const cost = freqMaxed
+            ? null
+            : id === 'baseValue'
               ? getRebirthBaseValueCost(level)
               : getRebirthMergedUpgradeCost(id, level);
-          const canBuy = state.rebirthPoints >= cost.toNumber();
+          const canBuy = cost !== null && state.rebirthPoints >= cost.toNumber();
           return (
-            <PressableRow
+            <div
               key={id}
               id={`rebirth-merged-${id}`}
-              className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-                canBuy ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
+              className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] ${
+                canBuy ? '' : 'opacity-50'
               }`}
-              disabled={!canBuy}
-              onPress={() => onBuyRebirthMergedUpgrade(id)}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -149,13 +155,20 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">
                   {capText(id) ? `${capText(id)} · ` : ''}
-                  {currentValueText(id, attrs)} · {nextGainText(id, level, attrs)}
+                  {effectText(id, level, attrs)}
                 </div>
               </div>
-              <UpgradeButton id={`btn-rebirth-merged-${id}`} disabled={!canBuy}>
-                {cost.formatChinese(0)} 点
+              <UpgradeButton
+                id={`btn-rebirth-merged-${id}`}
+                disabled={!canBuy}
+                onClick={() => {
+                  if (!canBuy || cost === null) return;
+                  onBuyRebirthMergedUpgrade(id);
+                }}
+              >
+                {freqMaxed ? '圆满' : `${cost!.formatChinese(0)} 点`}
               </UpgradeButton>
-            </PressableRow>
+            </div>
           );
         })}
       </div>

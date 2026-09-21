@@ -10,6 +10,7 @@ import {
   getRebirthBaseValueBonus,
 } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
+import { getTitle } from '../utils/title';
 
 
 interface AttributesPanelProps {
@@ -52,6 +53,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
   const attrs = calculateGameAttributes(state);
   const baseValueUp = state.upgrades.baseValue;
   const rebirthBvLevel = state.rebirthBaseValueLevel || 0;
+  const title = getTitle(state);
 
   // Format auto-click string
   let autoClickDisplay = '0 /s';
@@ -166,8 +168,21 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
   ];
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-1.5">
+    <div className="w-full max-w-md mx-auto px-4 py-1.5">
       <div className="bg-[#1a1816] border border-[#332e27] rounded-xl px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+        {/* 称号：面板顶部，随历世最高数值自动达成（开启称号系统后显示） */}
+        {state.titleUnlocked && (
+          <div className="flex items-center justify-between pb-1.5 mb-0.5 border-b border-[#262220]">
+            <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">称 号</span>
+            <span
+              className="font-serif font-bold text-sm tracking-wider"
+              style={{ color: title.color }}
+            >
+              {title.name}
+            </span>
+          </div>
+        )}
+
         {/* Subtle Section Header with expand toggle */}
         <div
          onClick={() => setIsExpanded((v) => !v)}
