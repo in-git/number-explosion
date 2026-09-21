@@ -18,6 +18,7 @@ import {
   isRebirthEffectCapped,
   isChanceCapped,
   getAfterlifeUpgradeMultiplier,
+  UPGRADE_TRIBULATION_POINT_COST,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
 import { UpgradeButton } from './UpgradeButton';
@@ -126,6 +127,11 @@ export const RebirthShop: React.FC = () => {
   const canBuyAutoUnlock = state.rebirthPoints >= AUTO_UNLOCK_COST;
   const attrs = calculateGameAttributes(state);
 
+  // 渡劫成功后：永劫殿每次购买另须消耗渡劫点，点数不足则不可购买
+  const needTribPoint = !!state.tribulationSuccess;
+  const hasTribPoint =
+    !needTribPoint || (state.tribulationPoints || 0) >= UPGRADE_TRIBULATION_POINT_COST;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[#2d2822]">
@@ -134,6 +140,15 @@ export const RebirthShop: React.FC = () => {
           <span className="text-[#5fa8e6]">
             {BigNum.fromNumber(state.rebirthPoints).formatChinese(0)}
           </span>
+          {state.tribulationSuccess && (
+            <>
+              {' · '}渡劫点{' '}
+              <span className={hasTribPoint ? 'text-[#e8c46a]' : 'text-[#c96a5a]'}>
+                {state.tribulationPoints || 0}
+              </span>
+              {' · '}每次升级 -{UPGRADE_TRIBULATION_POINT_COST}
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-serif text-[#8a7a63]">长按升级</span>
@@ -144,9 +159,10 @@ export const RebirthShop: React.FC = () => {
       {(state.oneKeyUpgradeUnlocked || state.tribulationSuccess) && (
         <div
           id="rebirth-reset-pill-row"
-          className="flex items-center justify-end gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229]"
+          className="flex items-center gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229]"
         >
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* 一键升级居左、永劫重置丹居右 */}
+          <div className="flex flex-1 min-w-0 items-center justify-between gap-2">
             {/* 一键升级：与右侧「永劫重置丹」同规格（规则同数值殿，冷却 5s） */}
             {state.oneKeyUpgradeUnlocked && (
               <button
@@ -209,7 +225,7 @@ export const RebirthShop: React.FC = () => {
             : id === 'baseValue'
               ? getRebirthBaseValueCost(level)
               : getRebirthMergedUpgradeCost(id, level);
-          const canBuy = cost !== null && state.rebirthPoints >= cost.toNumber();
+          const canBuy = cost !== null && state.rebirthPoints >= cost.toNumber() && hasTribPoint;
           return (
             <div
               key={id}

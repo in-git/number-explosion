@@ -128,7 +128,7 @@ const PillItem: React.FC<PillItemProps> = ({
   crafting,
   onCraft,
 }) => {
-  const duration = getResetPillDurationMs(pill, craftCount);
+  const duration = getResetPillDurationMs(pill);
   const progress = crafting ? Math.min(duration, progressMs) : 0;
 
   /** 进度条平滑：以存档进度为基准按真实时间插值（存档每 1s 结算一次） */
@@ -208,7 +208,7 @@ const PillItem: React.FC<PillItemProps> = ({
 /**
  * 渡劫殿：渡劫成功（飞升成仙）后开启。
  * 炼制两种重置丹（数值重置丹 / 永劫重置丹）：点击「炼制」即开炉，炼制中不可操作；
- * 数值重置丹首炉 1 天、永劫重置丹首炉 2 天；每炼成一炉，下一炉再 +1 个基数。
+ * 耗时恒定不累加：数值重置丹每炉 1 天，永劫重置丹每炉 2 天。
  */
 export const TribulationHall: React.FC = () => {
   const { state, currentBigNum: currentValue } = useGameData();

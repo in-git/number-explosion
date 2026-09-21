@@ -24,6 +24,7 @@ import {
   getRebirthPointsFromValue,
   getAfterlifeUpgradeCost,
   getAfterlifeUpgradeMultiplier,
+  UPGRADE_TRIBULATION_POINT_COST,
   getUpgradeCost,
   getUpgradeMaxLevel,
   isUpgradeMaxed,
@@ -73,6 +74,35 @@ interface UseGameStateDeps {
 
 /** 单次自动点击最多补算的次数 */
 const MAX_BATCH_CLICKS = 100;
+
+/** 渡劫成功后，数值殿 / 永劫殿的每次升级都另需渡劫点 */
+const needTribulationPoint = (state: GameState): boolean => !!state.tribulationSuccess;
+
+/** 当前可用的渡劫点数 */
+const availableTribulationPoints = (state: GameState): number =>
+  Math.max(0, state.tribulationPoints || 0);
+
+/** 扣除 1 次升级所需的渡劫点（未渡劫成功时不扣） */
+const payTribulationPoints = (state: GameState): Partial<GameState> =>
+  needTribulationPoint(state)
+    ? {
+        tribulationPoints: Math.max(
+          0,
+          availableTribulationPoints(state) - UPGRADE_TRIBULATION_POINT_COST
+        ),
+      }
+    : {};
+
+/** 扣除 n 次升级所需的渡劫点（未渡劫成功时不扣） */
+const payTribulationPointsTimes = (state: GameState, times: number): Partial<GameState> =>
+  needTribulationPoint(state) && times > 0
+    ? {
+        tribulationPoints: Math.max(
+          0,
+          availableTribulationPoints(state) - times * UPGRADE_TRIBULATION_POINT_COST
+        ),
+      }
+    : {};
 /** 游玩时长写回存档的间隔（ms） */
 const PLAY_TIME_TICK_MS = 5_000;
 
@@ -387,24 +417,30 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast, commitValue]
   );
 
-  /** 提升功法等级 */
+  /**
+   * 提升功法等级。
+   * 渡劫成功后，除数值消耗外每级另需 UPGRADE_TRIBULATION_POINT_COST 点渡劫点。
+   */
   const handleUpgradeLevel = useCallback(
     (id: UpgradeId, cost: BigNum) => {
+      const prev = stateRef.current;
       const currentVal = bigNumRef.current;
       if (!currentVal.gte(cost)) return;
+      // 渡劫成功后须另付渡劫点，点数不足不可升级
+      if (needTribulationPoint(prev) && availableTribulationPoints(prev) < UPGRADE_TRIBULATION_POINT_COST) {
+        return;
+      }
 
       commitValue(currentVal.sub(cost));
 
-      setState((prev) => {
-        const up = prev.upgrades[id];
-        return {
-          ...prev,
-          upgrades: {
-            ...prev.upgrades,
-            [id]: { ...up, level: up.level + 1 },
-          },
-        };
-      });
+      setState((p) => ({
+        ...p,
+        ...payTribulationPoints(p),
+        upgrades: {
+          ...p.upgrades,
+          [id]: { ...p.upgrades[id], level: p.upgrades[id].level + 1 },
+        },
+      }));
     },
     [commitValue]
   );
@@ -420,6 +456,10 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     const nextUpgrades = { ...prev.upgrades };
     let value = bigNumRef.current;
     let bought = 0;
+
+    // 渡劫成功后：每级另需 1 点渡劫点，点数耗尽即停
+    let tribPoints = availableTribulationPoints(prev);
+    const needTrib = needTribulationPoint(prev);
 
     const order: UpgradeId[] = [
       'comboChance',
@@ -439,7 +479,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         // 往生殿优惠已全部作用于永劫殿，数值殿升级维持原价
         const cost = getUpgradeCost(id, up.level, maxLevel);
         if (!cost || !value.gte(cost)) break;
+        if (needTrib && tribPoints < UPGRADE_TRIBULATION_POINT_COST) break;
         value = value.sub(cost);
+        if (needTrib) tribPoints -= UPGRADE_TRIBULATION_POINT_COST;
         nextUpgrades[id] = { ...up, level: up.level + 1 };
         bought += 1;
       }
@@ -448,7 +490,11 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     if (bought <= 0) return false;
 
     commitValue(value);
-    setState((p) => ({ ...p, upgrades: nextUpgrades }));
+    setState((p) => ({
+      ...p,
+      upgrades: nextUpgrades,
+      ...payTribulationPointsTimes(p, bought),
+    }));
     return true;
   }, [commitValue]);
 
@@ -568,7 +614,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    * 渡劫殿：炼制重置丹（数值重置丹 / 永劫重置丹，须手动点击「炼制」）。
    * - 渡劫成功（飞升成仙）后渡劫殿才存在；未点击则不炼制
    * - 每 RESET_PILL_TICK_MS 推进一次进度；一炉炼成得 1 颗丹后停炉，须再次点击
-   * - 每炼成一炉，下一炉耗时再 +1 个基数：数值重置丹 1、2、3 天…；永劫重置丹 2、4、6 天…
+   * - 耗时恒定：数值重置丹每炉 1 天，永劫重置丹每炉 2 天，不随炼制次数累加
    * - 进度与存量随存档落盘，关闭弹窗 / 刷新页面后继续炼制
    */
   useEffect(() => {
@@ -587,7 +633,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         RESET_PILL_TICK_MS;
 
       // 炼成一炉：产出 1 颗后停炉
-      if (progressMs >= getResetPillDurationMs(kind, craftCount)) {
+      if (progressMs >= getResetPillDurationMs(kind)) {
         return isValue
           ? {
               valueResetProgressMs: 0,
@@ -769,11 +815,18 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       });
     }, []);
 
-  /** 永劫商殿：消耗永劫点数升级（所有属性均与数值殿独立，效果在计算时与数值殿累加） */
+  /**
+   * 永劫商殿：消耗永劫点数升级（所有属性均与数值殿独立，效果在计算时与数值殿累加）。
+   * 渡劫成功后，每次购买另需 UPGRADE_TRIBULATION_POINT_COST 点渡劫点。
+   */
   const handleBuyRebirthMergedUpgrade = useCallback(
     (id: UpgradeId) => {
       const prev = stateRef.current;
       const label = UPGRADE_METADATA[id]?.name ?? id;
+      // 渡劫成功后须另付渡劫点，点数不足不可购买
+      if (needTribulationPoint(prev) && availableTribulationPoints(prev) < UPGRADE_TRIBULATION_POINT_COST) {
+        return;
+      }
 
       // 「基础数值」独立升级：等级存于 rebirthBaseValueLevel，与数值殿互不影响，效果与数值殿加成累加
       if (id === 'baseValue') {
@@ -783,6 +836,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         if (prev.rebirthPoints < bvCostNum) return;
         setState((p) => ({
           ...p,
+          ...payTribulationPoints(p),
           rebirthPoints: p.rebirthPoints - bvCostNum,
           rebirthBaseValueLevel: (p.rebirthBaseValueLevel || 0) + 1,
         }));
@@ -800,6 +854,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       setState((p) => ({
         ...p,
+        ...payTribulationPoints(p),
         rebirthPoints: p.rebirthPoints - costNum,
         rebirthMergedLevels: {
           ...p.rebirthMergedLevels,
@@ -823,6 +878,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
     // 概率类以「两殿合计」为准（与永劫殿面板的隐藏规则一致），避免买到 100% 以上
     const attrs = calculateGameAttributes(prev);
+    // 渡劫成功后：每级另需 1 点渡劫点，点数耗尽即停
+    let tribPoints = availableTribulationPoints(prev);
+    const needTrib = needTribulationPoint(prev);
 
     const order: UpgradeId[] = [
       'comboChance',
@@ -851,8 +909,10 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
             : getRebirthMergedUpgradeCost(id, level);
         const costNum = Math.max(0, cost.toNumber());
         if (points < costNum) break;
+        if (needTrib && tribPoints < UPGRADE_TRIBULATION_POINT_COST) break;
 
         points -= costNum;
+        if (needTrib) tribPoints -= UPGRADE_TRIBULATION_POINT_COST;
         added += 1;
         bought += 1;
         if (id === 'baseValue') baseValueLevel += 1;
@@ -867,6 +927,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthPoints: points,
       rebirthBaseValueLevel: baseValueLevel,
       rebirthMergedLevels: levels,
+      ...payTribulationPointsTimes(p, bought),
     }));
     return true;
   }, []);

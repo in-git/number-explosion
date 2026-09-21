@@ -43,6 +43,36 @@ export const MAX_COMPOUND_UNITS = 6;
 /** 可表示的量级上限，超过后钳制，避免出现 Infinity / NaN 之类的坏数值 */
 export const MAX_EXP = 1e15;
 
+/**
+ * 字母单位：中文档位体系表达到上限「太古」后启用。
+ * - 每 10^10 进一位：1a、1b、1c … 1s
+ * - 单字母走完两位：1aa、1bb、1cc … 1ss
+ * - 两位走完三位：1aaa、1bbb … 1ssr
+ * - 1ssr 为最高档＝已通关，此后量级一律封顶于此
+ */
+const ALPHA_LETTERS = [
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+];
+/** 中文档位体系的天花板：「太古」= 10^96 × 10^100 = 10^196 */
+export const ALPHA_BASE_EXP = 196;
+/** 字母档位的步长：每 10^10 进一位 */
+export const ALPHA_STEP_EXP = 10;
+/** 字母后缀的层数：a…s / aa…ss / aaa…ssr */
+const ALPHA_TIERS = 3;
+/** 最高档索引 */
+export const ALPHA_MAX_INDEX = ALPHA_LETTERS.length * ALPHA_TIERS - 1;
+
+/** 第 index 档的字母后缀（index 从 0 起，超出范围按最高档「ssr」钳制） */
+export function getAlphaUnitLabel(index: number): string {
+  if (!Number.isFinite(index)) return 'ssr';
+  const i = Math.min(ALPHA_MAX_INDEX, Math.max(0, Math.floor(index)));
+  // 顶点即最高档 1ssr（意为通关）
+  if (i === ALPHA_MAX_INDEX) return 'ssr';
+  const tier = Math.floor(i / ALPHA_LETTERS.length);
+  const letter = ALPHA_LETTERS[i % ALPHA_LETTERS.length];
+  return letter.repeat(tier + 1);
+}
+
 export class BigNum {
   m: number; // mantissa: 0 or [1, 10)
   e: number; // exponent
@@ -212,7 +242,8 @@ export class BigNum {
    * Format to user specification:
    * 万以下常规显示 (e.g. 0.5, 9999.5)
    * 万及以上用单字中文单位: 万 亿 兆 ... 天，每级相差 4 个数量级
-   * 超出单位表后以末位单位「天」为尾缀叠加组合: 万天、亿天、兆天 ... 天天、万天天 ...
+   * 超出单位表后以末位单位「古」为尾缀叠加组合: 万古、亿古、兆古 ... 太古（中文体系顶点）
+   * 再超出「太古」则改用字母单位: 1a、1b ... 1s、1aa ... 1ss、1aaa ... 1ssr（最高＝通关）
    */
   formatChinese(decimals: number = 2): string {
     if (this.m === 0) return '0';
@@ -227,6 +258,13 @@ export class BigNum {
       // 极小值用科学计数法，避免被四舍五入显示成 0.0
       if (val < 0.1) return val.toExponential(1);
       return val.toFixed(val < 10 ? 1 : decimals);
+    }
+
+    // 超出中文体系上限「太古」后，改用字母单位：1a、1b … 1ssr（最高＝通关，封顶不进位）
+    if (this.e > ALPHA_BASE_EXP) {
+      const idx = Math.floor((this.e - ALPHA_BASE_EXP - 1) / ALPHA_STEP_EXP);
+      const mantissa = Number.isInteger(this.m) ? `${this.m}` : this.m.toFixed(decimals);
+      return `${mantissa}${getAlphaUnitLabel(idx)}`;
     }
 
     // 自高位向低位剥离单位：每剥离一级，后续只能使用不大于该级的单位

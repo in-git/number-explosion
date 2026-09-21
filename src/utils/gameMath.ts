@@ -316,6 +316,11 @@ export const TRIBULATION_COST = 0;
 export const TRIBULATION_PILL_COST = 300;
 /** 渡劫次数上限：无论成败均计一次，累计渡劫 9 次后不可再渡 */
 export const TRIBULATION_MAX_COUNT = 9;
+/**
+ * 渡劫成功后：数值殿 / 永劫殿每升 1 级另需消耗的「渡劫点」数量。
+ * 未渡劫成功时渡劫殿尚未开启，故不消耗。
+ */
+export const UPGRADE_TRIBULATION_POINT_COST = 1;
 /** 一次渡劫需要承受的雷劫道数 */
 export const TRIBULATION_STRIKE_COUNT = 9;
 /** 每道雷劫之间的间隔（ms） */
@@ -350,16 +355,11 @@ export function getAutoRebirthIntervalMs(settledTimes: number): number {
 }
 
 /**
- * 渡劫殿：第 n 炉重置丹的炼制耗时（n = 已炼成的炉数，从 0 起）。
- * 数值重置丹：1 天、2 天、3 天…；永劫重置丹：2 天、4 天、6 天…
+ * 渡劫殿：炼制一炉重置丹的耗时（恒定，不随炼制次数累加）。
+ * 数值重置丹 1 天；永劫重置丹 2 天。
  */
-export function getResetPillDurationMs(
-  pill: 'value' | 'rebirth',
-  craftedCount: number
-): number {
-  const n = Number.isFinite(craftedCount) && craftedCount > 0 ? Math.floor(craftedCount) : 0;
-  const base = pill === 'rebirth' ? REBIRTH_RESET_PILL_BASE_MS : VALUE_RESET_PILL_BASE_MS;
-  return base * (n + 1);
+export function getResetPillDurationMs(pill: 'value' | 'rebirth'): number {
+  return pill === 'rebirth' ? REBIRTH_RESET_PILL_BASE_MS : VALUE_RESET_PILL_BASE_MS;
 }
 
 /** 渡劫（渡劫次数 +1）所需的往生点：恒定 1 万 */

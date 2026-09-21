@@ -16,6 +16,7 @@ import {
   COMBO_CHANCE_STEP,
   CRIT_MULT_BASE,
   MULTIPLIER_STEP,
+  UPGRADE_TRIBULATION_POINT_COST,
 } from '../utils/gameMath';
 import { UPGRADE_ORDER, ACHIEVEMENTS_UNLOCK_COST, TITLE_UNLOCK_COST } from '../config';
 import { UpgradeButton } from './UpgradeButton';
@@ -202,13 +203,18 @@ export const UpgradesList: React.FC = () => {
       currentCost,
       isMaxed: isUpgradeMaxed(id, upgradeState, rebirthLevel),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
-      canAffordUpgrade: currentCost ? currentValue.gte(currentCost) : false,
+      canAffordUpgrade: currentCost ? currentValue.gte(currentCost) && hasTribPoint : false,
     };
   });
 
   // 已满级的排到最后，其余保持原有顺序
   const orderedRows = [...rows.filter((r) => !r.isMaxed), ...rows.filter((r) => r.isMaxed)];
   const shownRows = hideMaxed ? orderedRows.filter((r) => !r.isMaxed) : orderedRows;
+
+  // 渡劫成功后：数值殿每次升级另须消耗渡劫点，点数不足则不可升级
+  const needTribPoint = !!state.tribulationSuccess;
+  const hasTribPoint =
+    !needTribPoint || (state.tribulationPoints || 0) >= UPGRADE_TRIBULATION_POINT_COST;
 
   // 数值重置丹（一次性重置全部功法）：渡劫成功后可用，须持丹且至少一项功法已有等级
   const hasResettableLevel = (Object.keys(state.upgrades) as UpgradeId[]).some(
@@ -230,6 +236,17 @@ export const UpgradesList: React.FC = () => {
               {state.clickCount.toLocaleString('zh-CN')}
             </span>
           </span>
+          {state.tribulationSuccess && (
+            <span>
+              渡劫点
+              <span
+                className={`ml-1 font-mono ${hasTribPoint ? 'text-[#e8c46a]' : 'text-[#c96a5a]'}`}
+              >
+                {state.tribulationPoints || 0}
+              </span>
+              <span className="ml-1 text-[#6f6656]">每次升级 -{UPGRADE_TRIBULATION_POINT_COST}</span>
+            </span>
+          )}
         </div>
         <button
           id="btn-toggle-hide-maxed"
