@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { UpgradeId } from '../types';
 import { useGameActions, useGameData } from '../context/GameContext';
 import { REBIRTH_MERGED_UPGRADES, AUTO_UNLOCK_COST, RANKING_UNLOCK_COST } from '../config';
@@ -16,6 +16,7 @@ import {
   AUTO_FREQ_INTERVAL_BASE,
   AUTO_FREQ_MAX_LEVEL,
   isRebirthEffectCapped,
+  isChanceCapped,
   getAfterlifeUpgradeMultiplier,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
@@ -89,6 +90,7 @@ export const RebirthShop: React.FC = () => {
   const { state } = useGameData();
   const {
     handleBuyRebirthMergedUpgrade,
+    handleUpgradeAllRebirth: onUpgradeAllRebirth,
     handleUnlockCollapse,
     handleUnlockRanking,
     handleBuyAutoUnlock,
@@ -99,9 +101,24 @@ export const RebirthShop: React.FC = () => {
   const hasResettableLevel =
     (state.rebirthBaseValueLevel || 0) > 0 ||
     REBIRTH_MERGED_UPGRADES.some(
-      ({ id }) => id !== 'baseValue' && (state.rebirthMergedLevels?.[id] || 0) > 0
+      ({ id }) =>
+        id !== 'baseValue' && id !== 'autoFrequency' && (state.rebirthMergedLevels?.[id] || 0) > 0
     );
   const canUseRebirthReset = (state.rebirthResetPills || 0) > 0 && hasResettableLevel;
+
+  // 一键升级冷却：剩余秒数（0 表示可用）
+  const [oneKeyCd, setOneKeyCd] = useState(0);
+  useEffect(() => {
+    if (oneKeyCd <= 0) return;
+    const timer = window.setTimeout(() => setOneKeyCd((v) => Math.max(0, v - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [oneKeyCd]);
+
+  const handleOneKeyUpgrade = () => {
+    if (oneKeyCd > 0) return;
+    // 仅在本次确实升了级时进入冷却
+    if (onUpgradeAllRebirth()) setOneKeyCd(5);
+  };
 
   // 各条目的展示由解锁状态决定（未解锁的解锁项常驻，解锁后隐藏）
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
@@ -123,39 +140,54 @@ export const RebirthShop: React.FC = () => {
         </div>
       </div>
 
-      {/* 永劫重置丹：独立一行，位于「数值升级」之上（消耗 1 颗，一次性重置全部属性——消耗从初始曲线重算，已有效果全部保留） */}
-      {state.tribulationSuccess && (
+      {/* 工具行：一键升级 / 永劫重置丹（位于「数值升级」之上） */}
+      {(state.oneKeyUpgradeUnlocked || state.tribulationSuccess) && (
         <div
           id="rebirth-reset-pill-row"
-          className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] ${
-            canUseRebirthReset ? '' : 'opacity-50'
-          }`}
+          className="flex items-center justify-end gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229]"
         >
-          <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-serif text-[#998e7e]">
-              全部属性等级清零 · 消耗从初始曲线重算 · 已有效果全部保留
-            </span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* 一键升级：与右侧「永劫重置丹」同规格（规则同数值殿，冷却 5s） */}
+            {state.oneKeyUpgradeUnlocked && (
+              <button
+                id="btn-rebirth-upgrade-all"
+                onClick={handleOneKeyUpgrade}
+                disabled={oneKeyCd > 0}
+                className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 ${
+                  oneKeyCd > 0
+                    ? 'text-[#5b5548] border-[#2b2721] cursor-default'
+                    : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+                }`}
+              >
+                {oneKeyCd > 0 ? `一键升级 ${oneKeyCd}s` : '一键升级'}
+              </button>
+            )}
+            {/* 永劫重置丹：消耗 1 颗，一次性重置全部属性 */}
+            {state.tribulationSuccess && (
+              <button
+                id="btn-use-rebirth-reset"
+                title="消耗 1 颗：全部属性等级清零，升级消耗重算，已有效果全部保留"
+                onClick={onUseRebirthResetPill}
+                disabled={!canUseRebirthReset}
+                className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 ${
+                  canUseRebirthReset
+                    ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'
+                    : 'text-[#5b5548] border-[#2b2721] cursor-default'
+                }`}
+              >
+                永劫重置丹 {state.rebirthResetPills || 0}
+              </button>
+            )}
           </div>
-          <button
-            id="btn-use-rebirth-reset"
-            title="消耗 1 颗：全部属性等级清零，升级消耗重算，已有效果全部保留"
-            onClick={onUseRebirthResetPill}
-            disabled={!canUseRebirthReset}
-            className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 ${
-              canUseRebirthReset
-                ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'
-                : 'text-[#5b5548] border-[#2b2721] cursor-default'
-            }`}
-          >
-            永劫重置丹 {state.rebirthResetPills || 0}
-          </button>
         </div>
       )}
 
       {/* 升级：所有属性均与数值殿独立，等级永久保留，计算时效果与数值殿累加 */}
       <div className="flex flex-col gap-1.5">
         {REBIRTH_MERGED_UPGRADES.filter(({ id }) => {
-          // 概率 / 频率类：效果已达上限（概率 100% / 频率 20 级满级）后直接隐藏
+          // 概率类：以「数值殿 + 永劫殿」合计为准，合计已达（或超过）100% 即隐藏——再升已无效果
+          if (isChanceCapped(attrs, id)) return false;
+          // 其余上限类（频率 20 级满级）：达到后直接隐藏
           const level =
             id === 'baseValue'
               ? state.rebirthBaseValueLevel || 0
@@ -201,7 +233,7 @@ export const RebirthShop: React.FC = () => {
                 </div>
                 {afterlifeMult > 1 && (
                   <div className="text-[10px] font-serif text-[#d897fa] mt-0.5">
-                    往生殿强化 ×{afterlifeMult}（永劫殿加成）
+                    往生殿强化 ×{BigNum.fromNumber(afterlifeMult).formatChinese(0)}
                   </div>
                 )}
               </div>

@@ -43,6 +43,7 @@ export interface GameActions {
   handleBuyLevelCap: (id: UpgradeId) => void;
   handleBuyRebirthPointLevel: () => void;
   handleBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
+  handleUpgradeAllRebirth: () => boolean;
   handleUnlockCollapse: () => void;
   handleUnlockTribulation: () => void;
   handleTribulation: (outcome: TribulationOutcome) => void;
@@ -128,6 +129,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleBuyLevelCap,
     handleBuyRebirthPointLevel,
     handleBuyRebirthMergedUpgrade,
+    handleUpgradeAllRebirth,
     handleUnlockCollapse,
     handleUnlockTribulation,
     handleTribulation,
@@ -178,6 +180,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleBuyLevelCap,
       handleBuyRebirthPointLevel,
       handleBuyRebirthMergedUpgrade,
+      handleUpgradeAllRebirth,
       handleUnlockCollapse,
       handleUnlockTribulation,
       handleTribulation,
@@ -221,6 +224,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleBuyLevelCap,
       handleBuyRebirthPointLevel,
       handleBuyRebirthMergedUpgrade,
+      handleUpgradeAllRebirth,
       handleUnlockCollapse,
       handleUnlockTribulation,
       handleTribulation,

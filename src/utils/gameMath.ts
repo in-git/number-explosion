@@ -323,11 +323,10 @@ export const TRIBULATION_STRIKE_INTERVAL_MS = 3000;
 /** 无渡劫丹时，单道雷劫的通过率 */
 export const TRIBULATION_STRIKE_CHANCE = 0.5;
 
-/**
- * 渡劫殿：炼制一炉「重置丹」的耗时基数（数值重置丹 / 永劫重置丹共用）。
- * 首炉 10s，此后每炼成一炉耗时 +10s（10s、20s、30s、40s…）。
- */
-export const RESET_PILL_BASE_MS = 10_000;
+/** 渡劫殿：炼制一炉「数值重置丹」的耗时基数（ms）—— 一天 */
+export const VALUE_RESET_PILL_BASE_MS = 24 * 60 * 60 * 1000;
+/** 渡劫殿：炼制一炉「永劫重置丹」的耗时基数（ms）—— 两天 */
+export const REBIRTH_RESET_PILL_BASE_MS = 2 * 24 * 60 * 60 * 1000;
 /** 渡劫殿：炼制进度推进节拍（ms），同时也是进度条的数据刷新间隔 */
 export const RESET_PILL_TICK_MS = 1_000;
 /** 渡劫殿：产出 1 点「渡劫点」的间隔（ms） */
@@ -352,11 +351,15 @@ export function getAutoRebirthIntervalMs(settledTimes: number): number {
 
 /**
  * 渡劫殿：第 n 炉重置丹的炼制耗时（n = 已炼成的炉数，从 0 起）。
- * 序列：10s、20s、30s、40s…
+ * 数值重置丹：1 天、2 天、3 天…；永劫重置丹：2 天、4 天、6 天…
  */
-export function getResetPillDurationMs(craftedCount: number): number {
+export function getResetPillDurationMs(
+  pill: 'value' | 'rebirth',
+  craftedCount: number
+): number {
   const n = Number.isFinite(craftedCount) && craftedCount > 0 ? Math.floor(craftedCount) : 0;
-  return RESET_PILL_BASE_MS * (n + 1);
+  const base = pill === 'rebirth' ? REBIRTH_RESET_PILL_BASE_MS : VALUE_RESET_PILL_BASE_MS;
+  return base * (n + 1);
 }
 
 /** 渡劫（渡劫次数 +1）所需的往生点：恒定 1 万 */
@@ -903,6 +906,20 @@ export function calculateGameAttributes(state: GameState) {
     achievementCritBonus,
     playTimeMs: state.playTimeMs || 0,
   };
+}
+
+/**
+ * 概率类属性是否已封顶（隐藏条件）：以「数值殿 + 永劫殿」的合计概率为准。
+ * 达到或超过 100% 即视为封顶——两殿再升任一处都已无效果，永劫殿该项直接隐藏。
+ * 非概率类恒返回 false。
+ */
+export function isChanceCapped(
+  attrs: ReturnType<typeof calculateGameAttributes>,
+  id: UpgradeId
+): boolean {
+  if (id === 'critChance') return attrs.critChance >= 1.0;
+  if (id === 'comboChance') return attrs.comboChance >= 1.0;
+  return false;
 }
 
 export interface ClickResult {

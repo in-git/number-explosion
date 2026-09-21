@@ -27,6 +27,10 @@ import {
   getUpgradeCost,
   getUpgradeMaxLevel,
   isUpgradeMaxed,
+  isRebirthEffectCapped,
+  calculateGameAttributes,
+  CRIT_CHANCE_STEP,
+  COMBO_CHANCE_STEP,
   getRebirthPointsCap,
   getRebirthCapUpgradeCost,
   getAutoRebirthPoints,
@@ -564,7 +568,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    * 渡劫殿：炼制重置丹（数值重置丹 / 永劫重置丹，须手动点击「炼制」）。
    * - 渡劫成功（飞升成仙）后渡劫殿才存在；未点击则不炼制
    * - 每 RESET_PILL_TICK_MS 推进一次进度；一炉炼成得 1 颗丹后停炉，须再次点击
-   * - 每炼成一炉，下一炉耗时 +10s：10s、20s、30s、40s…
+   * - 每炼成一炉，下一炉耗时再 +1 个基数：数值重置丹 1、2、3 天…；永劫重置丹 2、4、6 天…
    * - 进度与存量随存档落盘，关闭弹窗 / 刷新页面后继续炼制
    */
   useEffect(() => {
@@ -583,7 +587,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         RESET_PILL_TICK_MS;
 
       // 炼成一炉：产出 1 颗后停炉
-      if (progressMs >= getResetPillDurationMs(craftCount)) {
+      if (progressMs >= getResetPillDurationMs(kind, craftCount)) {
         return isValue
           ? {
               valueResetProgressMs: 0,
@@ -670,6 +674,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       const upgrades = { ...prev.upgrades };
       let touched = false;
       (Object.keys(upgrades) as UpgradeId[]).forEach((id) => {
+        // 自动点击频率不在重置范围内（数值 / 永劫两殿皆然）
+        if (id === 'autoFrequency') return;
         const up = upgrades[id];
         if (!up || !up.unlocked || up.level <= 0) return;
         kept[id] = (kept[id] || 0) + up.level;
@@ -706,7 +712,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       // 其余属性：连击倍数 / 暴击倍数 等，等级存于 rebirthMergedLevels
       (Object.keys(merged) as UpgradeId[]).forEach((id) => {
-        if (id === 'baseValue') return;
+        // 「基础数值」见上方单独处理；自动点击频率不在重置范围内
+        if (id === 'baseValue' || id === 'autoFrequency') return;
         const level = Math.max(0, merged[id] || 0);
         if (level <= 0) return;
         kept[id] = (kept[id] || 0) + level;
@@ -800,6 +807,69 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         },
       }));
     }, []);
+
+  /**
+   * 永劫殿：一键升级（规则与数值殿完全一致）
+   * 按「连击概率 → 暴击概率 → 数值升级 → 连击倍数 → 暴击倍数」的优先级，
+   * 用当前永劫点数尽力把每一项升满（点数不足或已达上限则停止）。
+   * @returns 本次是否至少升了 1 级
+   */
+  const handleUpgradeAllRebirth = useCallback((): boolean => {
+    const prev = stateRef.current;
+    let points = Math.max(0, prev.rebirthPoints || 0);
+    let baseValueLevel = Math.max(0, prev.rebirthBaseValueLevel || 0);
+    const levels = { ...(prev.rebirthMergedLevels || ({} as Record<UpgradeId, number>)) };
+    let bought = 0;
+
+    // 概率类以「两殿合计」为准（与永劫殿面板的隐藏规则一致），避免买到 100% 以上
+    const attrs = calculateGameAttributes(prev);
+
+    const order: UpgradeId[] = [
+      'comboChance',
+      'critChance',
+      'baseValue',
+      'comboMultiplier',
+      'critMultiplier',
+    ];
+
+    order.forEach((id) => {
+      const chanceValue =
+        id === 'comboChance' ? attrs.comboChance : id === 'critChance' ? attrs.critChance : null;
+      const chanceStep = id === 'critChance' ? CRIT_CHANCE_STEP : COMBO_CHANCE_STEP;
+      let added = 0;
+
+      for (;;) {
+        const level = id === 'baseValue' ? baseValueLevel : Math.max(0, levels[id] || 0);
+        // 该属性自身已达效果上限（概率 100% / 频率满级）
+        if (isRebirthEffectCapped(id, level)) break;
+        // 两殿合计概率已达（或超过）100% 即止
+        if (chanceValue !== null && chanceValue + added * chanceStep >= 1.0) break;
+
+        const cost =
+          id === 'baseValue'
+            ? getRebirthBaseValueCost(level)
+            : getRebirthMergedUpgradeCost(id, level);
+        const costNum = Math.max(0, cost.toNumber());
+        if (points < costNum) break;
+
+        points -= costNum;
+        added += 1;
+        bought += 1;
+        if (id === 'baseValue') baseValueLevel += 1;
+        else levels[id] = level + 1;
+      }
+    });
+
+    if (bought <= 0) return false;
+
+    setState((p) => ({
+      ...p,
+      rebirthPoints: points,
+      rebirthBaseValueLevel: baseValueLevel,
+      rebirthMergedLevels: levels,
+    }));
+    return true;
+  }, []);
 
   /** 永劫商殿：消耗 5 点永劫值解锁坍缩 */
   const handleUnlockCollapse = useCallback(() => {
@@ -1341,6 +1411,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleBuyLevelCap,
     handleBuyRebirthPointLevel,
     handleBuyRebirthMergedUpgrade,
+    handleUpgradeAllRebirth,
     handleUnlockCollapse,
     handleUnlockTribulation,
     handleTribulation,

@@ -14,6 +14,30 @@ const sec = (ms: number): string => {
   return Number.isInteger(s) ? `${s}s` : `${s.toFixed(1)}s`;
 };
 
+/** 一天的毫秒数 */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 耗时文案：以「天」为单位（重置丹耗时均为整天数） */
+const durText = (ms: number): string => {
+  const days = ms / DAY_MS;
+  return Number.isInteger(days) ? `${days}天` : `${days.toFixed(1)}天`;
+};
+
+/** 剩余时间文案：只保留最大的两级单位 */
+const remainText = (ms: number): string => {
+  let rest = Math.max(0, Math.ceil(ms / 1000));
+  const d = Math.floor(rest / 86400);
+  rest -= d * 86400;
+  const h = Math.floor(rest / 3600);
+  rest -= h * 3600;
+  const m = Math.floor(rest / 60);
+  const s = rest - m * 60;
+  if (d > 0) return `${d}天${h}小时`;
+  if (h > 0) return `${h}小时${m}分`;
+  if (m > 0) return `${m}分${s}秒`;
+  return `${s}秒`;
+};
+
 /**
  * 周期产出卡：左侧名称、右侧剩余秒数，下方进度条与说明。
  * 进度以存档进度为基准按真实时间插值（存档每 1s 结算一次），避免跳动。
@@ -78,6 +102,8 @@ const CycleCard: React.FC<{
 interface PillItemProps {
   /** 按钮 id */
   id: string;
+  /** 丹种：数值重置丹（1 天起）/ 永劫重置丹（2 天起） */
+  pill: 'value' | 'rebirth';
   /** 丹名 */
   name: string;
   /** 存量 */
@@ -94,6 +120,7 @@ interface PillItemProps {
 /** 列表中的一炉丹：左侧名字与行内进度条，右侧一个按钮 */
 const PillItem: React.FC<PillItemProps> = ({
   id,
+  pill,
   name,
   pills,
   craftCount,
@@ -101,7 +128,7 @@ const PillItem: React.FC<PillItemProps> = ({
   crafting,
   onCraft,
 }) => {
-  const duration = getResetPillDurationMs(craftCount);
+  const duration = getResetPillDurationMs(pill, craftCount);
   const progress = crafting ? Math.min(duration, progressMs) : 0;
 
   /** 进度条平滑：以存档进度为基准按真实时间插值（存档每 1s 结算一次） */
@@ -134,7 +161,7 @@ const PillItem: React.FC<PillItemProps> = ({
   }, [crafting, duration]);
 
   const ratio = duration > 0 ? Math.min(1, displayMs / duration) : 0;
-  const remainSec = Math.ceil(Math.max(0, duration - displayMs) / 1000);
+  const remain = remainText(Math.max(0, duration - displayMs));
 
   // 常态统一灰调；炼制中整体转黄（丹名 / 进度条 / 信息 / 按钮）
   const nameColor = crafting ? 'text-[#e8c46a]' : 'text-[#ded7cb]';
@@ -168,7 +195,12 @@ const PillItem: React.FC<PillItemProps> = ({
       <div className="h-1.5 w-full overflow-hidden rounded bg-[#2f2b25]">
         <div className={`h-full rounded ${barColor}`} style={{ width: `${ratio * 100}%` }} />
       </div>
-  
+
+      {/* 炼制信息：置于卡片最下方 */}
+      <div className={`font-mono text-[10px] ${infoColor}`}>
+        {pills} 颗 · 第 {craftCount + 1} 炉 {durText(duration)}
+        {crafting ? ` · 剩余 ${remain}` : ''}
+      </div>
     </div>
   );
 };
@@ -176,7 +208,7 @@ const PillItem: React.FC<PillItemProps> = ({
 /**
  * 渡劫殿：渡劫成功（飞升成仙）后开启。
  * 炼制两种重置丹（数值重置丹 / 永劫重置丹）：点击「炼制」即开炉，炼制中不可操作；
- * 每炼成一炉，下一炉耗时 +10s：10s、20s、30s、40s…
+ * 数值重置丹首炉 1 天、永劫重置丹首炉 2 天；每炼成一炉，下一炉再 +1 个基数。
  */
 export const TribulationHall: React.FC = () => {
   const { state, currentBigNum: currentValue } = useGameData();
@@ -209,6 +241,7 @@ export const TribulationHall: React.FC = () => {
 
       <PillItem
         id="btn-craft-value-reset"
+        pill="value"
         name="数 值 重 置 丹"
         pills={Math.max(0, state.valueResetPills || 0)}
         craftCount={Math.max(0, state.valueResetCraftCount || 0)}
@@ -218,6 +251,7 @@ export const TribulationHall: React.FC = () => {
       />
       <PillItem
         id="btn-craft-rebirth-reset"
+        pill="rebirth"
         name="永 劫 重 置 丹"
         pills={Math.max(0, state.rebirthResetPills || 0)}
         craftCount={Math.max(0, state.rebirthResetCraftCount || 0)}

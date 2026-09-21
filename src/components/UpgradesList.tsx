@@ -212,7 +212,7 @@ export const UpgradesList: React.FC = () => {
 
   // 数值重置丹（一次性重置全部功法）：渡劫成功后可用，须持丹且至少一项功法已有等级
   const hasResettableLevel = (Object.keys(state.upgrades) as UpgradeId[]).some(
-    (id) => state.upgrades[id].unlocked && state.upgrades[id].level > 0
+    (id) => id !== 'autoFrequency' && state.upgrades[id].unlocked && state.upgrades[id].level > 0
   );
   const canUseValueReset = (state.valueResetPills || 0) > 0 && hasResettableLevel;
 
@@ -255,7 +255,6 @@ export const UpgradesList: React.FC = () => {
               id="btn-use-value-reset"
               onClick={() => onUseValueResetPill()}
               disabled={!canUseValueReset}
-              title="消耗 1 颗：全部功法等级清零，升级消耗重算，已有效果全部保留"
               className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 ${
                 canUseValueReset
                   ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'

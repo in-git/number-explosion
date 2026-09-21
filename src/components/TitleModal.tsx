@@ -3,15 +3,30 @@ import { BigNum } from '../utils/bigNumber';
 import { getNearbyTitleRanks, getTitle } from '../utils/title';
 import { useGameData } from '../context/GameContext';
 
-/** 已达成 / 当前 / 未达成 三种时间线节点样式 */
-const nodeClass = (current: boolean, achieved: boolean): string => {
+/**
+ * 已达成 / 当前 / 未达成 三种时间线节点样式。
+ * 除当前节点的金色高亮外，其余节点均取该境界的专属色（未达成者压暗）。
+ */
+const nodeStyle = (current: boolean, achieved: boolean, color: string): React.CSSProperties => {
   if (current) {
-    return 'h-3.5 w-3.5 border-[#e8c46a] bg-[#f7e6b4] shadow-[0_0_10px_rgba(232,196,106,0.9)]';
+    return {
+      width: 14,
+      height: 14,
+      borderColor: '#e8c46a',
+      backgroundColor: '#f7e6b4',
+      boxShadow: '0 0 10px rgba(232,196,106,0.9)',
+    };
   }
   if (achieved) {
-    return 'h-2.5 w-2.5 border-[#6b5a3f] bg-[#8a7452]';
+    return { width: 10, height: 10, borderColor: color, backgroundColor: color };
   }
-  return 'h-2.5 w-2.5 border-[#4a4235] bg-[#1a1715]';
+  return {
+    width: 10,
+    height: 10,
+    borderColor: color,
+    backgroundColor: '#1a1715',
+    opacity: 0.65,
+  };
 };
 
 /** 称号时间线：自凡人起逐档向上，并标出自己所在的位置 */
@@ -52,10 +67,8 @@ export const TitleModal: React.FC = () => {
                 <span className="absolute bottom-0 h-1/2 w-[2px] bg-[#3b3429]" aria-hidden />
               )}
               <span
-                className={`relative rounded-full border-2 transition-all ${nodeClass(
-                  r.current,
-                  r.achieved
-                )}`}
+                className="relative rounded-full border-2 transition-all"
+                style={nodeStyle(r.current, r.achieved, r.color)}
               />
             </div>
 
@@ -66,14 +79,17 @@ export const TitleModal: React.FC = () => {
                   ? 'bg-[#241f16] border-[#6b5a3f]'
                   : r.achieved
                     ? 'bg-[#1f1d1a] border-[#3b3429]'
-                    : 'bg-[#1a1816] border-[#2b2721] opacity-70'
+                    : 'bg-[#1a1816] border-[#2b2721]'
               }`}
             >
+              {/* 各档境界一律用自身色；未达成者仅压暗，不再整行褪色 */}
               <span
-                className={`font-serif font-bold text-sm truncate ${
-                  r.current || r.achieved ? '' : 'opacity-80'
-                }`}
-                style={{ color: r.color }}
+                className="font-serif font-bold text-sm truncate"
+                style={{
+                  color: r.color,
+                  opacity: r.current ? 1 : r.achieved ? 0.9 : 0.6,
+                  textShadow: r.current ? '0 0 8px rgba(0,0,0,0.9)' : undefined,
+                }}
               >
                 {r.name}
               </span>
