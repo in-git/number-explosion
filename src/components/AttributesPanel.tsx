@@ -7,6 +7,7 @@ import {
   getValueCap,
   getBaseValueBonus,
   getRebirthBaseValueBonus,
+  getRebirthPointsCap,
 } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
 import { getTitle } from '../utils/title';
@@ -151,8 +152,15 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-rebirth-point-bonus',
       label: '永劫点数加成',
-      value: `+${attrs.rebirthPointBonus} 点`,
-      detail: '「永劫点数获取」升级 · 每次永劫额外获得',
+      value: `+${attrs.rebirthPointBonus} / 百万`,
+      detail: '「永劫爆炸」升级 · 永劫时每 100 万数值额外获得',
+    },
+    {
+      id: 'attr-rebirth-cap',
+      label: '永劫点上限',
+      value: `${BigNum.fromNumber(getRebirthPointsCap(state.rebirthCapLevel || 0)).formatChinese(0)} 点`,
+      valueClass: 'text-[#5fa8e6]',
+      detail: '每次永劫所得的点数上限 · 往生殿升级提升 · 每级 +100',
     },
     {
       id: 'attr-rebirth-start-value',

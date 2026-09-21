@@ -7,6 +7,7 @@ import {
   getValueCapStep,
   getValueCapCost,
   getRebirthPointUpgradeCost,
+  getRebirthPointBonusPerMillion,
   getRebirthToCollapseCost,
   COLLAPSE_COST,
 } from '../utils/gameMath';
@@ -20,12 +21,12 @@ import { UpgradeButton } from './UpgradeButton';
 interface CollapseShopProps {
   state: GameState;
   onBuyValueCap: () => void;
-  /** 购买「永劫点数获取」：消耗按 2^n 递增的坍缩点数，每次永劫额外 +1 点 */
+  /** 购买「永劫爆炸」：消耗按 2^n 递增的坍缩点数，每级使永劫时每 100 万数值额外 +0.2 点 */
   onBuyRebirthPointLevel: () => void;
   /** 消耗 1 点坍缩点数，为指定功法 +50 级上限（由永劫商殿迁移而来） */
   onBuyLevelCap: (id: UpgradeId) => void;
-  /** 消耗 3 点永劫点数兑换 1 点坍缩点数（恒定 3:1） */
-  onExchangeRebirthToCollapse: () => void;
+  /** 消耗永劫点数兑换坍缩点数（恒定 3:1）：amount 为兑换次数，'all' = 全部可兑换 */
+  onExchangeRebirthToCollapse: (amount: number | 'all') => void;
 
   /** 消耗 20 点坍缩点数解锁往生殿 */
   onUnlockAfterlifeShop: () => void;
@@ -51,13 +52,17 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
   const valueCapCost = getValueCapCost(level + 1);
   const canBuy = state.collapsePoints >= valueCapCost.toNumber();
 
-  // 永劫点数 → 坍缩点数兑换
+  // 永劫点数 → 坍缩点数兑换（单次消耗恒定）
   const exchanged = state.rebirthToCollapseCount || 0;
-  const exchangeCost = getRebirthToCollapseCost(exchanged);
-  const exchangeCostNum = exchangeCost.toNumber();
-  const canExchange = Number.isFinite(exchangeCostNum) && state.rebirthPoints >= exchangeCostNum;
+  const exchangeCostNum = getRebirthToCollapseCost(exchanged).toNumber();
+  const exchangeStep = Number.isFinite(exchangeCostNum) && exchangeCostNum > 0 ? exchangeCostNum : 0;
+  // 全部兑换：当前可兑换的最大次数及其消耗
+  const exchangeAllCount = exchangeStep > 0 ? Math.floor(state.rebirthPoints / exchangeStep) : 0;
+  const canExchange = exchangeStep > 0 && state.rebirthPoints >= exchangeStep;
+  const canExchange10 = exchangeStep > 0 && state.rebirthPoints >= exchangeStep * 10;
+  const canExchangeAll = exchangeAllCount > 0;
 
-  // 永劫点数获取：当前等级 + 下一级消耗（2 的幂）
+  // 永劫爆炸：当前等级 + 下一级消耗（2 的幂）
   const rpLevel = state.rebirthPointLevel || 0;
   const rpCost = getRebirthPointUpgradeCost(rpLevel);
   const canBuyRp = BigNum.fromNumber(state.collapsePoints).gte(rpCost);
@@ -85,36 +90,52 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
         </div>
       </div>
 
-      {/* 兑换：永劫点数 → 坍缩点数（恒定 3:1）；仅按右侧按钮触发，避免误触整行 */}
+      {/* 点化坍缩：永劫点数 → 坍缩点数；卡片，支持 +1 / +10 / 全部 */}
       <div
         id="shop-item-exchange-collapse"
-        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#161d2b] border border-[#2e4a6e] select-none"
+        className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-[#161d2b] border border-[#2e4a6e] select-none"
       >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
-              点化坍缩
-            </span>
-          </div>
-          <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-            {exchangeCost.formatChinese(0)} 永劫点数 兑换 1 点坍缩点数
-
-          </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
+            点化坍缩
+          </span>
+          <span className="text-[10px] font-serif text-[#7d8fa3] flex-shrink-0">
+            永劫:坍缩=3:1
+          </span>
         </div>
 
-        <UpgradeButton
-          id="btn-exchange-collapse"
-          disabled={!canExchange}
-          onPress={() => {
-            if (!canExchange) return;
-            onExchangeRebirthToCollapse();
-          }}
-        >
-          {exchangeCost.formatChinese(0)} 点
-        </UpgradeButton>
+        <div className="flex items-center gap-1.5">
+          <UpgradeButton
+            id="btn-exchange-collapse-1"
+            disabled={!canExchange}
+            onClick={() => onExchangeRebirthToCollapse(1)}
+            ariaLabel="兑换 1 点坍缩点数"
+            className="flex-1 min-w-0! justify-center! text-center!"
+          >
+            +1
+          </UpgradeButton>
+          <UpgradeButton
+            id="btn-exchange-collapse-10"
+            disabled={!canExchange10}
+            onClick={() => onExchangeRebirthToCollapse(10)}
+            ariaLabel="兑换 10 点坍缩点数"
+            className="flex-1 min-w-0! justify-center! text-center!"
+          >
+            +10
+          </UpgradeButton>
+          <UpgradeButton
+            id="btn-exchange-collapse-all"
+            disabled={!canExchangeAll}
+            onClick={() => onExchangeRebirthToCollapse('all')}
+            ariaLabel="全部兑换"
+            className="flex-1 min-w-0! justify-center! text-center!"
+          >
+            +{BigNum.fromNumber(exchangeAllCount).formatChinese(0)}
+          </UpgradeButton>
+        </div>
       </div>
 
-      {/* 永劫点数获取：每次永劫额外 +1 点，消耗 2^n 递增的坍缩点数；仅按右侧按钮触发 */}
+      {/* 永劫爆炸：永劫时每 100 万数值额外 +0.2 点/级，消耗 2^n 递增的坍缩点数；仅按右侧按钮触发 */}
       <div
         id="shop-item-rebirth-point"
         className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] select-none"
@@ -126,7 +147,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
             </span>
           </div>
           <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-            每次永劫点额外 +1
+            每级（+20%/百万）的永劫点获得
           </div>
         </div>
 
@@ -173,9 +194,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
 
       {/* 功法等级上限（由永劫商殿迁移而来，消耗坍缩点） */}
       <div className="flex flex-col gap-1.5 pt-1.5 border-t border-[#2d2822]">
-        <div className="text-[10px] font-serif text-[#6f6656] px-1">
-          —— 功法等级上限（消耗坍缩点）——
-        </div>
+     
         {REBIRTH_SHOP_ORDER.map((id) => {
           const meta = UPGRADE_METADATA[id];
           const up = state.upgrades[id];
@@ -239,7 +258,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
                 </span>
               </div>
               <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-                往生殿：各属性升级消耗可进一步折扣 · 每级 2×斐波那契递增
+                往生殿：各属性升级消耗可进一步折扣
               </div>
             </div>
 

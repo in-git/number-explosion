@@ -55,6 +55,7 @@ export default function App() {
         collapseGain={game.collapseGain}
         onUnlockUpgrade={game.handleUnlockUpgrade}
         onUpgradeLevel={game.handleUpgradeLevel}
+        onUpgradeAll={game.handleUpgradeAll}
         onUnlockAchievements={game.handleUnlockAchievements}
         onUnlockTitles={game.handleUnlockTitles}
         onBuyLevelCap={game.handleBuyLevelCap}
@@ -65,6 +66,8 @@ export default function App() {
         onBuyAutoUnlock={game.handleBuyAutoUnlock}
         onExchangeAfterlifePoint={game.handleExchangeAfterlifePoint}
         onBuyAfterlifeUpgrade={game.handleBuyAfterlifeUpgrade}
+        onBuyRebirthCapUpgrade={game.handleBuyRebirthCapUpgrade}
+        onUnlockOneKeyUpgrade={game.handleUnlockOneKeyUpgrade}
         onLogin={game.handleLogin}
         onRegionSelected={game.handleSelectRegion}
         onLogout={game.handleLogout}

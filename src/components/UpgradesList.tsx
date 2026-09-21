@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Unlock } from 'lucide-react';
 import { GameState, UpgradeId } from '../types';
 import { BigNum } from '../utils/bigNumber';
@@ -26,6 +26,8 @@ interface UpgradesListProps {
   currentValue: BigNum;
   onUnlock: (id: UpgradeId, cost: BigNum) => void;
   onUpgrade: (id: UpgradeId, cost: BigNum) => void;
+  /** 一键升级：按「概率 → 数值 → 倍数」优先级尽力升满，返回本次是否发生了升级 */
+  onUpgradeAll: () => boolean;
   /** 成就系统是否已开启 */
   achievementsUnlocked: boolean;
   /** 称号系统是否已开启 */
@@ -105,6 +107,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
   currentValue,
   onUnlock,
   onUpgrade,
+  onUpgradeAll,
   achievementsUnlocked,
   titleUnlocked,
   onUnlockAchievements,
@@ -112,6 +115,20 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
 }) => {
   // 隐藏不可继续升级（已满级）的功法
   const [hideMaxed, setHideMaxed] = useState(false);
+
+  // 一键升级冷却：剩余秒数（0 表示可用）
+  const [oneKeyCd, setOneKeyCd] = useState(0);
+  useEffect(() => {
+    if (oneKeyCd <= 0) return;
+    const timer = window.setTimeout(() => setOneKeyCd((v) => Math.max(0, v - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [oneKeyCd]);
+
+  const handleOneKeyUpgrade = () => {
+    if (oneKeyCd > 0) return;
+    // 仅在本次确实升了级时进入冷却
+    if (onUpgradeAll()) setOneKeyCd(5);
+  };
 
   // Filter upgrades: 点击量达标，或已解锁（解锁会消耗点击量，已解锁项须继续显示）
   const visibleUpgrades = UPGRADE_ORDER.filter((id) => {
@@ -173,16 +190,12 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
     const meta = UPGRADE_METADATA[id];
     const upgradeState = state.upgrades[id];
     const maxLevel = getUpgradeMaxLevel(id, upgradeState);
-    const rawDesc = getUpgradeDesc(id, upgradeState.level);
-    // 数值升级：把等级上限以纯文本放到描述最前面（其余功法上限已在徽章中显示）
-    const desc =
-      id === 'baseValue'
-        ? { ...rawDesc, currentDesc: `上限 Lv.${maxLevel} · ${rawDesc.currentDesc}` }
-        : rawDesc;
+    const desc = getUpgradeDesc(id, upgradeState.level);
     // 往生殿折扣：按当前属性等级降低该属性的数值殿升级消耗
+    const afterlifeLevel = state.afterlifeUpgradeLevels?.[id] || 0;
     const currentCost = applyAfterlifeDiscount(
       getUpgradeCost(id, upgradeState.level, maxLevel),
-      state.afterlifeUpgradeLevels?.[id] || 0,
+      afterlifeLevel,
     );
 
     return {
@@ -192,6 +205,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       maxLevel,
       desc,
       currentCost,
+      afterlifeDiscount: getAfterlifeDiscountPercent(afterlifeLevel),
       isMaxed: isUpgradeMaxed(id, upgradeState),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
       canAffordUpgrade: currentCost ? currentValue.gte(currentCost) : false,
@@ -232,11 +246,23 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       </div>
 
       {/* 长按提示 / 往生殿折扣提示 */}
-      <div className="text-[10px] font-serif text-[#8a7a63] text-center -mt-0.5">
-        {'长按升级'}
-        {Object.values(state.afterlifeUpgradeLevels || {}).some((v) => v > 0) && (
-          <span className="text-[#7bd88f]"> · 往生殿：升级消耗按属性折扣</span>
+      <div className="flex items-center justify-between text-[10px] font-serif text-[#8a7a63] -mt-0.5">
+        <span>长按升级</span>
+        {state.oneKeyUpgradeUnlocked && (
+          <button
+            id="btn-upgrade-all"
+            onClick={handleOneKeyUpgrade}
+            disabled={oneKeyCd > 0}
+            className={`px-2 py-0.5 rounded border transition-colors ${
+              oneKeyCd > 0
+                ? 'text-[#5b5548] border-[#2b2721] cursor-default'
+                : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+            }`}
+          >
+            {oneKeyCd > 0 ? `一键升级 ${oneKeyCd}s` : '一键升级'}
+          </button>
         )}
+       
       </div>
 
       {shownRows.length === 0 ? (
@@ -246,7 +272,8 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       ) : (
         <div className="flex flex-col gap-1.5">
           {shownRows.map((row) => {
-            const { id, meta, upgradeState, maxLevel, desc, currentCost, isMaxed } = row;
+            const { id, meta, upgradeState, maxLevel, desc, currentCost, afterlifeDiscount, isMaxed } =
+              row;
 
             // If not unlocked yet:
             if (!upgradeState.unlocked) {
@@ -308,25 +335,20 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
                       {meta.name}
                     </span>
-                    {/* 数值升级直接显示加成值，其余显示等级 / 上限 */}
                     <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#a69b8b] flex-shrink-0">
-                      {id === 'baseValue'
-                        ? `+${getBaseValueBonus(upgradeState.level).formatChinese(1)}`
-                        : `Lv.${upgradeState.level} / ${maxLevel}`}
+                      {`Lv.${upgradeState.level} / ${maxLevel}`}
                     </span>
                   </div>
                   <div className="text-[10px] text-[#998e7e] font-serif flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                     <span className="break-words">{desc.currentDesc}</span>
                     <span className="text-[#6e6456] flex-shrink-0">→</span>
-                    {/* 数值升级：升级后的预览值用绿色突出 */}
-                    <span
-                      className={`break-words ${
-                        id === 'baseValue' ? 'text-[#76d18c]' : 'text-[#807667]'
-                      }`}
-                    >
-                      {desc.nextDesc}
-                    </span>
+                    <span className="break-words text-[#807667]">{desc.nextDesc}</span>
                   </div>
+                  {afterlifeDiscount > 0 && (
+                    <div className="text-[10px] font-serif text-[#76d18c] mt-0.5">
+                      往生殿优惠 -{afterlifeDiscount.toFixed(0)}%
+                    </div>
+                  )}
                 </div>
 
                 {/* 仅按此按钮升级；支持长按连升（含移动端） */}

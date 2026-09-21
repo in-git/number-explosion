@@ -81,7 +81,7 @@ function pow2(n: number): BigNum {
 /**
  * 「永劫爆炸」（永劫点数获取）升级
  * - 购买第 n 次（n 从 1 起）消耗 2^(n-1) 点坍缩点：1, 2, 4, 8, 16 ...（2 的幂）
- * - 每级在永劫时额外 +1 点永劫点数
+ * - 每级使永劫时「每 100 万数值」额外 +0.2 点永劫点数（见 getExtraRebirthPoints）
  */
 export function getRebirthPointUpgradeCost(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
@@ -98,9 +98,31 @@ export function getRebirthPointsFromValue(value: BigNum): number {
   return Math.max(0, Math.floor(ratio));
 }
 
-/** 该升级带来的额外永劫点数（每级 +1） */
-export function getExtraRebirthPoints(level: number): number {
-  return Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+/** 「永劫爆炸」每级加成：永劫时每 100 万数值额外 +0.2 点永劫点数 */
+export const REBIRTH_POINT_BONUS_PER_MILLION = 0.2;
+
+/**
+ * 「永劫爆炸」在永劫时额外获得的永劫点数：
+ * 每级使每 100 万数值额外 +0.2 点，即 数值 ÷ 100 万 × 0.2 × 等级（保留 2 位小数）
+ */
+export function getExtraRebirthPoints(level: number, value: BigNum): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return 0;
+  const millions = value.div(BigNum.fromNumber(REBIRTH_VALUE_PER_POINT)).toNumber();
+  if (!Number.isFinite(millions)) return Number.MAX_SAFE_INTEGER;
+  return Math.max(0, Math.round(millions * lv * REBIRTH_POINT_BONUS_PER_MILLION * 100) / 100);
+}
+
+/** 「永劫爆炸」每 100 万数值的额外永劫点数（= 0.2 × 等级），用于面板展示 */
+export function getRebirthPointBonusPerMillion(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return 0;
+  return Math.round(lv * REBIRTH_POINT_BONUS_PER_MILLION * 100) / 100;
+}
+
+/** 永劫点数展示：整数不带小数，含 0.2 级小数时保留 1 位 */
+export function formatRebirthPoints(points: number): string {
+  return Number.isInteger(points) ? points.toString() : points.toFixed(1);
 }
 
 /** 兑换：每次消耗 3 点永劫点数换 1 点坍缩点数（恒定 3:1，不随次数加价） */
@@ -143,27 +165,40 @@ export function getBaseValueBonus(level: number): BigNum {
 }
 
 /**
- * 「永劫殿·基础数值」每级提升量（斐波那契 × 10）：
- * 10, 20, 30, 50, 80, 130 ...（第 n 级 = 10 × F(n+1)，与数值殿加成累加）
+ * 「数值殿·数值升级」实际基础数值加成 = 累计加成 × 往生殿「数值升级」基础倍数
+ * 往生殿该属性不再降低消耗，而是放大这个加成（未购买时倍数为 1，不影响结果）
+ */
+export function getShopBaseValueBonus(level: number, afterlifeLevel: number): BigNum {
+  const bonus = getBaseValueBonus(level);
+  const mult = getAfterlifeBaseValueMultiplier(afterlifeLevel);
+  return mult === 1 ? bonus : bonus.mulScalar(mult);
+}
+
+/**
+ * 「永劫殿·基础数值」每级提升量（线性 +2）：
+ * 每级固定 +2，累计加成随等级线性增长（与数值殿加成累加）
  */
 export function getRebirthBaseValueGain(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   if (lv <= 0) return new BigNum(0, 0);
-  return getFibonacciBig(lv + 1).mulScalar(10);
+  return new BigNum(2, 0);
 }
 
-/** 「永劫殿·基础数值」累计加成：Σ(每级提升量) = 10 × (F(level+3) − 2)，即 10, 30, 60, 110 ... */
+/** 「永劫殿·基础数值」累计加成：每级 +2，共 2 × level（线性） */
 export function getRebirthBaseValueBonus(level: number): BigNum {
-  if (level <= 0) return new BigNum(0, 0);
-  return getFibonacciBig(level + 3)
-    .sub(new BigNum(2, 0))
-    .mulScalar(10);
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return new BigNum(0, 0);
+  return new BigNum(2 * lv, 0);
 }
 
-/** 「永劫殿·基础数值」升级消耗（斐波那契）：第 n 次购买消耗 F(n)，即 1, 1, 2, 3, 5, 8 ... */
+/**
+ * 「永劫殿·基础数值」升级消耗：前两级各 1，此后每级持续 +2（等差）
+ * 即 1, 1, 3, 5, 7, 9 ...
+ */
 export function getRebirthBaseValueCost(currentLevel: number): BigNum {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return getFibonacciBig(lv + 1);
+  if (lv < 2) return new BigNum(1, 0);
+  return new BigNum(2 * lv - 1, 0);
 }
 
 export interface UpgradeDetail {
@@ -328,13 +363,22 @@ export function isRebirthEffectCapped(id: UpgradeId, rebirthLevel: number): bool
 }
 
 /**
- * 某功法当前的等级上限 = 默认 20 级 + 永劫商殿中购买的次数 × 50 级
+ * 某功法当前的等级上限
  * - 自动点击: 不可升级，上限恒为 0
  * - 自动点击频率: 固定 20 级满级，不随等级上限特权扩展
+ * - 连击概率: 每级 +5%，20 级即 100%
+ * - 暴击概率: 基础 5% + 每级 +1%，95 级即 100%
+ *   （概率类上限取「效果达到 100%」所需等级，不再受 20 级默认上限限制）
+ * - 其余: 默认 20 级 + 永劫商殿中购买的次数 × 50 级
  */
 export function getUpgradeMaxLevel(id: UpgradeId, up: UpgradeState): number {
   if (id === 'autoClickUnlock') return 0; // 自动点击不可升级
   if (id === 'autoFrequency') return BASE_MAX_LEVEL; // 频率固定 20 级满级
+  // 概率类：上限 = 达到 100% 所需等级
+  if (id === 'comboChance') return Math.round(1 / COMBO_CHANCE_STEP); // 20 级 → 100%
+  if (id === 'critChance') {
+    return Math.round((1 - CRIT_CHANCE_BASE) / CRIT_CHANCE_STEP); // 95 级 → 100%
+  }
   return BASE_MAX_LEVEL + (up.capBonus || 0) * LEVEL_CAP_PER_POINT;
 }
 
@@ -376,19 +420,16 @@ export function getAutoFrequencyUpgradeCost(currentLevel: number): BigNum {
 /**
  * 往生殿：「数值殿升级消耗折扣」特权
  * - 于坍缩殿消耗 20 点坍缩点数解锁（一次性），默认不显示
- * - 每级进一步提升数值殿升级消耗的折扣：
- *     · 第 1 级：固定降低 5%
- *     · 第 L 级（L≥2）：5% + 斐波那契 F(L+4) × 20%
- *       即 5%、5+8×0.2、5+13×0.2、5+21×0.2 …（8/13/21 为斐波那契数列）
- * - 每级消耗（坍缩点）为等差数列（差值 1）：第 1 级 1、第 2 级 2、第 3 级 3、第 4 级 4、第 5 级 5 …
+ * - 每级进一步提升数值殿升级消耗的折扣：第 1 级 10%，之后每级 +1%，最多 50%
+ *     · 即 10%、11%、12% … 50%（封顶）
+ * - 每级消耗（往生点）为等差数列（公差 4）：第 1 级 4、第 2 级 8、第 3 级 12、第 4 级 16 …
  */
 /** 达到指定等级时的折扣百分比（0 表示未购买） */
 export function getAfterlifeDiscountPercent(level: number): number {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   if (lv <= 0) return 0;
-  if (lv === 1) return 5; // 首级固定 5%，不叠加斐波那契项
-  // 第 L 级（L≥2）：5% + F(L+4) × 20%
-  return 5 + 0.2 * getFibonacci(lv + 4);
+  // 第 1 级 10%，之后每级 +1%，最多 50%
+  return Math.min(10 + (lv - 1), 50);
 }
 
 /** 购买后等级（currentLevel + 1）的折扣百分比 */
@@ -397,10 +438,67 @@ export function getAfterlifeNextDiscount(currentLevel: number): number {
   return getAfterlifeDiscountPercent(lv + 1);
 }
 
-/** 购买第 (currentLevel+1) 级所需坍缩点数：等差数列（差值 1），即 1, 2, 3, 4, 5 … */
+/** 购买第 (currentLevel+1) 级所需往生点：等差数列（公差 4），即 4, 8, 12, 16, 20 … */
 export function getAfterlifeUpgradeCost(currentLevel: number): number {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
+  return 4 * (lv + 1);
+}
+
+/**
+ * 往生殿：「数值升级」特权（仅作用于数值殿的「数值升级」，不再降低消耗）
+ * - 直接放大数值殿「数值升级」的基础倍数（即其累计基础数值加成）
+ * - 各等级倍数为类斐波那契数列：5、7、12、19、31 …（每级 = 前两级之和）
+ * - 未购买（Lv.0）时倍数为 1（无影响）
+ */
+const AFTERLIFE_BASE_VALUE_MULT_SEQ: number[] = [5, 7];
+export function getAfterlifeBaseValueMultiplier(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return 1;
+  while (AFTERLIFE_BASE_VALUE_MULT_SEQ.length < lv) {
+    const len = AFTERLIFE_BASE_VALUE_MULT_SEQ.length;
+    AFTERLIFE_BASE_VALUE_MULT_SEQ.push(
+      AFTERLIFE_BASE_VALUE_MULT_SEQ[len - 1] + AFTERLIFE_BASE_VALUE_MULT_SEQ[len - 2]
+    );
+  }
+  return AFTERLIFE_BASE_VALUE_MULT_SEQ[lv - 1];
+}
+
+/** 购买后等级（currentLevel + 1）的基础倍数 */
+export function getAfterlifeNextBaseValueMultiplier(currentLevel: number): number {
+  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
+  return getAfterlifeBaseValueMultiplier(lv + 1);
+}
+
+/**
+ * 往生殿「数值升级」购买第 (currentLevel+1) 级所需往生点：斐波那契数列（从 1 起）
+ * 即 1、1、2、3、5、8 …（第 1、2 级各 1，此后每级 = 前两级之和）
+ */
+export function getAfterlifeBaseValueCost(currentLevel: number): number {
+  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
+  return getFibonacci(lv + 1);
+}
+
+/** 往生殿「永劫点上限」：未升级时的基础上限 */
+export const REBIRTH_POINTS_BASE_CAP = 100;
+/** 往生殿「永劫点上限」：每级提升量 */
+export const REBIRTH_POINTS_CAP_STEP = 100;
+
+/**
+ * 往生殿：「永劫点上限」特权
+ * - 只限制「每次永劫所得」的点数上限；永劫点的持有量没有上限
+ * - 每级提升 100 点单次上限：基础 100，之后 200、300、400、500 …
+ * - 每级消耗（往生点）为等差数列（差值 1）：1、2、3、4、5 …
+ */
+/** 购买第 (currentLevel+1) 级所需往生点：等差数列，即 1, 2, 3, 4, 5 … */
+export function getRebirthCapUpgradeCost(currentLevel: number): number {
+  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
   return lv + 1;
+}
+
+/** 当前永劫点获取上限：基础 100 + 等级 × 100，即 100、200、300、400、500 … */
+export function getRebirthPointsCap(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  return REBIRTH_POINTS_BASE_CAP + lv * REBIRTH_POINTS_CAP_STEP;
 }
 
 /** 将往生殿折扣应用到一次数值殿升级消耗上（折扣封顶 100%，消耗不为负） */
@@ -494,7 +592,7 @@ export function calculateGameAttributes(state: GameState) {
   // 1. 基础数值 = 默认值 + 数值殿加成 + 永劫殿加成（两殿效果为累加关系，互不影响）
   //    数值殿: 0.7 × 斐波那契；永劫殿: 10 × 斐波那契
   const shopBaseBonus = baseValueUp.unlocked
-    ? getBaseValueBonus(baseValueUp.level)
+    ? getShopBaseValueBonus(baseValueUp.level, state.afterlifeUpgradeLevels?.baseValue || 0)
     : new BigNum(0, 0);
   const rebirthBaseBonus = getRebirthBaseValueBonus(state.rebirthBaseValueLevel || 0);
   const baseValue = new BigNum(BASE_VALUE_INITIAL, 0)
@@ -565,8 +663,8 @@ export function calculateGameAttributes(state: GameState) {
   // 12. 成就奖励累计出的永劫初始数值（与其他数值累加）
   const rebirthStartValue = getRebirthStartValue(state);
 
-  // 13. 「永劫点数获取」升级带来的额外永劫点数
-  const rebirthPointBonus = getExtraRebirthPoints(state.rebirthPointLevel || 0);
+  // 13. 「永劫爆炸」带来的额外永劫点数（每 100 万数值 +0.2 × 等级）
+  const rebirthPointBonus = getRebirthPointBonusPerMillion(state.rebirthPointLevel || 0);
 
   return {
     baseValue,

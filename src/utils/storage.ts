@@ -102,6 +102,11 @@ export function loadGameState(): GameState {
       if (parsed.collapseUnlocked) notifiedUnlocks.push('collapse');
     }
 
+    // 往生殿「永劫点上限」等级：决定永劫点数上限（基础 100 + 等级 × 100）
+    const rebirthCapLevel = Number.isFinite(parsed.rebirthCapLevel)
+      ? Math.max(0, Math.floor(parsed.rebirthCapLevel as number))
+      : 0;
+
     return {
       ...INITIAL_STATE,
       ...parsed,
@@ -116,7 +121,11 @@ export function loadGameState(): GameState {
             ),
           ]
         : [],
-      rebirthPoints: Number.isFinite(parsed.rebirthPoints) ? parsed.rebirthPoints : 0,
+      rebirthCapLevel,
+      // 永劫点数持有量无上限：上限只作用于「每次永劫所得」
+      rebirthPoints: Number.isFinite(parsed.rebirthPoints)
+        ? Math.max(0, parsed.rebirthPoints)
+        : 0,
       playTimeMs: Number.isFinite(parsed.playTimeMs) ? Math.max(0, parsed.playTimeMs) : 0,
       collapsePoints: Number.isFinite(parsed.collapsePoints) ? parsed.collapsePoints : 0,
       afterlifePoints: Number.isFinite(parsed.afterlifePoints) ? parsed.afterlifePoints : 0,
@@ -126,6 +135,7 @@ export function loadGameState(): GameState {
       }),
       rankingUnlocked: !!parsed.rankingUnlocked,
       upgradesAutoUnlocked: !!parsed.upgradesAutoUnlocked,
+      oneKeyUpgradeUnlocked: !!parsed.oneKeyUpgradeUnlocked,
       achievementsUnlocked: !!parsed.achievementsUnlocked,
       titleUnlocked: !!parsed.titleUnlocked,
       account: sanitizeAccount(parsed.account),

@@ -200,21 +200,21 @@ export const FunShop: React.FC<FunShopProps> = ({
       {
         id: 'rebirth',
         label: '梭哈永劫点',
-        sub: `${rebirthPoints} 点`,
+        sub: `${BigNum.fromNumber(rebirthPoints).formatChinese(0)} 点`,
         icon: <InfinityIcon size={24} />,
         tone: 'bg-[#18202b] border-[#2e4a6e] hover:border-[#5b9bd8]',
       },
       {
         id: 'collapse',
         label: '梭哈坍缩点',
-        sub: `${collapsePoints} 重`,
+        sub: `${BigNum.fromNumber(collapsePoints).formatChinese(0)} 重`,
         icon: <Orbit size={24} />,
         tone: 'bg-[#1b1622] border-[#4a2e5e] hover:border-[#8938b8]',
       },
       {
         id: 'afterlife',
         label: '梭哈往生点',
-        sub: `${afterlifePoints} 点`,
+        sub: `${BigNum.fromNumber(afterlifePoints).formatChinese(0)} 点`,
         icon: <Sparkles size={24} />,
         tone: 'bg-[#20182b] border-[#54336e] hover:border-[#a05fd8]',
       },
@@ -259,7 +259,9 @@ export const FunShop: React.FC<FunShopProps> = ({
   }
 
   /** 第二环节：天意指定的玩法 */
-  const stakeText = isValue ? stake.formatChinese(2) : `${pointStake} 点`;
+  const stakeText = isValue
+    ? stake.formatChinese(2)
+    : `${BigNum.fromNumber(pointStake).formatChinese(0)} 点`;
   const currencyLabel =
     currency === 'rebirth'
       ? CURRENCY_LABELS.rebirth

@@ -16,14 +16,22 @@ import {
   REBIRTH_CAP_BONUS,
   getRebirthStartValue,
   getRebirthPointUpgradeCost,
+  getRebirthPointBonusPerMillion,
   getRebirthMergedUpgradeCost,
   getRebirthBaseValueCost,
   getRebirthBaseValueGain,
   getExtraRebirthPoints,
+  formatRebirthPoints,
   getRebirthToCollapseCost,
   getRebirthPointsFromValue,
   getAfterlifeUpgradeCost,
   getAfterlifeDiscountPercent,
+  getUpgradeCost,
+  getUpgradeMaxLevel,
+  isUpgradeMaxed,
+  applyAfterlifeDiscount,
+  getRebirthPointsCap,
+  getRebirthCapUpgradeCost,
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
 import { canAscendRank } from '../utils/title';
@@ -35,6 +43,7 @@ import {
   RANKING_UNLOCK_COST,
   AFTERLIFE_SHOP_UNLOCK_COST,
   AFTERLIFE_POINT_EXCHANGE_COST,
+  ONE_KEY_UPGRADE_UNLOCK_COST,
   INITIAL_STATE,
   OFFLINE_MAX_MS,
   OFFLINE_MIN_MS,
@@ -390,6 +399,52 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [commitValue]
   );
 
+  /**
+   * 数值殿：一键升级
+   * 按「连击概率 → 暴击概率 → 数值升级 → 连击倍数 → 暴击倍数」的优先级，
+   * 用当前数值尽力把每一项升满（买不起或已满则停止）。
+   * @returns 本次是否至少升了 1 级
+   */
+  const handleUpgradeAll = useCallback(() => {
+    const prev = stateRef.current;
+    const afterlifeLevels = prev.afterlifeUpgradeLevels || {};
+    const nextUpgrades = { ...prev.upgrades };
+    let value = bigNumRef.current;
+    let bought = 0;
+
+    const order: UpgradeId[] = [
+      'comboChance',
+      'critChance',
+      'baseValue',
+      'comboMultiplier',
+      'critMultiplier',
+    ];
+
+    order.forEach((id) => {
+      for (;;) {
+        const up = nextUpgrades[id];
+        if (!up || !up.unlocked || isUpgradeMaxed(id, up)) break;
+        const maxLevel = getUpgradeMaxLevel(id, up);
+        // 往生殿折扣：与单项升级保持一致
+        const cost = applyAfterlifeDiscount(
+          getUpgradeCost(id, up.level, maxLevel),
+          afterlifeLevels[id] || 0
+        );
+        if (!cost || !value.gte(cost)) break;
+        value = value.sub(cost);
+        nextUpgrades[id] = { ...up, level: up.level + 1 };
+        bought += 1;
+      }
+    });
+
+    if (bought <= 0) return false;
+
+    commitValue(value);
+    setState((p) => ({ ...p, upgrades: nextUpgrades }));
+    addToast('一键升级', `共提升 ${bought} 级`);
+    return true;
+  }, [addToast, commitValue]);
+
   /** 数值殿：花费 50 万数值开启成就系统 */
   const handleUnlockAchievements = useCallback(() => {
     const cost = BigNum.fromNumber(ACHIEVEMENTS_UNLOCK_COST);
@@ -424,6 +479,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         currency === 'rebirth' ? '永劫点数' : currency === 'collapse' ? '坍缩点数' : '往生点';
       setState((prev) => {
         const cur = (prev[key as 'rebirthPoints' | 'collapsePoints' | 'afterlifePoints']) || 0;
+        // 永劫点数持有量无上限（上限只作用于每次永劫所得）
         const next = Math.max(0, type === 'gain' ? cur + amount : cur - amount);
         return { ...prev, [key]: next };
       });
@@ -641,7 +697,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
     addToast(
       '天命加身',
-      `永劫时额外 +1 点永劫点数（当前 +${level + 1}）· 消耗 ${cost.formatChinese(0)} 点坍缩点数`
+      `永劫时每 100 万数值额外 +0.2 点永劫点数（当前每百万 +${getRebirthPointBonusPerMillion(level + 1)}）· 消耗 ${cost.formatChinese(0)} 点坍缩点数`
     );
   }, [addToast]);
 
@@ -765,24 +821,26 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
-  /** 往生殿：消耗 10 点坍缩点兑换 1 点往生点（在往生殿内操作） */
-  const handleExchangeAfterlifePoint = useCallback(() => {
-    let done = false;
-    setState((prev) => {
-      if (prev.collapsePoints < AFTERLIFE_POINT_EXCHANGE_COST) return prev;
-      done = true;
-      return {
-        ...prev,
-        collapsePoints: prev.collapsePoints - AFTERLIFE_POINT_EXCHANGE_COST,
-        afterlifePoints: prev.afterlifePoints + 1,
-      };
-    });
-    if (done) {
-      addToast('往生点', `消耗 ${AFTERLIFE_POINT_EXCHANGE_COST} 点坍缩点数 · 兑换 1 点往生点`);
-    }
+  /** 往生殿：消耗坍缩点兑换往生点（恒定 10:1；amount 为兑换次数，'all' = 全部可兑换） */
+  const handleExchangeAfterlifePoint = useCallback((amount: number | 'all' = 1) => {
+    const prev = stateRef.current;
+    const unitCost = AFTERLIFE_POINT_EXCHANGE_COST;
+    if (!Number.isFinite(unitCost) || unitCost <= 0) return;
+
+    const affordable = Math.floor(prev.collapsePoints / unitCost);
+    const times = amount === 'all' ? affordable : Math.min(Math.floor(amount), affordable);
+    if (times <= 0) return;
+
+    setState((p) => ({
+      ...p,
+      collapsePoints: Math.max(0, p.collapsePoints - unitCost * times),
+      afterlifePoints: p.afterlifePoints + times,
+    }));
+
+    addToast('往生点', `消耗 ${unitCost * times} 点坍缩点数 · 兑换 ${times} 点往生点`);
   }, [addToast]);
 
-  /** 往生殿：消耗斐波那契递增的往生点，提升指定属性在数值殿的升级消耗折扣 */
+  /** 往生殿：消耗按公差 4 的等差数列递增的往生点，提升指定属性在数值殿的升级消耗折扣 */
   const handleBuyAfterlifeUpgrade = useCallback(
     (id: UpgradeId) => {
       let done = false;
@@ -809,6 +867,49 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     },
     [addToast]
   );
+
+  /** 往生殿：消耗往生点提升「永劫点上限」（每级 +100，消耗 1,2,3,4,5…） */
+  const handleBuyRebirthCapUpgrade = useCallback(() => {
+    let done = false;
+    let newLevel = 0;
+    setState((prev) => {
+      const level = prev.rebirthCapLevel || 0;
+      const cost = getRebirthCapUpgradeCost(level);
+      if (prev.afterlifePoints < cost) return prev;
+      done = true;
+      newLevel = level + 1;
+      return {
+        ...prev,
+        afterlifePoints: prev.afterlifePoints - cost,
+        rebirthCapLevel: newLevel,
+      };
+    });
+    if (done) {
+      addToast('永劫上限', `永劫点单次获取上限提升至 ${getRebirthPointsCap(newLevel)} 点`);
+    }
+  }, [addToast]);
+
+  /** 往生殿：消耗 10 点往生点解锁「一键升级」（解锁后数值殿才显示一键升级按钮） */
+  const handleUnlockOneKeyUpgrade = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.oneKeyUpgradeUnlocked || prev.afterlifePoints < ONE_KEY_UPGRADE_UNLOCK_COST) {
+        return prev;
+      }
+      done = true;
+      return {
+        ...prev,
+        afterlifePoints: prev.afterlifePoints - ONE_KEY_UPGRADE_UNLOCK_COST,
+        oneKeyUpgradeUnlocked: true,
+      };
+    });
+    if (done) {
+      addToast(
+        '一键升级',
+        `消耗 ${ONE_KEY_UPGRADE_UNLOCK_COST} 点往生点 · 数值殿已开启一键升级`
+      );
+    }
+  }, [addToast]);
 
   /** 永劫商殿：消耗 1 点永劫点数解锁排行 */
   const handleUnlockRanking = useCallback(() => {
@@ -842,39 +943,40 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
-  /** 坍缩商殿：消耗永劫点数兑换坍缩点数（恒定 3:1） */
-  const handleExchangeRebirthToCollapse = useCallback(() => {
+  /** 坍缩商殿：消耗永劫点数兑换坍缩点数（恒定 3:1；amount 为兑换次数，'all' = 全部可兑换） */
+  const handleExchangeRebirthToCollapse = useCallback((amount: number | 'all' = 1) => {
     const prev = stateRef.current;
-    const times = prev.rebirthToCollapseCount || 0;
-    const cost = getRebirthToCollapseCost(times);
-    const costNum = cost.toNumber();
+    const unitCost = getRebirthToCollapseCost(prev.rebirthToCollapseCount || 0).toNumber();
+    if (!Number.isFinite(unitCost) || unitCost <= 0) return;
 
-    if (!Number.isFinite(costNum) || prev.rebirthPoints < costNum) return;
+    const affordable = Math.floor(prev.rebirthPoints / unitCost);
+    const times = amount === 'all' ? affordable : Math.min(Math.floor(amount), affordable);
+    if (times <= 0) return;
 
     setState((p) => ({
       ...p,
-      rebirthPoints: Math.max(0, p.rebirthPoints - costNum),
-      collapsePoints: p.collapsePoints + 1,
-      rebirthToCollapseCount: times + 1,
+      rebirthPoints: Math.max(0, p.rebirthPoints - unitCost * times),
+      collapsePoints: p.collapsePoints + times,
+      rebirthToCollapseCount: (p.rebirthToCollapseCount || 0) + times,
     }));
 
-    addToast(
-      '点化坍缩',
-      `消耗 ${cost.formatChinese(0)} 点永劫点数 · 换得 1 点坍缩点数（累计 ${times + 1} 次）`
-    );
+    addToast('点化坍缩', `+${times} 点坍缩点数`);
   }, [addToast]);
 
-  /** 永劫：数值须 ≥ 100 万；所得点数 = 数值 ÷ 100 万，再加上「永劫点数获取」的加成 */
+  /** 永劫：数值须 ≥ 100 万；所得点数 = 数值 ÷ 100 万，再加上「永劫爆炸」的加成（每 100 万 +0.2 × 等级） */
   const confirmRebirth = useCallback(() => {
     // 门槛：数值必须达到 100 万
     if (bigNumRef.current.lt(REBIRTH_THRESHOLD)) return;
 
     // 起始数值 = 成就奖励之和（可与其他数值来源累加）
     const startValue = getRebirthStartValue(stateRef.current);
-    // 数值 ÷ 100 万（300 万即 3 点）+「永劫点数获取」升级的额外点数
+    // 数值 ÷ 100 万（300 万即 3 点）+「永劫爆炸」升级的额外点数
     const gain =
       getRebirthPointsFromValue(bigNumRef.current) +
-      getExtraRebirthPoints(stateRef.current.rebirthPointLevel || 0);
+      getExtraRebirthPoints(stateRef.current.rebirthPointLevel || 0, bigNumRef.current);
+    // 获取上限：(数值 + 加成) ÷ 100 万 超过上限时，所得即为上限
+    const cap = getRebirthPointsCap(stateRef.current.rebirthCapLevel || 0);
+    const actualGain = Math.min(gain, cap);
 
     setState((prev) => ({
       ...prev,
@@ -882,7 +984,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       // 本世点击清零（功法需重新以点击解锁），累计点击保留（成就进度不回退）
       clickCount: 0,
       rebirthCount: prev.rebirthCount + 1,
-      rebirthPoints: prev.rebirthPoints + gain,
+      // 持有量无上限：上限只作用于本次所得（actualGain 已封顶）
+      rebirthPoints: prev.rebirthPoints + actualGain,
       // 已购「功法无需解锁」特权：重生后仍保持解锁态，可直接升级
       // 数值殿等级全部清零；永劫殿等级（rebirthMergedLevels / rebirthBaseValueLevel）为永久道基，不受影响
       upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
@@ -893,8 +996,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast(
       '永劫圆满',
       startValue.m === 0
-        ? `+${gain} 点永劫点数 · 数值上限 +${new BigNum(REBIRTH_CAP_BONUS, 0).formatChinese(0)}`
-        : `+${gain} 点永劫点数 · 起始数值 ${startValue.formatChinese(2)} · 数值上限 +${new BigNum(REBIRTH_CAP_BONUS, 0).formatChinese(0)}`
+        ? `+${formatRebirthPoints(actualGain)} 点永劫点数 · 数值上限 +${new BigNum(REBIRTH_CAP_BONUS, 0).formatChinese(0)}`
+        : `+${formatRebirthPoints(actualGain)} 点永劫点数 · 起始数值 ${startValue.formatChinese(2)} · 数值上限 +${new BigNum(REBIRTH_CAP_BONUS, 0).formatChinese(0)}`
     );
   }, [addToast]);
 
@@ -968,6 +1071,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUserClick,
     handleUnlockUpgrade,
     handleUpgradeLevel,
+    handleUpgradeAll,
     handleUnlockAchievements,
     handleUnlockTitles,
     handleGambleSettle,
@@ -983,6 +1087,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUnlockAfterlifeShop,
     handleExchangeAfterlifePoint,
     handleBuyAfterlifeUpgrade,
+    handleBuyRebirthCapUpgrade,
+    handleUnlockOneKeyUpgrade,
     handleLogin,
     handleLogout,
     handleSelectRegion,

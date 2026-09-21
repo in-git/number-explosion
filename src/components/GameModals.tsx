@@ -13,6 +13,7 @@ import { RebirthModal } from './RebirthModal';
 import { CollapseModal } from './CollapseModal';
 import { AfterlifeShop } from './AfterlifeShop';
 import { SettingsModal } from './SettingsModal';
+import { getExtraRebirthPoints, getRebirthPointsCap } from '../utils/gameMath';
 
 interface GameModalsProps {
   modals: GameModalsState;
@@ -21,6 +22,8 @@ interface GameModalsProps {
   collapseGain: number;
   onUnlockUpgrade: (id: UpgradeId, cost: BigNum) => void;
   onUpgradeLevel: (id: UpgradeId, cost: BigNum) => void;
+  /** 数值殿：一键升级（按「概率 → 数值 → 倍数」升满，返回本次是否发生升级） */
+  onUpgradeAll: () => boolean;
   /** 数值殿：开启成就系统（50 万数值） */
   onUnlockAchievements: () => void;
   /** 数值殿：开启称号系统（200 万数值） */
@@ -35,10 +38,14 @@ interface GameModalsProps {
   onUnlockRanking: () => void;
   /** 消耗 1 点永劫点数购买「功法无需解锁」特权 */
   onBuyAutoUnlock: () => void;
-  /** 往生殿：消耗 10 点坍缩点兑换 1 点往生点 */
-  onExchangeAfterlifePoint: () => void;
-  /** 往生殿：消耗斐波那契递增的往生点，提升某属性在数值殿的升级折扣 */
+  /** 往生殿：消耗坍缩点兑换往生点（amount 为兑换次数，'all' = 全部） */
+  onExchangeAfterlifePoint: (amount: number | 'all') => void;
+  /** 往生殿：消耗按公差 4 的等差数列递增的往生点，提升某属性在数值殿的升级折扣 */
   onBuyAfterlifeUpgrade: (id: UpgradeId) => void;
+  /** 往生殿：提升「永劫点上限」（每级 +100，消耗往生点 1,2,3,4,5…） */
+  onBuyRebirthCapUpgrade: () => void;
+  /** 往生殿：消耗 10 往生点解锁「一键升级」 */
+  onUnlockOneKeyUpgrade: () => void;
   /** 排行·登顶：注册/登录 */
   onLogin: (account: UserAccountData) => void;
   /** 排行·登顶：入驻大区 */
@@ -48,8 +55,8 @@ interface GameModalsProps {
   onBuyValueCap: () => void;
   /** 购买「永劫点数获取」 */
   onBuyRebirthPointLevel: () => void;
-  /** 永劫点数兑换坍缩点数 */
-  onExchangeRebirthToCollapse: () => void;
+  /** 永劫点数兑换坍缩点数（amount 为兑换次数，'all' = 全部） */
+  onExchangeRebirthToCollapse: (amount: number | 'all') => void;
 
 
   onGambleSettle: (type: SettleType, amount: BigNum) => void;
@@ -73,6 +80,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
   collapseGain,
   onUnlockUpgrade,
   onUpgradeLevel,
+  onUpgradeAll,
   onUnlockAchievements,
   onUnlockTitles,
   onBuyLevelCap,
@@ -83,6 +91,8 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyAutoUnlock,
   onExchangeAfterlifePoint,
   onBuyAfterlifeUpgrade,
+  onBuyRebirthCapUpgrade,
+  onUnlockOneKeyUpgrade,
   onLogin,
   onRegionSelected,
   onLogout,
@@ -111,6 +121,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
         currentValue={currentValue}
         onUnlock={onUnlockUpgrade}
         onUpgrade={onUpgradeLevel}
+        onUpgradeAll={onUpgradeAll}
         achievementsUnlocked={state.achievementsUnlocked}
         titleUnlocked={state.titleUnlocked}
         onUnlockAchievements={onUnlockAchievements}
@@ -199,6 +210,9 @@ export const GameModals: React.FC<GameModalsProps> = ({
       }}
       currentValue={currentValue}
       currentRebirthCount={state.rebirthCount}
+      rebirthPointBonus={getExtraRebirthPoints(state.rebirthPointLevel || 0, currentValue)}
+      currentRebirthPoints={state.rebirthPoints || 0}
+      rebirthPointsCap={getRebirthPointsCap(state.rebirthCapLevel || 0)}
     />
 
     {/* 往生殿 Modal */}
@@ -212,6 +226,8 @@ export const GameModals: React.FC<GameModalsProps> = ({
         state={state}
         onExchangeAfterlifePoint={onExchangeAfterlifePoint}
         onBuyAfterlifeUpgrade={onBuyAfterlifeUpgrade}
+        onBuyRebirthCapUpgrade={onBuyRebirthCapUpgrade}
+        onUnlockOneKeyUpgrade={onUnlockOneKeyUpgrade}
       />
     </ModalShell>
 

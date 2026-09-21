@@ -14,6 +14,7 @@ import {
   AUTO_FREQ_INTERVAL_MIN,
   AUTO_FREQ_INTERVAL_BASE,
   AUTO_FREQ_MAX_LEVEL,
+  isRebirthEffectCapped,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
 import { UpgradeButton } from './UpgradeButton';
@@ -61,19 +62,19 @@ const effectText = (
 ): string => {
   switch (id) {
     case 'baseValue': {
-      // 独立公式：每级提升 10×斐波那契（10, 20, 30, 50 ...）
+      // 独立公式：每级固定 +2（线性增长）
       const cur = `基础 ${attrs.baseValue.formatChinese(1)}`;
       const next = `基础 ${attrs.baseValue.add(getRebirthBaseValueGain(level + 1)).formatChinese(1)}`;
       return `${cur} → ${next}`;
     }
     case 'autoFrequency': {
-      const cur = `当前 ${attrs.autoClicksPerSec.toFixed(1)}次/s`;
+      const cur = `${attrs.autoClicksPerSec.toFixed(1)}次/s`;
       if (attrs.autoIntervalMs <= AUTO_FREQ_INTERVAL_MIN) return `${cur} → 已至上限`;
       const nextInterval = Math.max(
         AUTO_FREQ_INTERVAL_MIN,
         attrs.autoIntervalMs - AUTO_FREQ_INTERVAL_STEP
       );
-      return `${cur} → 下一级 ${(AUTO_FREQ_INTERVAL_BASE / nextInterval).toFixed(1)}次/s`;
+      return `${cur} → ${(AUTO_FREQ_INTERVAL_BASE / nextInterval).toFixed(1)}次/s`;
     }
     case 'critMultiplier':
       return `${pctText(attrs.critMultiplier)} → ${pctText(attrs.critMultiplier + MULTIPLIER_STEP)}`;
@@ -120,7 +121,14 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
 
       {/* 升级：所有属性均与数值殿独立，等级永久保留，计算时效果与数值殿累加 */}
       <div className="flex flex-col gap-1.5">
-        {REBIRTH_MERGED_UPGRADES.map(({ id, label }) => {
+        {REBIRTH_MERGED_UPGRADES.filter(({ id }) => {
+          // 概率 / 频率类：效果已达上限（概率 100% / 频率 20 级满级）后直接隐藏
+          const level =
+            id === 'baseValue'
+              ? state.rebirthBaseValueLevel || 0
+              : state.rebirthMergedLevels?.[id] || 0;
+          return !isRebirthEffectCapped(id, level);
+        }).map(({ id, label }) => {
           // 「基础数值」存于 rebirthBaseValueLevel，其余存于 rebirthMergedLevels（均与数值殿独立）
           const level =
             id === 'baseValue'

@@ -84,7 +84,7 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
       <ProfileItem label="连击率" value={`${(profile.comboChance * 100).toFixed(1)}%`} />
       <ProfileItem label="连击倍数" value={`${(profile.comboMultiplier * 100).toFixed(0)}%`} />
       <ProfileItem label="重生次数" value={`${profile.rebirthCount.toLocaleString('zh-CN')} 次`} />
-      <ProfileItem label="坍缩重数" value={`${profile.collapsePoints} 重`} />
+      <ProfileItem label="坍缩重数" value={`${BigNum.fromNumber(profile.collapsePoints).formatChinese(0)} 重`} />
       <ProfileItem label="游玩时长" value={formatDuration(profile.playTimeMs)} />
     </div>
   

@@ -31,7 +31,7 @@ const ACTIVE =
 // 绿色文本：解锁类型的可用态
 const ACTIVE_GREEN =
   'text-[#76d18c] underline decoration-1 underline-offset-4 cursor-pointer hover:text-[#a3e8b3]';
-const DISABLED = 'text-[#5b5548] cursor-default';
+const DISABLED = 'text-[#5b5548] underline decoration-1 underline-offset-4 cursor-default';
 
 /** 通用升级 / 购买按钮：无背景色、无前置图标；支持单击与长按连发两种模式 */
 export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
@@ -61,7 +61,7 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
 
   const start = () => {
     if (disabled) return;
-    pressRef.current();
+    pressRef.current?.();
     delayRef.current = window.setTimeout(() => {
       repeatRef.current = window.setInterval(() => {
         if (!pressRef.current) return;

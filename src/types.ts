@@ -95,9 +95,13 @@ export interface GameState {
 
   // 永劫与坍缩
   rebirthCount: number;     // 累计永劫次数（无上限）
-  rebirthPoints: number;    // 永劫点数（当前拥有）
+  rebirthPoints: number;    // 永劫点数（当前拥有，持有量无上限）
+  rebirthCapLevel: number;  // 往生殿「永劫点上限」等级：限制「每次永劫所得」的上限（每级 +100）
   collapsePoints: number;   // 坍缩点数（当前拥有）
   afterlifePoints: number;  // 往生点数（当前拥有，由坍缩点兑换而来）
+
+  /** 往生殿「一键升级」特权：消耗 10 往生点解锁，默认不显示 */
+  oneKeyUpgradeUnlocked: boolean;
   rebirthUnlocked: boolean;
   collapseUnlocked: boolean;
 
@@ -118,10 +122,10 @@ export interface GameState {
   rebirthMergedLevels: Record<UpgradeId, number>;
   /**
    * 永劫殿「基础数值」的独立升级等级（永久，永不清零）。
-   * 与数值殿「数值升级」完全独立、效果累加：每级提升 10×斐波那契（10,20,30,50...），消耗 1,2,3,5,8...（斐波那契）
+   * 与数值殿「数值升级」完全独立、效果累加：每级提升 +2（线性），消耗 1,1,3,5,7...（前两级各 1，此后每级 +2）
    */
   rebirthBaseValueLevel: number;
-  /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值殿的升级消耗，消耗按 2×斐波那契增长 */
+  /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值殿的升级消耗，消耗按公差 4 的等差数列递增（4、8、12、16…） */
   afterlifeUpgradeLevels: Record<UpgradeId, number>;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
   account: UserAccountData | null;
@@ -131,8 +135,8 @@ export interface GameState {
   /** 数值上限的提升次数（坍缩商殿购买，每级 +100万，0 = 默认 100万）；另每次永劫永久 +100万 */
   valueCapLevel: number;
   /**
-   * 「永劫点数获取」的升级次数（坍缩商殿购买，消耗按斐波拉契递增的坍缩点数）
-   * 每级在永劫时额外 +1 点永劫点数
+   * 「永劫爆炸」的升级次数（坍缩商殿购买，消耗按 2 的幂递增的坍缩点数）
+   * 每级使永劫时「每 100 万数值」额外 +0.2 点永劫点数
    */
   rebirthPointLevel: number;
   /** 坍缩商殿中「永劫点数 → 坍缩点数」的累计兑换次数（每次恒定 3 点永劫点数） */

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Orbit, X } from 'lucide-react';
+import { BigNum } from '../utils/bigNumber';
 import { COLLAPSE_COST } from '../utils/gameMath';
 
 interface CollapseModalProps {
@@ -41,15 +42,19 @@ export const CollapseModal: React.FC<CollapseModalProps> = ({
           <div>
             <div className="text-[11px] text-[#8e749c] font-serif">消耗永劫值</div>
             <div className="text-lg font-bold font-mono text-[#e3a8fa]">
-              {COLLAPSE_COST} 点 (拥有:{' '}
-              <span className="text-[#5fa8e6]">{currentRebirthPoints}</span>)
+              {BigNum.fromNumber(COLLAPSE_COST).formatChinese(0)} 点 (拥有:{' '}
+              <span className="text-[#5fa8e6]">
+                {BigNum.fromNumber(currentRebirthPoints).formatChinese(0)}
+              </span>
+              )
             </div>
           </div>
           <div className="w-[1px] h-8 bg-[#3b2545]" />
           <div>
             <div className="text-[11px] text-[#8e749c] font-serif">本次坍缩增长</div>
             <div className="text-lg font-bold font-mono text-[#d6c5e6]">
-              +{collapseGain} 重 (现拥有: {currentCollapsePoints}重)
+              +{BigNum.fromNumber(collapseGain).formatChinese(0)} 重 (现拥有:{' '}
+              {BigNum.fromNumber(currentCollapsePoints).formatChinese(0)}重)
             </div>
           </div>
         </div>
@@ -64,7 +69,11 @@ export const CollapseModal: React.FC<CollapseModalProps> = ({
             </div>
             <ul className="space-y-1.5 text-[#dac0ed] list-disc list-inside">
               <li>
-                <span className="font-bold">凝练太虚坍缩神位</span>：初始获得1点坍缩，随后以2的等差数列递进增长（本次可获 <span className="font-bold text-white">+{collapseGain}</span> 重）。
+                <span className="font-bold">凝练太虚坍缩神位</span>：初始获得1点坍缩，随后以2的等差数列递进增长（本次可获{' '}
+                <span className="font-bold text-white">
+                  +{BigNum.fromNumber(collapseGain).formatChinese(0)}
+                </span>{' '}
+                重）。
               </li>
               <li>
                 <span className="font-bold">坍缩神位永存</span>：坍缩层数可用于坍缩商殿提升数值上限（每点 +100万），与每次点击所得数值无关。

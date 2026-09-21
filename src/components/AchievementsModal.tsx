@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GameState } from '../types';
+import { BigNum } from '../utils/bigNumber';
 import { ACHIEVEMENTS } from '../config';
 import { formatDuration } from '../utils/serverTime';
 import { ModalShell } from './ModalShell';
@@ -123,7 +124,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({
                 >
                   {a.critMultiplier
                     ? `暴击效果 +${a.critMultiplier}`
-                    : `永劫初始数值 +${fmt(a.rebirthStartValue)}`}
+                    : `永劫初始数值 +${BigNum.fromNumber(a.rebirthStartValue).formatChinese(0)}`}
                 </div>
 
                 <div

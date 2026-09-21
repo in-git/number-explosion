@@ -323,6 +323,8 @@ export const AUTO_UNLOCK_COST = 1;
 export const AFTERLIFE_SHOP_UNLOCK_COST = 20;
 /** 往生点兑换：每 10 点坍缩点数可兑换 1 点往生点数（于往生殿内兑换） */
 export const AFTERLIFE_POINT_EXCHANGE_COST = 10;
+/** 往生殿：「一键升级」特权消耗的往生点（解锁后数值殿显示一键升级） */
+export const ONE_KEY_UPGRADE_UNLOCK_COST = 10;
 
 /** 排行昵称默认值（必填，用户可自行修改） */
 export const DEFAULT_NICKNAME = '数爆玩家';
@@ -345,6 +347,8 @@ export const INITIAL_STATE: GameState = {
   },
   rebirthCount: 0,
   rebirthPoints: 0,
+  /** 往生殿「永劫点上限」等级：默认 0（上限 100） */
+  rebirthCapLevel: 0,
   collapsePoints: 0,
   /** 往生点数：默认 0，由坍缩点兑换而来 */
   afterlifePoints: 0,
@@ -359,6 +363,8 @@ export const INITIAL_STATE: GameState = {
   upgradesAutoUnlocked: false,
   /** 往生殿特权：默认关闭（于坍缩殿消耗 20 点坍缩点数解锁） */
   afterlifeShopUnlocked: false,
+  /** 往生殿「一键升级」特权：默认关闭（消耗 10 往生点解锁） */
+  oneKeyUpgradeUnlocked: false,
   /** 成就系统：默认关闭（数值殿花费 50 万解锁） */
   achievementsUnlocked: false,
   /** 称号系统：默认关闭（数值殿花费 200 万解锁） */

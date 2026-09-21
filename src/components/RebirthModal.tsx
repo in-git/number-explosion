@@ -9,6 +9,12 @@ interface RebirthModalProps {
   onConfirm: () => void;
   currentValue: BigNum;
   currentRebirthCount: number;
+  /** 「永劫爆炸」加成：每 100 万数值额外 +0.2 × 等级 */
+  rebirthPointBonus: number;
+  /** 当前已持有的永劫点数（用于计算获取上限） */
+  currentRebirthPoints: number;
+  /** 当前永劫点获取上限（由往生殿「永劫点上限」等级决定） */
+  rebirthPointsCap: number;
 }
 
 export const RebirthModal: React.FC<RebirthModalProps> = ({
@@ -17,11 +23,18 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
   onConfirm,
   currentValue,
   currentRebirthCount,
+  rebirthPointBonus,
+  currentRebirthPoints,
+  rebirthPointsCap,
 }) => {
   if (!isOpen) return null;
 
-  // 所得永劫点数 = 数值 ÷ 100 万
+  // 所得永劫点数 = 数值 ÷ 100 万 + 「永劫爆炸」加成
   const gainFromValue = getRebirthPointsFromValue(currentValue);
+  const rawGain = gainFromValue + rebirthPointBonus;
+  // 获取上限：(数值 + 加成) ÷ 100 万 超过上限时，所得即为上限
+  const totalGain = Math.min(rawGain, rebirthPointsCap);
+  const cappedByHighGain = rawGain > rebirthPointsCap;
   // 门槛：数值必须 ≥ 100 万
   const canRebirth = currentValue.gte(REBIRTH_THRESHOLD);
 
@@ -45,30 +58,47 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
           <div className="flex items-center justify-between gap-2">
             <span className="text-[#7a6f5e]">所得</span>
             <span className="font-mono text-[#5fa8e6]">
-              +{gainFromValue} 点永劫值（数值 ÷ 100万）
+              +{BigNum.fromNumber(totalGain).formatChinese(1)} 点永劫值
             </span>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[#7a6f5e]">代价</span>
-            <span className="text-[#e0a8a8] text-right">
-              所有升级和当前数值清零
-            </span>
-          </div>
+          {rebirthPointBonus > 0 && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[#7a6f5e]">加成</span>
+              <span className="font-mono text-[#8fd0a0]">
+                +{BigNum.fromNumber(rebirthPointBonus).formatChinese(1)} 点永劫值
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <span className="text-[#7a6f5e]">次数</span>
-            <span className="font-mono text-[#d1c6b4]">已永劫 {currentRebirthCount} 次</span>
+            <span className="font-mono text-[#d1c6b4]">
+              已永劫 {BigNum.fromNumber(currentRebirthCount).formatChinese(0)} 次
+            </span>
           </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[#7a6f5e]">当前持有</span>
+            <span className="font-mono text-[#d1c6b4]">
+              {BigNum.fromNumber(currentRebirthPoints).formatChinese(1)} 点
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[#7a6f5e]">单次上限</span>
+            <span className="font-mono text-[#d1c6b4]">
+              {BigNum.fromNumber(rebirthPointsCap).formatChinese(0)} 点
+            </span>
+          </div>
+          {cappedByHighGain && (
+            <div className="text-[10px] text-[#d99797] font-serif text-right">
+              (数值 + 加成) 折算已超过上限，本次所得以上限为准
+            </div>
+          )}
         </div>
 
         {/* 说明：永劫不再改变基础属性 */}
         <div className="rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2 mb-4">
           <div className="text-[11px] font-serif text-[#8fa6bd] mb-1">须知</div>
           <div className="text-[11px] font-mono text-[#cbbfa9] leading-relaxed">
-            数值须 ≥ 100 万方可永劫
-            <br />
-            每 100 万数值折算 1 点永劫值（向下取整）
-            <br />
-            基础属性只可在永劫商殿中购买提升
+            将会重置数值殿的所有升级
           </div>
         </div>
 
@@ -91,7 +121,7 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
                 : 'text-[#6b6455] bg-[#171513] border-[#2b2721] cursor-not-allowed'
             }`}
           >
-            {canRebirth ? '转世永劫' : '数值需满 100万'}
+            {canRebirth ? '转世永劫' : `数值需满 ${REBIRTH_THRESHOLD.formatChinese(0)}`}
           </button>
         </div>
       </div>
