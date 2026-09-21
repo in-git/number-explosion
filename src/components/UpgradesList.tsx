@@ -9,6 +9,7 @@ import {
   isUpgradeMaxed,
   getBaseValueBonus,
   getAutoClickRate,
+  isRebirthEffectCapped,
   CRIT_CHANCE_BASE,
   CRIT_CHANCE_STEP,
   COMBO_CHANCE_STEP,
@@ -113,9 +114,16 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
   const [hideMaxed, setHideMaxed] = useState(false);
 
   // Filter upgrades: 点击量达标，或已解锁（解锁会消耗点击量，已解锁项须继续显示）
-  const visibleUpgrades = UPGRADE_ORDER.filter(
-    (id) => state.clickCount >= UPGRADE_METADATA[id].requiredClicks || state.upgrades[id].unlocked
-  );
+  const visibleUpgrades = UPGRADE_ORDER.filter((id) => {
+    if (state.clickCount < UPGRADE_METADATA[id].requiredClicks && !state.upgrades[id].unlocked) {
+      return false;
+    }
+    // 概率 / 频率类：永劫店该属性已达效果上限时，数值店再升也无效果，不再显示该升级项
+    if (isRebirthEffectCapped(id, state.rebirthMergedLevels?.[id] || 0)) {
+      return false;
+    }
+    return true;
+  });
 
   if (visibleUpgrades.length === 0) {
     return (
@@ -225,7 +233,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
 
       {/* 长按提示 / 往生店折扣提示 */}
       <div className="text-[10px] font-serif text-[#8a7a63] text-center -mt-0.5">
-        {'点击条目右侧按钮升级'}
+        {'长按升级'}
         {Object.values(state.afterlifeUpgradeLevels || {}).some((v) => v > 0) && (
           <span className="text-[#7bd88f]"> · 往生殿：升级消耗按属性折扣</span>
         )}

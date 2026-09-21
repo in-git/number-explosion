@@ -115,7 +115,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
             {BigNum.fromNumber(state.rebirthPoints).formatChinese(0)}
           </span>
         </div>
-        <div className="text-[10px] font-serif text-[#8a7a63]">点击条目右侧按钮购买</div>
+        <div className="text-[10px] font-serif text-[#8a7a63]">长按升级</div>
       </div>
 
       {/* 升级：所有属性均与数值店独立，等级永久保留，计算时效果与数值店累加 */}
@@ -126,10 +126,8 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
             id === 'baseValue'
               ? state.rebirthBaseValueLevel || 0
               : state.rebirthMergedLevels?.[id] || 0;
-          // 自动点击频率：两店等级合并共 20 级满级
-          const freqMaxed =
-            id === 'autoFrequency' &&
-            (state.upgrades.autoFrequency?.level || 0) + level >= AUTO_FREQ_MAX_LEVEL;
+          // 自动点击频率：永劫店独立 20 级满级
+          const freqMaxed = id === 'autoFrequency' && level >= AUTO_FREQ_MAX_LEVEL;
           const cost = freqMaxed
             ? null
             : id === 'baseValue'
@@ -161,7 +159,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
               <UpgradeButton
                 id={`btn-rebirth-merged-${id}`}
                 disabled={!canBuy}
-                onClick={() => {
+                onPress={() => {
                   if (!canBuy || cost === null) return;
                   onBuyRebirthMergedUpgrade(id);
                 }}

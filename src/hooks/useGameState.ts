@@ -5,14 +5,15 @@ import { SettleType, PointsCurrency } from '../components/FunShop';
 import {
   UPGRADE_METADATA,
   executeClickCalculation,
-  getAutoClickRate,
   getOfflineGain,
   COLLAPSE_COST,
   LEVEL_CAP_PER_POINT,
   AUTO_FREQ_MAX_LEVEL,
+  getCombinedAutoIntervalMs,
   getValueCap,
   getValueCapStep,
   getValueCapCost,
+  REBIRTH_CAP_BONUS,
   getRebirthStartValue,
   getRebirthPointUpgradeCost,
   getRebirthMergedUpgradeCost,
@@ -105,7 +106,10 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
   /** 提交数值：任何途径获得的数值都不得突破「数值上限」，同时刷新最高数值纪录 */
   const commitValue = useCallback((val: BigNum) => {
-    const cap = getValueCap(stateRef.current.valueCapLevel || 0);
+    const cap = getValueCap(
+      stateRef.current.valueCapLevel || 0,
+      stateRef.current.rebirthCount || 0
+    );
     const next = val.gt(cap) ? cap : val;
     setCurrentBigNum(next);
     setState((prev) => ({
@@ -445,10 +449,11 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       if (currentState.upgrades.autoClickUnlock.unlocked && delta > 0) {
         const autoFreq = currentState.upgrades.autoFrequency;
-        // 功法等级 + 永劫商店购买的永久频率等级加成
+        // 数值店等级 + 永劫店独立等级，两店效果累加（与 calculateGameAttributes 同一公式）
         const autoFreqLevel = autoFreq.unlocked ? autoFreq.level : 0;
-        const rate = getAutoClickRate(autoFreqLevel);
-        const clicksPerMs = rate.clicksPerMs > 0 ? rate.clicksPerMs : 1 / rate.intervalMs;
+        const rbAutoFreqLevel = currentState.rebirthMergedLevels?.autoFrequency || 0;
+        const intervalMs = getCombinedAutoIntervalMs(autoFreqLevel, rbAutoFreqLevel);
+        const clicksPerMs = 1 / intervalMs;
 
         accumulator += delta * clicksPerMs;
         // 积压封顶：卡顿或切后台回来后不一次性暴补，避免速率失控
@@ -567,11 +572,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       // 其余属性：与数值店完全独立，等级仅存于 rebirthMergedLevels，计算时与数值店效果累加
       const level = prev.rebirthMergedLevels?.[id] || 0;
-      // 自动点击频率：两店等级合并共 20 级满级，满级后不可再购
-      if (id === 'autoFrequency') {
-        const vsFreqLevel = prev.upgrades.autoFrequency?.level || 0;
-        if (vsFreqLevel + level >= AUTO_FREQ_MAX_LEVEL) return;
-      }
+      // 自动点击频率：永劫店独立 20 级满级，满级后不可再购
+      if (id === 'autoFrequency' && level >= AUTO_FREQ_MAX_LEVEL) return;
       const cost = getRebirthMergedUpgradeCost(id, level).toNumber();
       if (prev.rebirthPoints < cost) return;
       setState((p) => ({
@@ -617,7 +619,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }));
     addToast(
       '天道扩容',
-      `数值上限 +${getValueCapStep(nextLevel).formatChinese(2)} → ${getValueCap(nextLevel).formatChinese(2)} · 消耗 ${cost.formatChinese(0)} 点坍缩点数`
+      `数值上限 +${getValueCapStep(nextLevel).formatChinese(2)} → ${getValueCap(nextLevel, prev.rebirthCount || 0).formatChinese(2)} · 消耗 ${cost.formatChinese(0)} 点坍缩点数`
     );
   }, [addToast]);
 
@@ -891,8 +893,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast(
       '永劫圆满',
       startValue.m === 0
-        ? `+${gain} 点永劫点数`
-        : `+${gain} 点永劫点数 · 起始数值 ${startValue.formatChinese(2)}`
+        ? `+${gain} 点永劫点数 · 数值上限 +${new BigNum(REBIRTH_CAP_BONUS, 0).formatChinese(0)}`
+        : `+${gain} 点永劫点数 · 起始数值 ${startValue.formatChinese(2)} · 数值上限 +${new BigNum(REBIRTH_CAP_BONUS, 0).formatChinese(0)}`
     );
   }, [addToast]);
 

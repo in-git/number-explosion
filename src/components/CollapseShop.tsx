@@ -44,13 +44,12 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
   onBuyLevelCap,
   onExchangeRebirthToCollapse,
   onUnlockAfterlifeShop,
-  collapseGain,
-  onOpenCollapse,
+
 }) => {
   const level = state.valueCapLevel || 0;
-  const currentCap = getValueCap(level);
-  const nextCap = getValueCap(level + 1);
-  const nextStep = getValueCapStep(level + 1);
+  const rebirths = state.rebirthCount || 0;
+  const currentCap = getValueCap(level, rebirths);
+  const nextCap = getValueCap(level + 1, rebirths);
   const valueCapCost = getValueCapCost(level + 1);
   const canBuy = state.collapsePoints >= valueCapCost.toNumber();
 
@@ -59,7 +58,6 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
   const exchangeCost = getRebirthToCollapseCost(exchanged);
   const exchangeCostNum = exchangeCost.toNumber();
   const canExchange = Number.isFinite(exchangeCostNum) && state.rebirthPoints >= exchangeCostNum;
-  const cheapLeft = Math.max(0, REBIRTH_TO_COLLAPSE_FREE_TIMES - exchanged);
 
   // 永劫点数获取：当前等级 + 下一级消耗（2 的幂）
   const rpLevel = state.rebirthPointLevel || 0;

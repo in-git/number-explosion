@@ -258,17 +258,28 @@ export function getValueCapStep(level: number): BigNum {
   return new BigNum(VALUE_CAP_BASE).add(new BigNum(5e5 * coeff, 0));
 }
 
+/** 每次永劫永久提升的数值上限（100 万，永久保留） */
+export const REBIRTH_CAP_BONUS = 1e6;
+
 /**
- * 数值上限：默认 100 万，每级提升量按斐波那契式递增
- * = 100万 + Σ(每级提升量)
+ * 永劫带来的上限加成：累计永劫次数 × 100 万（永久保留，永不清零）
  */
-export function getValueCap(level: number): BigNum {
+export function getRebirthCapBonus(rebirthCount: number): BigNum {
+  const n = Number.isFinite(rebirthCount) && rebirthCount > 0 ? Math.floor(rebirthCount) : 0;
+  return new BigNum(n * REBIRTH_CAP_BONUS, 0);
+}
+
+/**
+ * 数值上限：默认 100 万 + 坍缩店每级提升量（斐波那契式递增）+ 永劫加成（每次永劫 +100 万）
+ * = 100万 + Σ(每级提升量) + 永劫次数 × 100万
+ */
+export function getValueCap(level: number, rebirthCount: number = 0): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   let total = new BigNum(VALUE_CAP_BASE, 0);
   for (let k = 1; k <= lv; k++) {
     total = total.add(getValueCapStep(k));
   }
-  return total;
+  return total.add(getRebirthCapBonus(rebirthCount));
 }
 
 /**
@@ -309,6 +320,22 @@ export const MULTIPLIER_STEP = 0.3;
 export const BASE_MAX_LEVEL = 20;
 /** 每消耗 1 点永劫点数，可提升的等级上限 */
 export const LEVEL_CAP_PER_POINT = 50;
+
+/**
+ * 永劫店某属性是否已达效果上限（上限类属性：概率 / 频率）。
+ * 达到上限后，数值店对应的升级项不再产生任何效果，可直接隐藏。
+ * - 自动点击频率: 永劫店独立 20 级满级，间隔已至下限 10ms
+ * - 连击概率: 每级 +5%，20 级即 100%
+ * - 暴击概率: 基础 5% + 每级 +1%，95 级即 100%
+ * 其余属性无此类效果上限，恒返回 false。
+ */
+export function isRebirthEffectCapped(id: UpgradeId, rebirthLevel: number): boolean {
+  const lv = Number.isFinite(rebirthLevel) && rebirthLevel > 0 ? Math.floor(rebirthLevel) : 0;
+  if (id === 'autoFrequency') return lv >= AUTO_FREQ_MAX_LEVEL;
+  if (id === 'comboChance') return lv * COMBO_CHANCE_STEP >= 1.0;
+  if (id === 'critChance') return CRIT_CHANCE_BASE + lv * CRIT_CHANCE_STEP >= 1.0;
+  return false;
+}
 
 /**
  * 某功法当前的等级上限 = 默认 20 级 + 永劫商店中购买的次数 × 50 级
@@ -415,8 +442,22 @@ export function getUpgradeCost(
 }
 
 /**
+ * 两店频率效果累加（单一计算入口）：
+ * 数值店与永劫店各自独立计级、互不影响（各 20 级满级，各存各的等级），
+ * 总间隔 = 1000ms −（数值店等级 + 永劫店等级）× 49.5ms，下限 10ms（100次/s）
+ */
+export function getCombinedAutoIntervalMs(shopLevel: number, rebirthLevel: number): number {
+  const shop = Number.isFinite(shopLevel) && shopLevel > 0 ? Math.floor(shopLevel) : 0;
+  const rb = Number.isFinite(rebirthLevel) && rebirthLevel > 0 ? Math.floor(rebirthLevel) : 0;
+  return Math.max(
+    AUTO_FREQ_INTERVAL_MIN,
+    AUTO_FREQ_INTERVAL_BASE - (shop + rb) * AUTO_FREQ_INTERVAL_STEP
+  );
+}
+
+/**
  * 自动点击频率: 初始 1次/1000ms，每级缩短 49.5ms，20 级升满至 10ms 一次（100次/s）
- * - 数值店与永劫店的等级合并进同一条 20 级进度（两店规则一样）
+ * - 数值店与永劫店各自独立计级（各 20 级满级），计算时两店效果累加，见 getCombinedAutoIntervalMs
  */
 export const AUTO_FREQ_INTERVAL_BASE = 1000;
 /** 最快间隔：10ms 一次（100次/s） */
@@ -476,8 +517,7 @@ export function calculateGameAttributes(state: GameState) {
   // 永劫店各属性的独立等级（永久道基），与数值店分开计级，效果在下方逐项累加
   const rbLevels = state.rebirthMergedLevels || ({} as Record<UpgradeId, number>);
 
-  // 3. 自动点击频率：数值店与永劫店独立计级，效果累加
-  //    数值店按自身曲线缩短间隔；永劫店每级额外 -30ms，下限 10ms（须已解锁自动点击）
+  // 3. 自动点击频率：数值店与永劫店独立计级、互不影响，效果累加（须已解锁自动点击）
   let autoClicksPerSec = 0;
   let autoIntervalMs = AUTO_FREQ_INTERVAL_BASE;
   let autoClicksPerMs = 0;
@@ -485,11 +525,7 @@ export function calculateGameAttributes(state: GameState) {
   if (autoClickUp.unlocked) {
     const autoFreqLevel = autoFreqUp.unlocked ? autoFreqUp.level : 0;
     const rbAutoFreqLevel = rbLevels.autoFrequency || 0;
-    // 两店等级合并进同一条 20 级频率进度：每级 -49.5ms，满级 10ms（100次/s）
-    autoIntervalMs = Math.max(
-      AUTO_FREQ_INTERVAL_MIN,
-      AUTO_FREQ_INTERVAL_BASE - (autoFreqLevel + rbAutoFreqLevel) * AUTO_FREQ_INTERVAL_STEP
-    );
+    autoIntervalMs = getCombinedAutoIntervalMs(autoFreqLevel, rbAutoFreqLevel);
     autoClicksPerSec = AUTO_FREQ_INTERVAL_BASE / autoIntervalMs;
   }
 

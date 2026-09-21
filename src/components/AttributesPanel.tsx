@@ -81,8 +81,8 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-value-cap',
       label: '数值上限',
-      value: getValueCap(state.valueCapLevel || 0).formatChinese(2),
-      detail: '坍缩店提升上限 · 达到上限后数值不再增长',
+      value: getValueCap(state.valueCapLevel || 0, state.rebirthCount || 0).formatChinese(2),
+      detail: '坍缩店提升上限 · 每次永劫 +100万 · 达到上限后数值不再增长',
     },
     {
       id: 'attr-highest-value',
