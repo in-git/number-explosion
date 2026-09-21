@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { useGameActions, useGameData } from '../context/GameContext';
+import { useGameActions, useGameData, useModals } from '../context/GameContext';
 import {
   TRIBULATION_COST,
   TRIBULATION_MAX_COUNT,
@@ -35,14 +35,50 @@ const TribulationButton: React.FC<{ canTribulate: boolean; onStart: () => void }
     id="btn-tribulation-attempt"
     onClick={onStart}
     disabled={!canTribulate}
-    className={`flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-full border-2 font-serif font-bold text-xl tracking-[0.2em] transition-all ${
-      canTribulate
+    className={`flex h-28 w-28 sm:h-32 sm:w-32 items-center justify-center rounded-full border-2 font-serif font-bold text-xl tracking-[0.2em] transition-all ${canTribulate
         ? 'cursor-pointer active:translate-y-0.5 border-[#8a653f] bg-gradient-to-b from-[#3a2418] to-[#1d1410] text-[#f5e6c8] animate-[tribulationPulse_2.2s_ease-in-out_infinite]'
         : 'cursor-not-allowed border-[#3a332c] bg-[#1a1715] text-[#6b6455]'
-    }`}
+      }`}
   >
     渡劫
   </button>
+);
+
+/* ------------------------------------------------------------------ *
+ * 零 · 入峰问心：进入渡劫界面先问一句，确认后才展示渡劫内容
+ * ------------------------------------------------------------------ */
+
+interface DisclaimerModuleProps {
+  onStay: () => void;
+  onConfirm: () => void;
+}
+
+const DisclaimerModule: React.FC<DisclaimerModuleProps> = ({ onStay, onConfirm }) => (
+  <div className="w-full rounded-lg border border-[#4a3f2c] bg-[#211d18] px-4 py-5">
+    <div className="text-center font-serif text-sm sm:text-base leading-relaxed text-[#e8cf9a]">
+      一旦渡劫成功，你将远离凡间恩怨，半点都沾不得
+    </div>
+    <div className="mt-2 text-center font-serif text-sm sm:text-base font-bold leading-relaxed text-[#c99a9a]">
+      确定要走上这条不归路吗？
+    </div>
+
+    <div className="mt-5 flex items-center gap-3">
+      <button
+        id="btn-tribulation-stay"
+        onClick={onStay}
+        className="flex-1 py-2 rounded-lg border text-xs sm:text-sm font-serif transition-colors bg-[#1a1715] border-[#3b3429] text-[#a69c8c] hover:bg-[#2e2821] hover:border-[#5b5142] cursor-pointer active:translate-y-0.5"
+      >
+        留 在 凡 间
+      </button>
+      <button
+        id="btn-tribulation-confirm"
+        onClick={onConfirm}
+        className="flex-1 py-2 rounded-lg border text-xs sm:text-sm font-serif transition-colors bg-[#2a1a18] border-[#7a3a3a] text-[#f07979] hover:bg-[#3a201d] hover:border-[#a04a4a] cursor-pointer active:translate-y-0.5"
+      >
+        我 意 已 决
+      </button>
+    </div>
+  </div>
 );
 
 /* ------------------------------------------------------------------ *
@@ -74,26 +110,26 @@ const ReadyModule: React.FC<ReadyModuleProps> = ({
 }) => (
   <div className="w-full flex flex-col items-center gap-4">
     <div className="w-full text-center text-[11px] font-serif leading-relaxed text-[#c99a9a]">
-      败则归零：数值 · 修为 · 点数尽失
+      成则得道升仙，败则一无所有!!!
     </div>
 
     <TribulationButton canTribulate={canTribulate} onStart={onStart} />
 
     {/* 决策信息：概率 / 渡劫丹 / 往生点 */}
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-serif text-[#948a7a]">
-      <span>
-        本道概率 <span className="font-mono font-bold text-[#76d18c]">{pct(strikeChance)}</span>
-      </span>
-      <span>
+    <div className=" gap-x-4 gap-y-1 text-[11px] font-serif text-[#948a7a]">
+
+      <div>
         全程通过率{' '}
         <span className="font-mono font-bold text-[#e8b56f]">{pct(successChance)}</span>
-      </span>
-      <span>
-        渡劫丹 <span className="font-mono font-bold text-[#d897fa]">{pills} 颗</span>
-      </span>
-      <span>
-        往生点 <span className="font-mono font-bold text-[#d897fa]">{afterlifePoints}</span>
-      </span>
+      </div>
+
+      <div>
+        全程{' '}
+        <span className="font-mono font-bold text-[#e8b56f]">{TRIBULATION_STRIKE_COUNT}</span>
+        {' '}道闪电，每道闪电{' '}
+        <span className="font-mono font-bold text-[#e8b56f]">{pct(TRIBULATION_STRIKE_CHANCE)}</span>
+        {' '}的概率成功
+      </div>
     </div>
 
     {/* 渡劫丹小商店 */}
@@ -102,22 +138,19 @@ const ReadyModule: React.FC<ReadyModuleProps> = ({
         <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb]">渡劫丹</span>
         <span className="text-[10px] font-mono text-[#8a7a63] flex-shrink-0">持有 {pills} 颗</span>
       </div>
-      <div className="text-[10px] font-serif text-[#998e7e] mt-0.5">
-        1 颗 = 1 道必过 · 满 {TRIBULATION_STRIKE_COUNT} 颗必成
-      </div>
+
       <button
         id="btn-tribulation-pill"
         onClick={() => {
           if (canBuyPill) onBuyPill();
         }}
         disabled={!canBuyPill}
-        className={`mt-2 w-full py-2 rounded-lg border text-xs font-serif transition-colors ${
-          canBuyPill
+        className={`mt-2 w-full py-2 rounded-lg border text-xs font-serif transition-colors ${canBuyPill
             ? 'bg-[#241f1a] border-[#4a3a24] text-[#e8cf9a] hover:border-[#8a653f] cursor-pointer active:translate-y-0.5'
             : 'bg-[#1a1715] border-[#2b2721] text-[#6b6455] cursor-not-allowed'
-        }`}
+          }`}
       >
-        购买一颗 · {BigNum.fromNumber(TRIBULATION_PILL_COST).formatChinese(0)} 往生点
+        {BigNum.fromNumber(TRIBULATION_PILL_COST).formatChinese(0)} 往生点
       </button>
     </div>
   </div>
@@ -190,9 +223,8 @@ const RunningModule: React.FC<RunningModuleProps> = ({
               /* 正在降下的这一道：按揭晓间隔走满的计时进度条 */
               <span className="relative ml-auto h-1.5 min-w-0 flex-1 overflow-hidden rounded bg-[#3a332c]">
                 <span
-                  className={`absolute inset-y-0 left-0 w-full origin-left ${
-                    withPill ? 'bg-[#a06fd8]' : 'bg-[#c9a86a]'
-                  }`}
+                  className={`absolute inset-y-0 left-0 w-full origin-left ${withPill ? 'bg-[#a06fd8]' : 'bg-[#c9a86a]'
+                    }`}
                   style={{
                     animation: `strikeProgress ${TRIBULATION_STRIKE_INTERVAL_MS}ms linear forwards`,
                   }}
@@ -245,9 +277,8 @@ const ResultModule: React.FC<ResultModuleProps> = ({ outcome, tribulationCount }
   return (
     <div className="w-full rounded-lg border border-[#3b3429] bg-[#1c1916] px-3 py-4">
       <div
-        className={`text-center font-serif font-bold text-lg sm:text-xl tracking-[0.24em] ${
-          outcome.success ? 'text-[#9fdc7a]' : 'text-[#f07979]'
-        }`}
+        className={`text-center font-serif font-bold text-lg sm:text-xl tracking-[0.24em] ${outcome.success ? 'text-[#9fdc7a]' : 'text-[#f07979]'
+          }`}
       >
         {outcome.success ? '飞 升 成 仙' : '一 切 散 尽'}
       </div>
@@ -276,8 +307,12 @@ type TribulationView =
 
 export const TribulationModal: React.FC = () => {
   const { state } = useGameData();
+  const modals = useModals();
   // 点击「渡劫」的瞬间即结算，避免中途关闭逃避失败
   const { handleTribulation: onTribulate, handleBuyTribulationPill: onBuyPill } = useGameActions();
+
+  // 入峰问心：本组件随弹窗关闭而卸载，故每次开启都会重新确认
+  const [entered, setEntered] = useState(false);
 
   const pills = state.tribulationPills || 0;
   // 渡劫次数（成败均计）即收益的次方指数
@@ -358,29 +393,38 @@ export const TribulationModal: React.FC = () => {
         </div>
       </div>
 
-      {view.kind === 'ready' && (
-        <ReadyModule
-          canTribulate={canTribulate}
-          canBuyPill={canBuyPill}
-          pills={pills}
-          afterlifePoints={state.afterlifePoints}
-          strikeChance={strikeChance}
-          successChance={successChance}
-          onStart={startTribulation}
-          onBuyPill={onBuyPill}
+      {!entered ? (
+        <DisclaimerModule
+          onStay={modals.tribulation.close}
+          onConfirm={() => setEntered(true)}
         />
-      )}
+      ) : (
+        <>
+              {view.kind === 'ready' && (
+            <ReadyModule
+              canTribulate={canTribulate}
+              canBuyPill={canBuyPill}
+              pills={pills}
+              afterlifePoints={state.afterlifePoints}
+              strikeChance={strikeChance}
+              successChance={successChance}
+              onStart={startTribulation}
+              onBuyPill={onBuyPill}
+            />
+          )}
 
-      {view.kind === 'running' && (
-        <RunningModule
-          revealed={revealed}
-          strikeRowCount={strikeRowCount}
-          startPills={startPills}
-        />
-      )}
+          {view.kind === 'running' && (
+            <RunningModule
+              revealed={revealed}
+              strikeRowCount={strikeRowCount}
+              startPills={startPills}
+            />
+          )}
 
-      {view.kind === 'result' && (
-        <ResultModule outcome={view.outcome} tribulationCount={tribulationCount} />
+          {view.kind === 'result' && (
+            <ResultModule outcome={view.outcome} tribulationCount={tribulationCount} />
+          )}
+        </>
       )}
     </div>
   );

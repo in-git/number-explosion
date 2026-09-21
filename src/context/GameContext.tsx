@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { BigNum } from '../utils/bigNumber';
 import {
   GameState,
@@ -25,6 +25,8 @@ export interface GameData {
   collapseGain: number;
   /** 挂机收益报告：非空时展示离线收益弹窗 */
   offlineReport: OfflineGainReport | null;
+  /** 是否首次进入游戏（初始存档无 lastActiveAt 记录） */
+  isFirstEntry: boolean;
 }
 
 /**
@@ -117,6 +119,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     canRebirth,
     collapseGain,
     offlineReport,
+    isFirstEntry,
     dismissOfflineReport,
     handleUserClick,
     handleUnlockUpgrade,
@@ -162,9 +165,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   } = game;
 
   const data = useMemo<GameData>(
-    () => ({ state, currentBigNum, canRebirth, collapseGain, offlineReport }),
-    [state, currentBigNum, canRebirth, collapseGain, offlineReport]
+    () => ({ state, currentBigNum, canRebirth, collapseGain, offlineReport, isFirstEntry }),
+    [state, currentBigNum, canRebirth, collapseGain, offlineReport, isFirstEntry]
   );
+
+  // 首次进入：弹出渡劫警示（3 秒后方可关闭），仅需触发一次
+  useEffect(() => {
+    if (isFirstEntry) modals.firstEntry.open();
+  }, [isFirstEntry, modals]);
 
   // 所有 handler 均为 useCallback（依赖稳定），故此对象引用恒定：消费方不会因数值变化而重渲染
   const actions = useMemo<GameActions>(

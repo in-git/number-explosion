@@ -40,24 +40,27 @@ export const UPGRADE_ORDER: UpgradeId[] = [
 ];
 
 /**
- * 成就：门槛分两类
+ * 成就：门槛分三类
  * - click：以「历世累计点击次数」为门槛，与永劫无关，永不清零
  * - playTime：以「累计游玩时长」为门槛（仅页面可见时累计，不计离线/后台挂机）
+ * - tribulation：以「累计渡劫次数」为门槛（成败均计，上限 9 次）
  * 奖励之间可累加。
  */
 export interface AchievementDef {
   id: string;
   name: string;
   desc: string;
-  /** 门槛类型：累计点击 / 累计游玩时长 */
-  type: 'click' | 'playTime';
+  /** 门槛类型：累计点击 / 累计游玩时长 / 累计渡劫次数 */
+  type: 'click' | 'playTime' | 'tribulation';
   /** 累计点击门槛（type = 'click'） */
   requiredClicks: number;
   /** 累计游玩时长门槛，ms（type = 'playTime'） */
   requiredPlayMs?: number;
+  /** 累计渡劫次数门槛（type = 'tribulation'） */
+  requiredTribulation?: number;
   /** 达成后奖励的永劫初始数值（与其他奖励累加） */
   rebirthStartValue: number;
-  /** 达成后奖励的暴击效果（暴击倍数，游玩时长成就的奖励） */
+  /** 达成后奖励的暴击效果（暴击倍数，时长 / 渡劫成就的奖励） */
   critMultiplier?: number;
 }
 
@@ -206,9 +209,78 @@ export const PLAY_TIME_ACHIEVEMENTS: AchievementDef[] = [
   },
 ];
 
+/**
+ * 渡劫次数类成就：奖励暴击效果（暴击倍数基数 +N）
+ * 1 → 2 → 3 → 5 → 7 → 9 次（渡劫上限 9 次）
+ * 奖励按 4 倍递增：2, 8, 32, 128, 512, 2048
+ */
+export const TRIBULATION_ACHIEVEMENTS: AchievementDef[] = [
+  {
+    id: 'trib-1',
+    name: '初尝天雷',
+    desc: '累计渡劫 1 次',
+    type: 'tribulation',
+    requiredClicks: 0,
+    requiredTribulation: 1,
+    rebirthStartValue: 0,
+    critMultiplier: 2,
+  },
+  {
+    id: 'trib-2',
+    name: '再渡一劫',
+    desc: '累计渡劫 2 次',
+    type: 'tribulation',
+    requiredClicks: 0,
+    requiredTribulation: 2,
+    rebirthStartValue: 0,
+    critMultiplier: 8,
+  },
+  {
+    id: 'trib-3',
+    name: '三劫加身',
+    desc: '累计渡劫 3 次',
+    type: 'tribulation',
+    requiredClicks: 0,
+    requiredTribulation: 3,
+    rebirthStartValue: 0,
+    critMultiplier: 32,
+  },
+  {
+    id: 'trib-5',
+    name: '五雷淬体',
+    desc: '累计渡劫 5 次',
+    type: 'tribulation',
+    requiredClicks: 0,
+    requiredTribulation: 5,
+    rebirthStartValue: 0,
+    critMultiplier: 128,
+  },
+  {
+    id: 'trib-7',
+    name: '七劫不灭',
+    desc: '累计渡劫 7 次',
+    type: 'tribulation',
+    requiredClicks: 0,
+    requiredTribulation: 7,
+    rebirthStartValue: 0,
+    critMultiplier: 512,
+  },
+  {
+    id: 'trib-9',
+    name: '九劫圆满',
+    desc: '累计渡劫 9 次',
+    type: 'tribulation',
+    requiredClicks: 0,
+    requiredTribulation: 9,
+    rebirthStartValue: 0,
+    critMultiplier: 2048,
+  },
+];
+
 export const ACHIEVEMENTS: AchievementDef[] = [
   ...CLICK_ACHIEVEMENTS,
   ...PLAY_TIME_ACHIEVEMENTS,
+  ...TRIBULATION_ACHIEVEMENTS,
 ];
 
 /**

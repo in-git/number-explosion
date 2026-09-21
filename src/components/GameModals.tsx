@@ -14,6 +14,10 @@ import { TribulationModal } from './TribulationModal';
 import { TribulationHall } from './TribulationHall';
 import { TitleModal } from './TitleModal';
 import { SettingsModal } from './SettingsModal';
+import { AuthorModal } from './AuthorModal';
+import { HelpModal } from './HelpModal';
+import { EditDataModal } from './EditDataModal';
+import { FirstEntryModal } from './FirstEntryModal';
 
 /**
  * 全部弹窗：数值商殿 / 永劫商殿 / 坍缩商殿 / 奇趣商殿 / 往生殿 / 渡劫 / 永劫 / 坍缩 / 成就 / 称号 / 设置
@@ -61,7 +65,6 @@ export const GameModals: React.FC = () => {
         onClose={modals.ranking.close}
         title="排 行"
         subtitle="—— 天 道 有 榜 · 各 归 其 位 ——"
-        hideFooterClose
       >
         <Ranking />
       </ModalShell>
@@ -124,8 +127,16 @@ export const GameModals: React.FC = () => {
         <TitleModal />
       </ModalShell>
 
-      {/* 设置 Modal */}
+      {/* 设置 Modal（作者 / 帮助 / 修改数据 三入口） */}
       <SettingsModal />
+
+      {/* 作者 / 帮助 / 修改数据：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
+      <AuthorModal />
+      <HelpModal />
+      <EditDataModal />
+
+      {/* 首次进入：渡劫警示（3 秒后方可关闭） */}
+      <FirstEntryModal />
     </>
   );
 };

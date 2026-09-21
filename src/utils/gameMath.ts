@@ -308,10 +308,9 @@ export const UPGRADE_METADATA: Record<UpgradeId, { name: string; requiredClicks:
 export const COLLAPSE_COST = 5;
 
 /**
- * 渡劫：于往生殿「天雷峰」每次渡劫消耗的往生点（正式值为 10000）。
- * ⚠️ 当前临时置 0，仅供测试；测试完成后请改回 10000。
+ * 渡劫：于往生殿「天雷峰」每次渡劫消耗的往生点（恒定 1000）。
  */
-export const TRIBULATION_COST = 0;
+export const TRIBULATION_COST = 1000;
 /** 每颗渡劫丹所需的往生点 */
 export const TRIBULATION_PILL_COST = 300;
 /** 渡劫次数上限：无论成败均计一次，累计渡劫 9 次后不可再渡 */
@@ -362,7 +361,7 @@ export function getResetPillDurationMs(pill: 'value' | 'rebirth'): number {
   return pill === 'rebirth' ? REBIRTH_RESET_PILL_BASE_MS : VALUE_RESET_PILL_BASE_MS;
 }
 
-/** 渡劫（渡劫次数 +1）所需的往生点：恒定 1 万 */
+/** 渡劫（渡劫次数 +1）所需的往生点：恒定 1000 */
 export function getTribulationCost(_currentLevel: number): number {
   return TRIBULATION_COST;
 }
@@ -446,6 +445,10 @@ export const VALUE_CAP_BASE = 1e6;
  * 数值上限每级提升量系数（单位：万）
  * 序列：0, 1, 2, 3, 5, 8, 13 ...（第 1、2 级为 0、1；第 3 级起 = 前两级之和，呈斐波那契增长）
  * 第 n 级的提升量 = (100 + 50 × 系数) 万
+ *
+ * 溢出保护：斐波那契约 1470 级后即超出 Number 上限变成 Infinity，
+ * 而 Infinity 经 BigNum 归一化会退化成 0 —— 那样「买了上限却不涨」。
+ * 故一旦溢出就锁定在最后一个有限值，保证后续每级提升量恒为正。
  */
 function getValueCapStepCoeff(level: number): number {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
@@ -453,19 +456,23 @@ function getValueCapStepCoeff(level: number): number {
   const seq = [0, 1, 2]; // 第 1、2、3 级系数
   while (seq.length < lv) {
     const len = seq.length;
-    seq.push(seq[len - 1] + seq[len - 2]);
+    const next = seq[len - 1] + seq[len - 2];
+    // 到顶即停，沿用最后一个有限值
+    if (!Number.isFinite(next)) break;
+    seq.push(next);
   }
-  return seq[lv - 1];
+  return seq[Math.min(lv, seq.length) - 1];
 }
 
 /**
  * 数值上限每级提升量（实际数值）：
  *   第 n 级 = (100 + 50 × 系数_n) 万
  *   即：100 万、150 万、200 万、250 万、350 万、550 万 ...
+ * 乘法走 BigNum（而非裸数相乘），避免系数极大时 5e5 × 系数 溢出成 Infinity。
  */
 export function getValueCapStep(level: number): BigNum {
   const coeff = getValueCapStepCoeff(level);
-  return new BigNum(VALUE_CAP_BASE).add(new BigNum(5e5 * coeff, 0));
+  return new BigNum(VALUE_CAP_BASE).add(new BigNum(coeff, 0).mulScalar(5e5));
 }
 
 /** 每次永劫永久提升的数值上限（100 万，永久保留） */

@@ -151,6 +151,10 @@ export const Ranking: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 离开排行（弹窗关闭即卸载）：彻底断开长连接并停掉重连定时器，
+  // 否则 current 仍在，后台会一直按指数退避重连
+  useEffect(() => () => leaderboardSocket.unsubscribe(), []);
+
   // 点入排行：拉取大区并默认加入最新大区
   useEffect(() => {
     let cancelled = false;

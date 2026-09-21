@@ -30,7 +30,4 @@ const server = createServer(app);
 // WebSocket 与 HTTP 共用端口：ws://host:8731/api/ws
 attachWebSocket(server);
 
-server.listen(PORT, () => {
-  console.log(`[data-point] server listening on http://localhost:${PORT}`);
-  console.log(`[data-point] websocket ready at ws://localhost:${PORT}/api/ws`);
-});
+server.listen(PORT, () => {});

@@ -25,8 +25,16 @@ export interface GameModalsState {
   tribulationHall: Disclosure;
   /** 称号详情（当前称号 + 最近的几个修仙等级） */
   title: Disclosure;
-  /** 设置面板（设定当前数值 / 重修道途） */
+  /** 设置面板（作者 / 帮助 / 修改数据 三个入口） */
   settings: Disclosure;
+  /** 作者（署名与作品信息） */
+  author: Disclosure;
+  /** 帮助文档（玩法指引） */
+  help: Disclosure;
+  /** 修改数据（数值 / 点数设定与重置） */
+  editData: Disclosure;
+  /** 首次进入：渡劫警示（3 秒后方可关闭） */
+  firstEntry: Disclosure;
 }
 
 export function useGameModals(): GameModalsState {
@@ -44,5 +52,9 @@ export function useGameModals(): GameModalsState {
     tribulationHall: useDisclosure(),
     title: useDisclosure(),
     settings: useDisclosure(),
+    author: useDisclosure(),
+    help: useDisclosure(),
+    editData: useDisclosure(),
+    firstEntry: useDisclosure(),
   };
 }

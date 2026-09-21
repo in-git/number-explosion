@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { GameState, UpgradeId, UserAccountData, OfflineGainReport } from '../types';
+import { GameState, UpgradeId, UpgradeState, UserAccountData, OfflineGainReport } from '../types';
 import { SettleType, PointsCurrency } from '../components/FunShop';
 import {
   UPGRADE_METADATA,
@@ -105,6 +105,8 @@ const payTribulationPointsTimes = (state: GameState, times: number): Partial<Gam
     : {};
 /** 游玩时长写回存档的间隔（ms） */
 const PLAY_TIME_TICK_MS = 5_000;
+/** 自动存档的节流间隔（ms）：数值每秒都在变，逐帧写 localStorage 会拖垮主线程 */
+const AUTO_SAVE_THROTTLE_MS = 1_000;
 
 /**
  * 游戏核心状态与全部玩法逻辑（数值、点击、升级、商殿、永劫、坍缩）
@@ -120,6 +122,13 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   // 已提示过的解锁（以存档为准，刷新后不会重复提示）
   const notifiedUnlocks = useRef<Set<string>>(new Set(state.notifiedUnlocks || []));
 
+  // 首次进入：初始存档无 lastActiveAt（为 0）。仅在首次渲染时捕获，
+  // 之后离线结算会把 lastActiveAt 刷新为服务器时间，故必须用 ref 固化。
+  const isFirstEntryRef = useRef<boolean | null>(null);
+  if (isFirstEntryRef.current === null) {
+    isFirstEntryRef.current = !state.lastActiveAt;
+  }
+
   // 供定时器 / 事件回调读取最新值
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -129,10 +138,32 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   const playTimeRef = useRef(state.playTimeMs || 0);
   playTimeRef.current = state.playTimeMs || 0;
 
-  // Auto-save
+  /**
+   * Auto-save（节流写入）
+   * 自动点击的 rAF 每帧都可能改数值，若逐帧 JSON.stringify + localStorage.setItem，
+   * 主线程会被同步 IO 拖死；故改成「1s 内至多写一次，且写的是最新值」。
+   * 另有 60s 定时落盘与 pagehide 落盘兜底，关闭页面不会丢进度。
+   */
+  const saveTimerRef = useRef<number | null>(null);
   useEffect(() => {
-    saveGameState(state, currentBigNum.toData());
+    if (saveTimerRef.current !== null) return;
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      saveGameState(stateRef.current, bigNumRef.current.toData());
+    }, AUTO_SAVE_THROTTLE_MS);
   }, [state, currentBigNum]);
+
+  // 卸载时清掉待写的定时器并补写一次
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      saveGameState(stateRef.current, bigNumRef.current.toData());
+    },
+    []
+  );
 
   /** 服务器时间定期同步 + 退到后台/关闭页面时立刻落时间戳 */
   useEffect(() => {
@@ -298,19 +329,20 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    * 入参用于覆盖尚未写入 state 的最新进度
    */
   const checkAchievements = useCallback(
-    (progress?: { totalClicks?: number; playTimeMs?: number }) => {
+    (progress?: { totalClicks?: number; playTimeMs?: number; tribulationCount?: number }) => {
       // 成就系统未开启（数值殿解锁前）不结算成就
       if (!stateRef.current.achievementsUnlocked) return;
       const cur = stateRef.current;
       const totalClicks = progress?.totalClicks ?? cur.totalClickCount ?? 0;
       const playTimeMs = progress?.playTimeMs ?? cur.playTimeMs ?? 0;
+      const tribulationCount = progress?.tribulationCount ?? cur.tribulationCount ?? 0;
       const unlocked = new Set(cur.unlockedAchievements || []);
 
       const fresh = ACHIEVEMENTS.filter((a) => {
         if (unlocked.has(a.id)) return false;
-        return a.type === 'playTime'
-          ? playTimeMs >= (a.requiredPlayMs || 0)
-          : totalClicks >= a.requiredClicks;
+        if (a.type === 'playTime') return playTimeMs >= (a.requiredPlayMs || 0);
+        if (a.type === 'tribulation') return tribulationCount >= (a.requiredTribulation || 0);
+        return totalClicks >= a.requiredClicks;
       });
       if (fresh.length === 0) return;
 
@@ -447,8 +479,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
   /**
    * 数值殿：一键升级
-   * 按「连击概率 → 暴击概率 → 数值升级 → 连击倍数 → 暴击倍数」的优先级，
-   * 用当前数值尽力把每一项升满（买不起或已满则停止）。
+   * 贪心策略：每一轮都挑「当下买得起且最便宜」的一项买 1 级，
+   * 直至数值不足 / 渡劫点耗尽 / 全部圆满为止。
    * @returns 本次是否至少升了 1 级
    */
   const handleUpgradeAll = useCallback(() => {
@@ -461,31 +493,33 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     let tribPoints = availableTribulationPoints(prev);
     const needTrib = needTribulationPoint(prev);
 
-    const order: UpgradeId[] = [
-      'comboChance',
-      'critChance',
-      'baseValue',
-      'comboMultiplier',
-      'critMultiplier',
-    ];
-
-    order.forEach((id) => {
-      // 概率类上限需扣减永劫殿已提供的概率，保证两殿合计不超 100%
-      const rebirthLevel = prev.rebirthMergedLevels?.[id] || 0;
-      for (;;) {
+    /** 当前「买得起且最便宜」的一项；都买不起 / 都圆满时返回 null */
+    const pickCheapest = (): { id: UpgradeId; up: UpgradeState; cost: BigNum } | null => {
+      let best: { id: UpgradeId; up: UpgradeState; cost: BigNum } | null = null;
+      UPGRADE_ORDER.forEach((id) => {
         const up = nextUpgrades[id];
-        if (!up || !up.unlocked || isUpgradeMaxed(id, up, rebirthLevel)) break;
+        if (!up || !up.unlocked) return;
+        // 概率类上限需扣减永劫殿已提供的概率，保证两殿合计不超 100%
+        const rebirthLevel = prev.rebirthMergedLevels?.[id] || 0;
+        if (isUpgradeMaxed(id, up, rebirthLevel)) return;
         const maxLevel = getUpgradeMaxLevel(id, up, rebirthLevel);
         // 往生殿优惠已全部作用于永劫殿，数值殿升级维持原价
         const cost = getUpgradeCost(id, up.level, maxLevel);
-        if (!cost || !value.gte(cost)) break;
-        if (needTrib && tribPoints < UPGRADE_TRIBULATION_POINT_COST) break;
-        value = value.sub(cost);
-        if (needTrib) tribPoints -= UPGRADE_TRIBULATION_POINT_COST;
-        nextUpgrades[id] = { ...up, level: up.level + 1 };
-        bought += 1;
-      }
-    });
+        if (!cost || !value.gte(cost)) return;
+        if (best === null || cost.lt(best.cost)) best = { id, up, cost };
+      });
+      return best;
+    };
+
+    for (;;) {
+      if (needTrib && tribPoints < UPGRADE_TRIBULATION_POINT_COST) break;
+      const next = pickCheapest();
+      if (!next) break;
+      value = value.sub(next.cost);
+      if (needTrib) tribPoints -= UPGRADE_TRIBULATION_POINT_COST;
+      nextUpgrades[next.id] = { ...next.up, level: next.up.level + 1 };
+      bought += 1;
+    }
 
     if (bought <= 0) return false;
 
@@ -966,6 +1000,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       const next = { ...resetToInitialState(prev), tribulationCount: nextCount };
       setState(next);
       setCurrentBigNum(BigNum.fromData(next.currentValue));
+      // 渡劫次数类成就：失败同样计入次数
+      checkAchievements({ tribulationCount: nextCount });
       return;
     }
 
@@ -982,7 +1018,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       // 渡劫次数：成败均 +1（它即收益的次方指数）
       tribulationCount: newCount,
     }));
-  }, []);
+    // 渡劫次数类成就
+    checkAchievements({ tribulationCount: newCount });
+  }, [checkAchievements]);
 
   /** 往生殿：消耗 100 往生点解锁「渡劫」（解锁后才显示天雷峰入口） */
   const handleUnlockTribulation = useCallback(() => {
@@ -1025,16 +1063,19 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
   /** 坍缩商殿：消耗按等差数列递增（差值 1）的坍缩点数，提升数值上限 */
   const handleBuyValueCap = useCallback(() => {
-    const prev = stateRef.current;
-    const nextLevel = (prev.valueCapLevel || 0) + 1;
-    const cost = getValueCapCost(nextLevel);
-    if (!BigNum.fromNumber(prev.collapsePoints).gte(cost)) return;
-    const costNum = cost.toNumber();
-    setState((p) => ({
-      ...p,
-      collapsePoints: Math.max(0, p.collapsePoints - costNum),
-      valueCapLevel: nextLevel,
-    }));
+    // 级数与扣费一律以 setState 内的最新 state 为准：
+    // 若先读 stateRef 再算 nextLevel，连点时两次点击会算出同一个级数，
+    // 结果扣了两次点数却只升 1 级。
+    setState((p) => {
+      const nextLevel = (p.valueCapLevel || 0) + 1;
+      const cost = getValueCapCost(nextLevel);
+      if (!BigNum.fromNumber(p.collapsePoints).gte(cost)) return p;
+      return {
+        ...p,
+        collapsePoints: Math.max(0, p.collapsePoints - cost.toNumber()),
+        valueCapLevel: nextLevel,
+      };
+    });
   }, []);
 
   /** 坍缩商殿：购买「永劫点数获取」，消耗按 2^n 递增的坍缩点数 */
@@ -1108,17 +1149,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   /** 永劫商殿：消耗 1 点永劫点数购买「功法无需解锁」特权（永久生效） */
   const handleBuyAutoUnlock = useCallback(() => {
     let done = false;
-    console.log('[功法通明] 尝试购买', {
-      当前永劫点数: stateRef.current.rebirthPoints,
-      消耗: AUTO_UNLOCK_COST,
-      已购特权: stateRef.current.upgradesAutoUnlocked,
-    });
     setState((prev) => {
       if (prev.upgradesAutoUnlocked || prev.rebirthPoints < AUTO_UNLOCK_COST) {
-        console.log('[功法通明] 购买未生效', {
-          原因: prev.upgradesAutoUnlocked ? '已购买过该特权' : '永劫点数不足',
-          当前永劫点数: prev.rebirthPoints,
-        });
         return prev;
       }
       done = true;
@@ -1127,12 +1159,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       const upgrades = { ...prev.upgrades };
       (Object.keys(upgrades) as UpgradeId[]).forEach((id) => {
         upgrades[id] = { ...upgrades[id], unlocked: true };
-      });
-
-      console.log('[功法通明] 购买成功', {
-        消耗: AUTO_UNLOCK_COST,
-        剩余永劫点数: prev.rebirthPoints - AUTO_UNLOCK_COST,
-        解锁功法: Object.keys(upgrades),
       });
 
       return {
@@ -1261,24 +1287,11 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   /** 永劫商殿：消耗 1 点永劫点数解锁排行 */
   const handleUnlockRanking = useCallback(() => {
     let done = false;
-    console.log('[解锁排行] 尝试购买', {
-      当前永劫点数: stateRef.current.rebirthPoints,
-      消耗: RANKING_UNLOCK_COST,
-      已解锁: stateRef.current.rankingUnlocked,
-    });
     setState((prev) => {
       if (prev.rankingUnlocked || prev.rebirthPoints < RANKING_UNLOCK_COST) {
-        console.log('[解锁排行] 购买未生效', {
-          原因: prev.rankingUnlocked ? '已解锁过' : '永劫点数不足',
-          当前永劫点数: prev.rebirthPoints,
-        });
         return prev;
       }
       done = true;
-      console.log('[解锁排行] 购买成功', {
-        消耗: RANKING_UNLOCK_COST,
-        剩余永劫点数: prev.rebirthPoints - RANKING_UNLOCK_COST,
-      });
       return {
         ...prev,
         rebirthPoints: prev.rebirthPoints - RANKING_UNLOCK_COST,
@@ -1461,6 +1474,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     canRebirth,
     canCollapse,
     collapseGain,
+    isFirstEntry: isFirstEntryRef.current ?? false,
     handleUserClick,
     handleUnlockUpgrade,
     handleUpgradeLevel,

@@ -216,7 +216,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
         </div>
 
         {/* 资源区：置顶常显，为 0 的不显示；全部为空时整块不渲染 */}
-        {(attrs.rebirthPoints > 0 || attrs.collapsePoints > 0 || state.afterlifePoints > 0) && (
+        {(attrs.rebirthPoints > 0 || state.afterlifePoints > 0) && (
           <div className="flex h-7 flex-wrap items-center gap-x-4 overflow-hidden">
             {attrs.rebirthPoints > 0 && (
               <div className="flex items-center gap-1.5">

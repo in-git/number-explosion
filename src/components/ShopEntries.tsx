@@ -40,9 +40,9 @@ export const ShopEntries: React.FC = () => {
   const { state, canRebirth } = useGameData();
   const modals = useModals();
 
-  // 永劫商殿：永劫之道开启后才出现；坍缩商殿：解锁坍缩后即出现（无需先坍缩一次）
+  // 永劫商殿：永劫之道开启后才出现；坍缩商殿：须于永劫殿手动「解锁坍缩」后才出现
   const rebirthShopUnlocked = state.rebirthUnlocked || state.rebirthPoints > 0;
-  const collapseShopUnlocked = state.collapseUnlocked || state.collapsePoints > 0;
+  const collapseShopUnlocked = state.collapseUnlocked;
   // 排行：消耗 1 点永劫点数解锁后显示
   const rankingUnlocked = !!state.rankingUnlocked;
   // 永劫门槛：数值必须 ≥ 100 万（坍缩入口已移至坍缩商殿，不再复用此按钮）

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FloatingText } from '../types';
 import {
   FLOATING_TEXT_INTERVAL_MS,
@@ -16,6 +16,16 @@ export interface FloatingTextsApi {
 export function useFloatingTexts(): FloatingTextsApi {
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const lastSpawnAt = useRef(0);
+  /** 存活中的销毁定时器：卸载时统一清理，避免定时器泄漏与卸载后的 setState */
+  const timersRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
 
   const addFloatingText = useCallback((text: string, type: FloatingTextType) => {
     // 节流：疯狂连点/高速自动点击时不会瞬间堆积成千上万条特效
@@ -32,9 +42,11 @@ export function useFloatingTexts(): FloatingTextsApi {
       { id, text, type, createdAt: Date.now(), offsetAngle, distance },
     ]);
 
-    setTimeout(() => {
+    const timer = window.setTimeout(() => {
+      timersRef.current.delete(timer);
       setFloatingTexts((prev) => prev.filter((item) => item.id !== id));
     }, FLOATING_TEXT_LIFETIME_MS);
+    timersRef.current.add(timer);
   }, []);
 
   return { floatingTexts, addFloatingText };

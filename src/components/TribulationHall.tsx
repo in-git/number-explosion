@@ -70,7 +70,9 @@ const CycleCard: React.FC<{
     const tick = () => {
       const { progress: base, at } = baseRef.current;
       const next = Math.min(intervalMs, base + (performance.now() - at));
-      setDisplayMs((prev) => (prev === next ? prev : next));
+      // 量化到 100ms：否则每帧都 setState（60 次/秒），整页跟着重渲染
+      const quantized = Math.min(intervalMs, Math.round(next / 100) * 100);
+      setDisplayMs((prev) => (prev === quantized ? prev : quantized));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -153,7 +155,9 @@ const PillItem: React.FC<PillItemProps> = ({
     const tick = () => {
       const { progress: base, at } = baseRef.current;
       const next = Math.min(duration, base + (performance.now() - at));
-      setDisplayMs((prev) => (prev === next ? prev : next));
+      // 量化到 100ms：避免每帧 setState 拖慢整页
+      const quantized = Math.min(duration, Math.round(next / 100) * 100);
+      setDisplayMs((prev) => (prev === quantized ? prev : quantized));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
