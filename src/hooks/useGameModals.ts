@@ -37,6 +37,8 @@ export interface GameModalsState {
   editData: Disclosure;
   /** 首次进入：渡劫警示（3 秒后方可关闭） */
   firstEntry: Disclosure;
+  /** 通关提示（数值达 1ssr 时弹一次，可随时关闭） */
+  cleared: Disclosure;
 }
 
 export function useGameModals(): GameModalsState {
@@ -59,5 +61,6 @@ export function useGameModals(): GameModalsState {
     help: useDisclosure(),
     editData: useDisclosure(),
     firstEntry: useDisclosure(),
+    cleared: useDisclosure(),
   };
 }

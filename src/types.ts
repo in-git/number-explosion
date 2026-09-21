@@ -91,6 +91,11 @@ export interface GameState {
   currentValue: BigNumData;
   /** 历世最高数值纪录（达到过的最高值，永不清零） */
   highestValue: BigNumData;
+  /**
+   * 是否已通关：数值曾达 1ssr（字母档位顶点）即置为 true。
+   * 存档属性——渡劫失败 / 永劫 / 坍缩均不复位，并随成绩上报到排行榜。
+   */
+  gameCleared: boolean;
   /** 本世（本次永劫后）的用户点击次数：用于解锁功法，永劫/坍缩时清零 */
   clickCount: number;
   /** 历世累计的用户点击次数：永不清零，用于解锁成就 */
@@ -110,7 +115,7 @@ export interface GameState {
   collapsePoints: number;   // 坍缩点数（当前拥有）
   afterlifePoints: number;  // 往生点数（当前拥有，由坍缩点兑换而来）
 
-  /** 往生殿「一键升级」特权：消耗 10 往生点解锁，默认不显示 */
+  /** 往生殿「升级量」开关特权：消耗 10 往生点解锁，默认不显示 */
   oneKeyUpgradeUnlocked: boolean;
   rebirthUnlocked: boolean;
   collapseUnlocked: boolean;
@@ -184,7 +189,7 @@ export interface GameState {
   rebirthResetProgressMs: number;
   /** 渡劫殿：「永劫重置丹」是否正在炼制（点击炼制才开始，炼制中不可操作） */
   rebirthResetCrafting: boolean;
-  /** 渡劫殿：持有的「渡劫点」数量（渡劫成功后每 10 秒 +1） */
+  /** 渡劫殿：持有的「渡劫点」数量（渡劫成功后每 10 秒 +15） */
   tribulationPoints: number;
   /** 渡劫殿：距离产出下 1 点「渡劫点」已累计的时间（ms） */
   tribulationPointProgressMs: number;

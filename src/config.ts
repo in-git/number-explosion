@@ -395,7 +395,7 @@ export const AUTO_UNLOCK_COST = 1;
 export const AFTERLIFE_SHOP_UNLOCK_COST = 20;
 /** 往生点兑换：每 10 点坍缩点数可兑换 1 点往生点数（于往生殿内兑换） */
 export const AFTERLIFE_POINT_EXCHANGE_COST = 10;
-/** 往生殿：「一键升级」特权消耗的往生点（解锁后数值殿显示一键升级） */
+/** 往生殿：「升级量」开关特权消耗的往生点（解锁后数值殿 / 永劫殿显示该开关） */
 export const ONE_KEY_UPGRADE_UNLOCK_COST = 10;
 /** 往生殿：「渡劫」特权消耗的往生点（解锁后才显示天雷峰渡劫入口） */
 export const TRIBULATION_UNLOCK_COST = 100;
@@ -407,6 +407,8 @@ export const INITIAL_STATE: GameState = {
   currentValue: { m: 0, e: 0 },
   /** 历世最高数值纪录 */
   highestValue: { m: 0, e: 0 },
+  /** 是否已通关（数值曾达 1ssr）：存档属性，默认否 */
+  gameCleared: false,
   clickCount: 0,
   totalClickCount: 0,
   unlockedAchievements: [],
@@ -437,7 +439,7 @@ export const INITIAL_STATE: GameState = {
   upgradesAutoUnlocked: false,
   /** 往生殿特权：默认关闭（于坍缩殿消耗 20 点坍缩点数解锁） */
   afterlifeShopUnlocked: false,
-  /** 往生殿「一键升级」特权：默认关闭（消耗 10 往生点解锁） */
+  /** 往生殿「升级量」开关特权：默认关闭（消耗 10 往生点解锁） */
   oneKeyUpgradeUnlocked: false,
   /** 成就系统：默认关闭（数值殿花费 50 万解锁） */
   achievementsUnlocked: false,

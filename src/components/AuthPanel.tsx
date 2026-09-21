@@ -106,6 +106,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             playTimeMs: state.playTimeMs || 0,
             clickCount: state.totalClickCount || 0,
             highestValue: state.highestValue,
+            gameCleared: state.gameCleared,
           }, acc.token);
           onRegionSelected(regionId, defaultRegionName ?? regionId);
         } catch (upErr) {

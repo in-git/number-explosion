@@ -24,7 +24,8 @@ export interface PlayerProfile {
   collapsePoints: number;
   /** 累计游玩时长（ms） */
   playTimeMs: number;
-
+  /** 是否已通关（数值曾达 1ssr）：存档属性，榜上以「通关」标记展示 */
+  gameCleared: boolean;
 }
 
 /** 榜单条目：成绩统一以 BigNumData 承载（时长/次数亦然） */
@@ -55,6 +56,8 @@ export interface ScoreReport {
   clickCount: number;
   /** 数值排行：历世最高数值 */
   highestValue: BigNumData;
+  /** 是否已通关（数值曾达 1ssr） */
+  gameCleared: boolean;
   /** 服务端签发的令牌（用于加密签名与归属校验） */
   token: string;
 }

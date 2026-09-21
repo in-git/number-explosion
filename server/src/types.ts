@@ -28,6 +28,8 @@ export interface PlayerProfile {
   clickCount: number;
   highestValue: BigNumData;
   totalSpent: BigNumData;
+  /** 是否已通关（数值曾达 1ssr）：榜上以「通关」标记展示 */
+  gameCleared: boolean;
 }
 
 export interface LeaderboardEntry {
@@ -78,4 +80,6 @@ export interface UserSyncPayload {
   clickCount: number;
   highestValue: BigNumData;
   totalSpent: BigNumData;
+  /** 是否已通关（数值曾达 1ssr）：一经上报为真，服务端不再回退 */
+  gameCleared: boolean;
 }

@@ -54,10 +54,14 @@ function selfScore(board: LeaderboardId, state: GameState): BigNumData {
 }
 
 /** 档案条目 */
-const ProfileItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+const ProfileItem: React.FC<{ label: string; value: string; valueClass?: string }> = ({
+  label,
+  value,
+  valueClass,
+}) => (
   <div className="flex items-center justify-between gap-2">
     <span className="text-[#7d7364]">{label}</span>
-    <span className="font-mono text-[#cbbfa9]">{value}</span>
+    <span className={`font-mono ${valueClass ?? 'text-[#cbbfa9]'}`}>{value}</span>
   </div>
 );
 
@@ -75,6 +79,11 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
       <ProfileItem label="重生次数" value={`${profile.rebirthCount.toLocaleString('zh-CN')} 次`} />
       <ProfileItem label="坍缩重数" value={`${BigNum.fromNumber(profile.collapsePoints).formatChinese(0)} 重`} />
       <ProfileItem label="游玩时长" value={formatDuration(profile.playTimeMs)} />
+      <ProfileItem
+        label="通关"
+        value={profile.gameCleared ? '已通关' : '未通关'}
+        valueClass={profile.gameCleared ? 'text-[#e8c46a] font-bold' : 'text-[#7d7364]'}
+      />
     </div>
   </div>
 );
@@ -115,7 +124,7 @@ export const Ranking: React.FC = () => {
         rebirthCount: state.rebirthCount || 0,
         collapsePoints: state.collapsePoints || 0,
         playTimeMs: state.playTimeMs || 0,
-   
+        gameCleared: state.gameCleared,
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,9 +136,9 @@ export const Ranking: React.FC = () => {
       state.rebirthCount,
       state.collapsePoints,
       state.playTimeMs,
+      state.gameCleared,
       state.highestValue.m,
       state.highestValue.e,
-
     ]
   );
 
@@ -144,6 +153,7 @@ export const Ranking: React.FC = () => {
       rebirthCount: state.rebirthCount || 0,
       clickCount: state.totalClickCount || 0,
       highestValue: state.highestValue,
+      gameCleared: state.gameCleared,
       token: account.token,
     }).catch(() => {
       /* 上报失败不影响浏览榜单 */
@@ -274,6 +284,11 @@ export const Ranking: React.FC = () => {
                   >
                     {entry.userName}
                   </span>
+                  {entry.profile.gameCleared && (
+                    <span className="text-[10px] font-serif px-1 py-px rounded bg-[#3b3327] border border-[#8a653f] text-[#e8c46a] flex-shrink-0">
+                      通关
+                    </span>
+                  )}
                   {isSelf && (
                     <span className="text-[10px] font-mono px-1 py-px rounded bg-[#3b3327] border border-[#6b5a3f] text-[#c9a86a] flex-shrink-0">
                       我

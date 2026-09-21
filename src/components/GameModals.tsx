@@ -19,6 +19,7 @@ import { AuthorModal } from './AuthorModal';
 import { HelpModal } from './HelpModal';
 import { EditDataModal } from './EditDataModal';
 import { FirstEntryModal } from './FirstEntryModal';
+import { GameClearedModal } from './GameClearedModal';
 
 /**
  * 全部弹窗：数值商殿 / 永劫商殿 / 坍缩商殿 / 奇趣商殿 / 往生殿 / 渡劫 / 永劫 / 坍缩 / 成就 / 称号 / 设置
@@ -148,6 +149,9 @@ export const GameModals: React.FC = () => {
 
       {/* 首次进入：渡劫警示（3 秒后方可关闭） */}
       <FirstEntryModal />
+
+      {/* 通关提示：数值达 1ssr 时弹一次，可随时关闭，不影响其他功能 */}
+      <GameClearedModal />
     </>
   );
 };

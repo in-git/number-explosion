@@ -13,6 +13,8 @@ import {
   TRIBULATION_COST,
   TRIBULATION_MAX_COUNT,
   TRIBULATION_PILL_COST,
+  TRIBULATION_POINT_GAIN,
+  TRIBULATION_POINT_INTERVAL_MS,
   TRIBULATION_STRIKE_COUNT,
   TRIBULATION_STRIKE_CHANCE,
   UPGRADE_TRIBULATION_POINT_COST,
@@ -44,7 +46,7 @@ const SECTIONS: HelpSection[] = [
       '功法以「本世点击次数」解锁（转世后点击清零需重新解锁，除非已购「功法无需解锁」特权）。',
       '解锁门槛：数值升级 10 次 · 自动点击 20 次 · 自动点击频率 40 次 · 连击概率 50 次 · 暴击概率 / 连击倍数 100 次 · 暴击倍数 200 次。',
       '升级消耗随等级倍增；连击与暴击互斥，至多触发其一。',
-      '「一键升级」会自动挑当前最便宜的一项反复购买，直到数值耗尽。',
+      '「一键升级」是升级量开关：默认每次升 1 级，切至 MAX 后每次升级直接升到圆满。',
     ],
   },
   {
@@ -89,7 +91,7 @@ const SECTIONS: HelpSection[] = [
   {
     title: '八 · 渡劫殿',
     lines: [
-      '渡劫点每 10 秒自动产出 1 点；另有「永劫点」按 30 秒起的周期自动结算。',
+      `渡劫点每 ${TRIBULATION_POINT_INTERVAL_MS / 1000} 秒自动产出 ${TRIBULATION_POINT_GAIN} 点；另有「永劫点」按 30 秒起的周期自动结算。`,
       '数值重置丹每炉 1 分钟：重置数值殿等级，消耗回到初始曲线，已有效果全部保留。',
       '永劫重置丹每炉 3 分钟：作用于永劫殿，效果同上。',
     ],

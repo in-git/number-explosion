@@ -5,6 +5,7 @@ import {
   getAutoRebirthPoints,
   getAutoRebirthIntervalMs,
   TRIBULATION_POINT_INTERVAL_MS,
+  TRIBULATION_POINT_GAIN,
 } from '../utils/gameMath';
 import { UpgradeButton } from './UpgradeButton';
 
@@ -221,7 +222,7 @@ export const TribulationHall: React.FC = () => {
     handleCraftRebirthResetPill: onCraftRebirth,
   } = useGameActions();
 
-  // 渡劫点：每 10s 产出 1 点；自动永劫结算周期：30s 起，每产出一次 +5s，180s 封顶
+  // 渡劫点：每 10s 产出 15 点；自动永劫结算周期：30s 起，每产出一次 +5s，180s 封顶
   const tribulationPoints = Math.max(0, state.tribulationPoints || 0);
   const nextRebirthPoints = getAutoRebirthPoints(currentValue, state);
   const autoRebirthIntervalMs = getAutoRebirthIntervalMs(state.autoRebirthCount || 0);
@@ -231,7 +232,7 @@ export const TribulationHall: React.FC = () => {
       <CycleCard
         name="渡 劫 点"
         value={`${tribulationPoints}`}
-        hint={`+1 / ${sec(TRIBULATION_POINT_INTERVAL_MS)}`}
+        hint={`+${TRIBULATION_POINT_GAIN} / ${sec(TRIBULATION_POINT_INTERVAL_MS)}`}
         intervalMs={TRIBULATION_POINT_INTERVAL_MS}
         progressMs={Math.max(0, state.tribulationPointProgressMs || 0)}
       />

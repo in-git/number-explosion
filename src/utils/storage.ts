@@ -12,6 +12,7 @@ import {
   STORAGE_KEY,
 } from '../config';
 import { getServerNow } from './serverTime';
+import { CLEAR_EXP } from './bigNumber';
 import { TRIBULATION_MAX_COUNT } from './gameMath';
 
 /** 清洗账号信息：非法则视为未登录 */
@@ -108,6 +109,11 @@ export function loadGameState(): GameState {
       ? Math.max(0, Math.floor(parsed.rebirthCapLevel as number))
       : 0;
 
+    const highestValue = sanitizeBigNumData(parsed.highestValue, {
+      m: Number.isFinite(parsed.currentValue?.m) ? parsed.currentValue.m : 0,
+      e: Number.isFinite(parsed.currentValue?.e) ? parsed.currentValue.e : 0,
+    });
+
     return {
       ...INITIAL_STATE,
       ...parsed,
@@ -130,10 +136,9 @@ export function loadGameState(): GameState {
       playTimeMs: Number.isFinite(parsed.playTimeMs) ? Math.max(0, parsed.playTimeMs) : 0,
       collapsePoints: Number.isFinite(parsed.collapsePoints) ? parsed.collapsePoints : 0,
       afterlifePoints: Number.isFinite(parsed.afterlifePoints) ? parsed.afterlifePoints : 0,
-      highestValue: sanitizeBigNumData(parsed.highestValue, {
-        m: Number.isFinite(parsed.currentValue?.m) ? parsed.currentValue.m : 0,
-        e: Number.isFinite(parsed.currentValue?.e) ? parsed.currentValue.e : 0,
-      }),
+      highestValue,
+      // 是否通关：旧存档无此字段时，按「历世最高数值是否已达 1ssr」回填
+      gameCleared: !!parsed.gameCleared || (highestValue.m > 0 && highestValue.e >= CLEAR_EXP),
       rankingUnlocked: !!parsed.rankingUnlocked,
       upgradesAutoUnlocked: !!parsed.upgradesAutoUnlocked,
       oneKeyUpgradeUnlocked: !!parsed.oneKeyUpgradeUnlocked,

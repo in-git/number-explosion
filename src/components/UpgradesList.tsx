@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Unlock } from 'lucide-react';
 import { UpgradeId } from '../types';
 import { BigNum } from '../utils/bigNumber';
@@ -7,6 +7,7 @@ import {
   UPGRADE_METADATA,
   getUpgradeCost,
   getUpgradeMaxLevel,
+  getBulkUpgradeResult,
   isUpgradeMaxed,
   getBaseValueBonus,
   getAutoClickRate,
@@ -99,7 +100,7 @@ export const UpgradesList: React.FC = () => {
   const {
     handleUnlockUpgrade: onUnlock,
     handleUpgradeLevel: onUpgrade,
-    handleUpgradeAll: onUpgradeAll,
+    handleUpgradeMax: onUpgradeMax,
     handleUnlockAchievements: onUnlockAchievements,
     handleUnlockTitles: onUnlockTitles,
     handleUseValueResetPill: onUseValueResetPill,
@@ -111,19 +112,12 @@ export const UpgradesList: React.FC = () => {
   // 隐藏不可继续升级（已满级）的功法
   const [hideMaxed, setHideMaxed] = useState(false);
 
-  // 一键升级冷却：剩余秒数（0 表示可用）
-  const [oneKeyCd, setOneKeyCd] = useState(0);
-  useEffect(() => {
-    if (oneKeyCd <= 0) return;
-    const timer = window.setTimeout(() => setOneKeyCd((v) => Math.max(0, v - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [oneKeyCd]);
-
-  const handleOneKeyUpgrade = () => {
-    if (oneKeyCd > 0) return;
-    // 仅在本次确实升了级时进入冷却
-    if (onUpgradeAll()) setOneKeyCd(5);
-  };
+  /**
+   * 升级量模式（「一键升级」按钮即其开关）：
+   * false = 每次升 1 级（默认）；true = 一次升到圆满。
+   * 下方每个升级按钮均按此模式结算。
+   */
+  const [maxMode, setMaxMode] = useState(false);
 
   // Filter upgrades: 点击量达标，或已解锁（解锁会消耗点击量，已解锁项须继续显示）
   const visibleUpgrades = UPGRADE_ORDER.filter((id) => {
@@ -186,6 +180,10 @@ export const UpgradesList: React.FC = () => {
   const needTribPoint = !!state.tribulationSuccess;
   const hasTribPoint =
     !needTribPoint || (state.tribulationPoints || 0) >= UPGRADE_TRIBULATION_POINT_COST;
+  // MAX 模式下受渡劫点限制的可升级次数（未渡劫成功时不限）
+  const pointLevelLimit = needTribPoint
+    ? Math.floor((state.tribulationPoints || 0) / UPGRADE_TRIBULATION_POINT_COST)
+    : Infinity;
 
   const rows = visibleUpgrades.map((id) => {
     const meta = UPGRADE_METADATA[id];
@@ -199,6 +197,13 @@ export const UpgradesList: React.FC = () => {
     // 往生殿的倍数与优惠均已迁移至永劫殿，数值殿升级一律原价
     const currentCost = getUpgradeCost(id, upgradeState.level, maxLevel);
 
+    // MAX 模式：本批「连升到圆满」实际可升的级数与总消耗（仅该模式需要算）
+    const bulk = maxMode
+      ? getBulkUpgradeResult(id, upgradeState, rebirthLevel, currentValue, pointLevelLimit)
+      : null;
+    // 展示的消耗：MAX 模式下一级都买不起时，退回 1 级的消耗便于玩家判断差距
+    const shownCost = bulk && bulk.levels > 0 ? bulk.cost : currentCost;
+
     return {
       id,
       meta,
@@ -206,9 +211,11 @@ export const UpgradesList: React.FC = () => {
       maxLevel,
       desc,
       currentCost,
+      shownCost,
+      bulkLevels: bulk?.levels ?? 0,
       isMaxed: isUpgradeMaxed(id, upgradeState, rebirthLevel),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
-      canAffordUpgrade: currentCost ? currentValue.gte(currentCost) && hasTribPoint : false,
+      canAffordUpgrade: bulk ? bulk.levels > 0 : !!currentCost && currentValue.gte(currentCost) && hasTribPoint,
     };
   });
 
@@ -287,18 +294,24 @@ export const UpgradesList: React.FC = () => {
               数值重置丹 {state.valueResetPills || 0}
             </button>
           )}
+          {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，MAX = 一次升到圆满；下方按钮随之联动 */}
           {state.oneKeyUpgradeUnlocked && (
             <button
               id="btn-upgrade-all"
-              onClick={handleOneKeyUpgrade}
-              disabled={oneKeyCd > 0}
-              className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 ${
-                oneKeyCd > 0
-                  ? 'text-[#5b5548] border-[#2b2721] cursor-default'
-                  : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+              onClick={() => setMaxMode((v) => !v)}
+              aria-pressed={maxMode}
+              title={
+                maxMode
+                  ? '升级量 MAX：每次升级直接升到圆满 · 点击切回 1 级'
+                  : '升级量 1：每次升级 1 级 · 点击切至 MAX'
+              }
+              className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 cursor-pointer ${
+                maxMode
+                  ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
+                  : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
               }`}
             >
-              {oneKeyCd > 0 ? `一键升级 ${oneKeyCd}s` : '一键升级'}
+              升级量 {maxMode ? 'MAX' : '1'}
             </button>
           )}
         </div>
@@ -384,7 +397,8 @@ export const UpgradesList: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 仅按此按钮升级；支持长按连升（含移动端） */}
+                {/* 仅按此按钮升级；支持长按连升（含移动端）。
+                    升级量 1 → 升 1 级；升级量 MAX → 一次升到圆满，展示的即本批总消耗 */}
                 {isMaxed || !currentCost ? (
                   <UpgradeButton disabled>圆满</UpgradeButton>
                 ) : (
@@ -392,12 +406,20 @@ export const UpgradesList: React.FC = () => {
                     id={`btn-upgrade-${id}`}
                     disabled={!row.canAffordUpgrade}
                     onPress={() => {
-                      if (!currentCost || !row.canAffordUpgrade) return;
+                      if (!row.canAffordUpgrade) return;
+                      // MAX 模式：一次升到当前可及的圆满等级
+                      if (maxMode) {
+                        onUpgradeMax(id);
+                        return;
+                      }
+                      if (!currentCost) return;
                       onUpgrade(id, currentCost);
                     }}
-                    ariaLabel="升级"
+                    ariaLabel={maxMode ? '升到圆满' : '升级'}
                   >
-                    {currentCost.formatChinese(2)}
+                    {maxMode && row.bulkLevels > 0 && row.shownCost
+                      ? `MAX ${row.shownCost.formatChinese(2)}`
+                      : currentCost.formatChinese(2)}
                   </UpgradeButton>
                 )}
               </>

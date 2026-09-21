@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import { BigNum } from '../utils/bigNumber';
 import {
   GameState,
@@ -37,7 +37,8 @@ export interface GameActions {
   handleUserClick: () => void;
   handleUnlockUpgrade: (id: UpgradeId, cost: BigNum) => void;
   handleUpgradeLevel: (id: UpgradeId, cost: BigNum) => void;
-  handleUpgradeAll: () => boolean;
+  /** 数值殿：把某项功法一次升到当前可及的圆满等级（升级量 MAX），返回实际升级数 */
+  handleUpgradeMax: (id: UpgradeId) => number;
   handleUnlockAchievements: () => void;
   handleUnlockTitles: () => void;
   handleGambleSettle: (type: SettleType, amount: BigNum) => void;
@@ -45,7 +46,8 @@ export interface GameActions {
   handleBuyLevelCap: (id: UpgradeId) => void;
   handleBuyRebirthPointLevel: () => void;
   handleBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
-  handleUpgradeAllRebirth: () => boolean;
+  /** 永劫殿：把某项属性一次升到当前可及的圆满等级（升级量 MAX），返回实际升级数 */
+  handleBuyRebirthMergedUpgradeMax: (id: UpgradeId) => number;
   handleUnlockCollapse: () => void;
   handleUnlockTribulation: () => void;
   handleTribulation: (outcome: TribulationOutcome) => void;
@@ -124,7 +126,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleUserClick,
     handleUnlockUpgrade,
     handleUpgradeLevel,
-    handleUpgradeAll,
+    handleUpgradeMax,
     handleUnlockAchievements,
     handleUnlockTitles,
     handleGambleSettle,
@@ -132,7 +134,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleBuyLevelCap,
     handleBuyRebirthPointLevel,
     handleBuyRebirthMergedUpgrade,
-    handleUpgradeAllRebirth,
+    handleBuyRebirthMergedUpgradeMax,
     handleUnlockCollapse,
     handleUnlockTribulation,
     handleTribulation,
@@ -174,13 +176,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isFirstEntry) modals.firstEntry.open();
   }, [isFirstEntry, modals]);
 
+  // 通关提示：仅在「未通关 → 通关」这一刻弹一次；读档即已通关时不重复打扰
+  const prevClearedRef = useRef(state.gameCleared);
+  useEffect(() => {
+    const wasCleared = prevClearedRef.current;
+    prevClearedRef.current = state.gameCleared;
+    if (!wasCleared && state.gameCleared) modals.cleared.open();
+  }, [state.gameCleared, modals]);
+
   // 所有 handler 均为 useCallback（依赖稳定），故此对象引用恒定：消费方不会因数值变化而重渲染
   const actions = useMemo<GameActions>(
     () => ({
       handleUserClick,
       handleUnlockUpgrade,
       handleUpgradeLevel,
-      handleUpgradeAll,
+      handleUpgradeMax,
       handleUnlockAchievements,
       handleUnlockTitles,
       handleGambleSettle,
@@ -188,7 +198,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleBuyLevelCap,
       handleBuyRebirthPointLevel,
       handleBuyRebirthMergedUpgrade,
-      handleUpgradeAllRebirth,
+      handleBuyRebirthMergedUpgradeMax,
       handleUnlockCollapse,
       handleUnlockTribulation,
       handleTribulation,
@@ -224,7 +234,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleUserClick,
       handleUnlockUpgrade,
       handleUpgradeLevel,
-      handleUpgradeAll,
+      handleUpgradeMax,
       handleUnlockAchievements,
       handleUnlockTitles,
       handleGambleSettle,
@@ -232,7 +242,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleBuyLevelCap,
       handleBuyRebirthPointLevel,
       handleBuyRebirthMergedUpgrade,
-      handleUpgradeAllRebirth,
+      handleBuyRebirthMergedUpgradeMax,
       handleUnlockCollapse,
       handleUnlockTribulation,
       handleTribulation,

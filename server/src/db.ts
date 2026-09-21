@@ -45,6 +45,7 @@ db.exec(`
     total_spent_m       REAL    NOT NULL DEFAULT 0,
     total_spent_e       REAL    NOT NULL DEFAULT 0,
     total_spent_score   REAL    NOT NULL DEFAULT 0,
+    game_cleared        INTEGER NOT NULL DEFAULT 0,
     created_at          INTEGER NOT NULL,
     updated_at          INTEGER NOT NULL
   );
@@ -60,6 +61,9 @@ db.exec(`
 const userColumns = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
 if (!userColumns.some((c) => c.name === 'click_count')) {
   db.exec('ALTER TABLE users ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0');
+}
+if (!userColumns.some((c) => c.name === 'game_cleared')) {
+  db.exec('ALTER TABLE users ADD COLUMN game_cleared INTEGER NOT NULL DEFAULT 0');
 }
 
 db.exec(`

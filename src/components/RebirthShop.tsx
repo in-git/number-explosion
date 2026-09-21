@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { UpgradeId } from '../types';
 import { useGameActions, useGameData } from '../context/GameContext';
 import { REBIRTH_MERGED_UPGRADES, AUTO_UNLOCK_COST, RANKING_UNLOCK_COST } from '../config';
 import {
   COLLAPSE_COST,
+  getBulkRebirthUpgradeResult,
   getRebirthMergedUpgradeCost,
   getRebirthBaseValueCost,
   getRebirthBaseValueGain,
@@ -18,6 +19,7 @@ import {
   isRebirthEffectCapped,
   isChanceCapped,
   getAfterlifeUpgradeMultiplier,
+  getRebirthChanceHeadroom,
   UPGRADE_TRIBULATION_POINT_COST,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
@@ -91,7 +93,7 @@ export const RebirthShop: React.FC = () => {
   const { state } = useGameData();
   const {
     handleBuyRebirthMergedUpgrade,
-    handleUpgradeAllRebirth: onUpgradeAllRebirth,
+    handleBuyRebirthMergedUpgradeMax: onBuyMax,
     handleUnlockCollapse,
     handleUnlockRanking,
     handleBuyAutoUnlock,
@@ -107,19 +109,12 @@ export const RebirthShop: React.FC = () => {
     );
   const canUseRebirthReset = (state.rebirthResetPills || 0) > 0 && hasResettableLevel;
 
-  // 一键升级冷却：剩余秒数（0 表示可用）
-  const [oneKeyCd, setOneKeyCd] = useState(0);
-  useEffect(() => {
-    if (oneKeyCd <= 0) return;
-    const timer = window.setTimeout(() => setOneKeyCd((v) => Math.max(0, v - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [oneKeyCd]);
-
-  const handleOneKeyUpgrade = () => {
-    if (oneKeyCd > 0) return;
-    // 仅在本次确实升了级时进入冷却
-    if (onUpgradeAllRebirth()) setOneKeyCd(5);
-  };
+  /**
+   * 升级量模式（「一键升级」按钮即其开关）：
+   * false = 每次升 1 级（默认）；true = 一次升到圆满。
+   * 下方每个升级按钮均按此模式结算。
+   */
+  const [maxMode, setMaxMode] = useState(false);
 
   // 各条目的展示由解锁状态决定（未解锁的解锁项常驻，解锁后隐藏）
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
@@ -131,6 +126,10 @@ export const RebirthShop: React.FC = () => {
   const needTribPoint = !!state.tribulationSuccess;
   const hasTribPoint =
     !needTribPoint || (state.tribulationPoints || 0) >= UPGRADE_TRIBULATION_POINT_COST;
+  // MAX 模式下受渡劫点限制的可购买次数（未渡劫成功时不限）
+  const pointLevelLimit = needTribPoint
+    ? Math.floor((state.tribulationPoints || 0) / UPGRADE_TRIBULATION_POINT_COST)
+    : Infinity;
 
   return (
     <div className="flex flex-col gap-2">
@@ -163,19 +162,24 @@ export const RebirthShop: React.FC = () => {
         >
           {/* 一键升级居左、永劫重置丹居右 */}
           <div className="flex flex-1 min-w-0 items-center justify-between gap-2">
-            {/* 一键升级：与右侧「永劫重置丹」同规格（规则同数值殿，冷却 5s） */}
+            {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，MAX = 一次升到圆满；下方按钮随之联动 */}
             {state.oneKeyUpgradeUnlocked && (
               <button
                 id="btn-rebirth-upgrade-all"
-                onClick={handleOneKeyUpgrade}
-                disabled={oneKeyCd > 0}
-                className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 ${
-                  oneKeyCd > 0
-                    ? 'text-[#5b5548] border-[#2b2721] cursor-default'
-                    : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+                onClick={() => setMaxMode((v) => !v)}
+                aria-pressed={maxMode}
+                title={
+                  maxMode
+                    ? '升级量 MAX：每次升级直接升到圆满 · 点击切回 1 级'
+                    : '升级量 1：每次升级 1 级 · 点击切至 MAX'
+                }
+                className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
+                  maxMode
+                    ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
+                    : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
                 }`}
               >
-                {oneKeyCd > 0 ? `一键升级 ${oneKeyCd}s` : '一键升级'}
+                升级量 {maxMode ? 'MAX' : '1'}
               </button>
             )}
             {/* 永劫重置丹：消耗 1 颗，一次性重置全部属性 */}
@@ -225,7 +229,19 @@ export const RebirthShop: React.FC = () => {
             : id === 'baseValue'
               ? getRebirthBaseValueCost(level)
               : getRebirthMergedUpgradeCost(id, level);
-          const canBuy = cost !== null && state.rebirthPoints >= cost.toNumber() && hasTribPoint;
+          // MAX 模式：本批「连升到圆满」可购买的级数与总消耗（永劫点数）
+          // 上限同时受渡劫点与「两殿概率合计不超 100%」约束
+          const bulk = maxMode
+            ? getBulkRebirthUpgradeResult(
+                id,
+                level,
+                state.rebirthPoints,
+                Math.min(pointLevelLimit, getRebirthChanceHeadroom(attrs, id))
+              )
+            : null;
+          const canBuy = bulk
+            ? bulk.levels > 0
+            : cost !== null && state.rebirthPoints >= cost.toNumber() && hasTribPoint;
           return (
             <div
               key={id}
@@ -257,11 +273,22 @@ export const RebirthShop: React.FC = () => {
                 id={`btn-rebirth-merged-${id}`}
                 disabled={!canBuy}
                 onPress={() => {
-                  if (!canBuy || cost === null) return;
+                  if (!canBuy) return;
+                  // MAX 模式：一次升到当前可及的圆满等级
+                  if (maxMode) {
+                    onBuyMax(id);
+                    return;
+                  }
+                  if (cost === null) return;
                   handleBuyRebirthMergedUpgrade(id);
                 }}
+                ariaLabel={maxMode ? '升到圆满' : '升级'}
               >
-                {freqMaxed ? '圆满' : `${cost!.formatChinese(0)} 点`}
+                {freqMaxed
+                  ? '圆满'
+                  : maxMode && bulk && bulk.levels > 0
+                    ? `MAX ${BigNum.fromNumber(bulk.cost).formatChinese(0)} 点`
+                    : `${cost!.formatChinese(0)} 点`}
               </UpgradeButton>
             </div>
           );

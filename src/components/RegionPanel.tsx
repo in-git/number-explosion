@@ -69,6 +69,7 @@ export const RegionPanel: React.FC<RegionPanelProps> = ({
         playTimeMs: state.playTimeMs || 0,
         clickCount: state.totalClickCount || 0,
         highestValue: state.highestValue,
+        gameCleared: state.gameCleared,
       }, account.token);
       onRegionSelected(regionId, region?.name ?? regionId);
       onBack();

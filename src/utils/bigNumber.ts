@@ -62,6 +62,12 @@ const ALPHA_TIERS = 3;
 /** 最高档索引 */
 export const ALPHA_MAX_INDEX = ALPHA_LETTERS.length * ALPHA_TIERS - 1;
 
+/**
+ * 「通关」阈值指数：数值达到字母档位顶点 1ssr（10^757）即视为通关。
+ * 与 formatChinese 的封顶档位严格一致（e >= CLEAR_EXP 时显示为 1ssr）。
+ */
+export const CLEAR_EXP = ALPHA_BASE_EXP + 1 + ALPHA_MAX_INDEX * ALPHA_STEP_EXP;
+
 /** 第 index 档的字母后缀（index 从 0 起，超出范围按最高档「ssr」钳制） */
 export function getAlphaUnitLabel(index: number): string {
   if (!Number.isFinite(index)) return 'ssr';

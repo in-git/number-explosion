@@ -62,7 +62,7 @@ export const AfterlifeShop: React.FC = () => {
   const rebirthCapCost = getRebirthCapUpgradeCost(capLevel);
   const canBuyRebirthCap = state.afterlifePoints >= rebirthCapCost;
 
-  // 一键升级：消耗 10 往生点解锁，解锁后数值殿才显示一键升级按钮
+  // 一键升级：消耗 10 往生点解锁，解锁后数值殿 / 永劫殿才显示「升级量」开关
   const canUnlockOneKey = state.afterlifePoints >= ONE_KEY_UPGRADE_UNLOCK_COST;
 
   // 渡劫：需先消耗 100 往生点解锁；实际渡劫在「天雷峰」模态框内进行
@@ -291,7 +291,7 @@ export const AfterlifeShop: React.FC = () => {
               </span>
             </div>
             <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-              数值殿开启一键升级 · 自动按「概率 → 数值 → 倍数」升满
+              数值殿 / 永劫殿开启「升级量」开关 · 可一键升到圆满
             </div>
           </div>
           <UpgradeButton

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BigNum } from '../utils/bigNumber';
-import { GameState, UpgradeId, UpgradeState, UserAccountData, OfflineGainReport } from '../types';
+import { BigNum, CLEAR_EXP } from '../utils/bigNumber';
+import { GameState, UpgradeId, UserAccountData, OfflineGainReport } from '../types';
 import { SettleType, PointsCurrency } from '../components/FunShop';
 import {
   UPGRADE_METADATA,
@@ -25,18 +25,16 @@ import {
   getAfterlifeUpgradeCost,
   getAfterlifeUpgradeMultiplier,
   UPGRADE_TRIBULATION_POINT_COST,
-  getUpgradeCost,
-  getUpgradeMaxLevel,
-  isUpgradeMaxed,
-  isRebirthEffectCapped,
+  getBulkUpgradeResult,
+  getBulkRebirthUpgradeResult,
+  getRebirthChanceHeadroom,
   calculateGameAttributes,
-  CRIT_CHANCE_STEP,
-  COMBO_CHANCE_STEP,
   getRebirthPointsCap,
   getRebirthCapUpgradeCost,
   getAutoRebirthPoints,
   getAutoRebirthIntervalMs,
   TRIBULATION_POINT_INTERVAL_MS,
+  TRIBULATION_POINT_GAIN,
   TRIBULATION_COST,
   TRIBULATION_PILL_COST,
   TRIBULATION_MAX_COUNT,
@@ -235,6 +233,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       highestValue: next.gt(BigNum.fromData(prev.highestValue))
         ? next.toData()
         : prev.highestValue,
+      // 数值达 1ssr（字母档位顶点）即标记通关；存档属性，一经达成永不复位
+      gameCleared: prev.gameCleared || (next.m > 0 && next.e >= CLEAR_EXP),
     }));
     return next;
   }, []);
@@ -513,60 +513,47 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [commitValue]
   );
 
+  /** 本次最多可升级数：渡劫成功后每级另需 1 点渡劫点，点数耗尽即停 */
+  const pointLevelLimit = (state: GameState): number =>
+    needTribulationPoint(state)
+      ? Math.floor(availableTribulationPoints(state) / UPGRADE_TRIBULATION_POINT_COST)
+      : Infinity;
+
   /**
-   * 数值殿：一键升级
-   * 贪心策略：每一轮都挑「当下买得起且最便宜」的一项买 1 级，
-   * 直至数值不足 / 渡劫点耗尽 / 全部圆满为止。
-   * @returns 本次是否至少升了 1 级
+   * 数值殿：把指定功法一次性升到当前可及的圆满等级（升级量 MAX）。
+   * 规则与 getBulkUpgradeResult 同源（逐级贪心），故按钮展示的消耗即此处实际扣除值。
+   * @returns 本次实际升的级数（0 = 未升级）
    */
-  const handleUpgradeAll = useCallback(() => {
-    const prev = stateRef.current;
-    const nextUpgrades = { ...prev.upgrades };
-    let value = bigNumRef.current;
-    let bought = 0;
+  const handleUpgradeMax = useCallback(
+    (id: UpgradeId): number => {
+      const prev = stateRef.current;
+      const up = prev.upgrades[id];
+      if (!up || !up.unlocked) return 0;
 
-    // 渡劫成功后：每级另需 1 点渡劫点，点数耗尽即停
-    let tribPoints = availableTribulationPoints(prev);
-    const needTrib = needTribulationPoint(prev);
+      // 概率类上限需扣减永劫殿已提供的概率，保证两殿合计不超 100%
+      const rebirthLevel = prev.rebirthMergedLevels?.[id] || 0;
+      const { levels, cost } = getBulkUpgradeResult(
+        id,
+        up,
+        rebirthLevel,
+        bigNumRef.current,
+        pointLevelLimit(prev)
+      );
+      if (levels <= 0) return 0;
 
-    /** 当前「买得起且最便宜」的一项；都买不起 / 都圆满时返回 null */
-    const pickCheapest = (): { id: UpgradeId; up: UpgradeState; cost: BigNum } | null => {
-      let best: { id: UpgradeId; up: UpgradeState; cost: BigNum } | null = null;
-      UPGRADE_ORDER.forEach((id) => {
-        const up = nextUpgrades[id];
-        if (!up || !up.unlocked) return;
-        // 概率类上限需扣减永劫殿已提供的概率，保证两殿合计不超 100%
-        const rebirthLevel = prev.rebirthMergedLevels?.[id] || 0;
-        if (isUpgradeMaxed(id, up, rebirthLevel)) return;
-        const maxLevel = getUpgradeMaxLevel(id, up, rebirthLevel);
-        // 往生殿优惠已全部作用于永劫殿，数值殿升级维持原价
-        const cost = getUpgradeCost(id, up.level, maxLevel);
-        if (!cost || !value.gte(cost)) return;
-        if (best === null || cost.lt(best.cost)) best = { id, up, cost };
-      });
-      return best;
-    };
-
-    for (;;) {
-      if (needTrib && tribPoints < UPGRADE_TRIBULATION_POINT_COST) break;
-      const next = pickCheapest();
-      if (!next) break;
-      value = value.sub(next.cost);
-      if (needTrib) tribPoints -= UPGRADE_TRIBULATION_POINT_COST;
-      nextUpgrades[next.id] = { ...next.up, level: next.up.level + 1 };
-      bought += 1;
-    }
-
-    if (bought <= 0) return false;
-
-    commitValue(value);
-    setState((p) => ({
-      ...p,
-      upgrades: nextUpgrades,
-      ...payTribulationPointsTimes(p, bought),
-    }));
-    return true;
-  }, [commitValue]);
+      commitValue(bigNumRef.current.sub(cost));
+      setState((p) => ({
+        ...p,
+        upgrades: {
+          ...p.upgrades,
+          [id]: { ...p.upgrades[id], level: p.upgrades[id].level + levels },
+        },
+        ...payTribulationPointsTimes(p, levels),
+      }));
+      return levels;
+    },
+    [commitValue]
+  );
 
   /** 数值殿：花费 50 万数值开启成就系统 */
   const handleUnlockAchievements = useCallback(() => {
@@ -734,11 +721,13 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         ...(rebirthNext || {}),
       };
 
-      // 渡劫点：每 TRIBULATION_POINT_INTERVAL_MS 产出 1 点（余下时间结转到下一颗）
+      // 渡劫点：每 TRIBULATION_POINT_INTERVAL_MS 结算一次，每周期产出 TRIBULATION_POINT_GAIN 点
+      //（余下时间结转到下一周期）
       const tpMs = Math.max(0, prev.tribulationPointProgressMs || 0) + RESET_PILL_TICK_MS;
-      const tpGain = Math.floor(tpMs / TRIBULATION_POINT_INTERVAL_MS);
-      next.tribulationPoints = (prev.tribulationPoints || 0) + tpGain;
-      next.tribulationPointProgressMs = tpMs - tpGain * TRIBULATION_POINT_INTERVAL_MS;
+      const tpCycles = Math.floor(tpMs / TRIBULATION_POINT_INTERVAL_MS);
+      next.tribulationPoints =
+        (prev.tribulationPoints || 0) + tpCycles * TRIBULATION_POINT_GAIN;
+      next.tribulationPointProgressMs = tpMs - tpCycles * TRIBULATION_POINT_INTERVAL_MS;
 
       // 自动永劫结算：间隔 30s 起、每产出一次 +5s、180s 封顶；仅加算点数，不清除任何数据
       const arInterval = getAutoRebirthIntervalMs(prev.autoRebirthCount || 0);
@@ -934,72 +923,41 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }, []);
 
   /**
-   * 永劫殿：一键升级（规则与数值殿完全一致）
-   * 按「连击概率 → 暴击概率 → 数值升级 → 连击倍数 → 暴击倍数」的优先级，
-   * 用当前永劫点数尽力把每一项升满（点数不足或已达上限则停止）。
-   * @returns 本次是否至少升了 1 级
+   * 永劫殿：把指定属性一次性升到当前可及的圆满等级（升级量 MAX）。
+   * 规则与 getBulkRebirthUpgradeResult 同源（逐级贪心），故按钮展示的消耗即实际扣除值。
+   * @returns 本次实际升的级数（0 = 未升级）
    */
-  const handleUpgradeAllRebirth = useCallback((): boolean => {
+  const handleBuyRebirthMergedUpgradeMax = useCallback((id: UpgradeId): number => {
     const prev = stateRef.current;
-    let points = Math.max(0, prev.rebirthPoints || 0);
-    let baseValueLevel = Math.max(0, prev.rebirthBaseValueLevel || 0);
-    const levels = { ...(prev.rebirthMergedLevels || ({} as Record<UpgradeId, number>)) };
-    let bought = 0;
+    const level =
+      id === 'baseValue' ? prev.rebirthBaseValueLevel || 0 : prev.rebirthMergedLevels?.[id] || 0;
 
-    // 概率类以「两殿合计」为准（与永劫殿面板的隐藏规则一致），避免买到 100% 以上
-    const attrs = calculateGameAttributes(prev);
-    // 渡劫成功后：每级另需 1 点渡劫点，点数耗尽即停
-    let tribPoints = availableTribulationPoints(prev);
-    const needTrib = needTribulationPoint(prev);
-
-    const order: UpgradeId[] = [
-      'comboChance',
-      'critChance',
-      'baseValue',
-      'comboMultiplier',
-      'critMultiplier',
-    ];
-
-    order.forEach((id) => {
-      const chanceValue =
-        id === 'comboChance' ? attrs.comboChance : id === 'critChance' ? attrs.critChance : null;
-      const chanceStep = id === 'critChance' ? CRIT_CHANCE_STEP : COMBO_CHANCE_STEP;
-      let added = 0;
-
-      for (;;) {
-        const level = id === 'baseValue' ? baseValueLevel : Math.max(0, levels[id] || 0);
-        // 该属性自身已达效果上限（概率 100% / 频率满级）
-        if (isRebirthEffectCapped(id, level)) break;
-        // 两殿合计概率已达（或超过）100% 即止
-        if (chanceValue !== null && chanceValue + added * chanceStep >= 1.0) break;
-
-        const cost =
-          id === 'baseValue'
-            ? getRebirthBaseValueCost(level)
-            : getRebirthMergedUpgradeCost(id, level);
-        const costNum = Math.max(0, cost.toNumber());
-        if (points < costNum) break;
-        if (needTrib && tribPoints < UPGRADE_TRIBULATION_POINT_COST) break;
-
-        points -= costNum;
-        if (needTrib) tribPoints -= UPGRADE_TRIBULATION_POINT_COST;
-        added += 1;
-        bought += 1;
-        if (id === 'baseValue') baseValueLevel += 1;
-        else levels[id] = level + 1;
-      }
-    });
-
-    if (bought <= 0) return false;
+    const { levels, cost } = getBulkRebirthUpgradeResult(
+      id,
+      level,
+      Math.max(0, prev.rebirthPoints || 0),
+      // 点数限制 + 两殿概率合计不超 100% 的限制
+      Math.min(
+        pointLevelLimit(prev),
+        getRebirthChanceHeadroom(calculateGameAttributes(prev), id)
+      )
+    );
+    if (levels <= 0) return 0;
 
     setState((p) => ({
       ...p,
-      rebirthPoints: points,
-      rebirthBaseValueLevel: baseValueLevel,
-      rebirthMergedLevels: levels,
-      ...payTribulationPointsTimes(p, bought),
+      rebirthPoints: Math.max(0, p.rebirthPoints - cost),
+      ...(id === 'baseValue'
+        ? { rebirthBaseValueLevel: (p.rebirthBaseValueLevel || 0) + levels }
+        : {
+            rebirthMergedLevels: {
+              ...p.rebirthMergedLevels,
+              [id]: (p.rebirthMergedLevels?.[id] || 0) + levels,
+            },
+          }),
+      ...payTribulationPointsTimes(p, levels),
     }));
-    return true;
+    return levels;
   }, []);
 
   /** 永劫商殿：消耗 5 点永劫值解锁坍缩 */
@@ -1298,7 +1256,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     });
   }, []);
 
-  /** 往生殿：消耗 10 点往生点解锁「一键升级」（解锁后数值殿才显示一键升级按钮） */
+  /** 往生殿：消耗 10 点往生点解锁「升级量」开关（解锁后数值殿 / 永劫殿才显示该开关） */
   const handleUnlockOneKeyUpgrade = useCallback(() => {
     let done = false;
     setState((prev) => {
@@ -1314,8 +1272,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     });
     if (done) {
       addToast(
-        '一键升级',
-        `消耗 ${ONE_KEY_UPGRADE_UNLOCK_COST} 点往生点 · 数值殿已开启一键升级`
+        '升级量开关',
+        `消耗 ${ONE_KEY_UPGRADE_UNLOCK_COST} 点往生点 · 数值殿 / 永劫殿已可一键升到圆满`
       );
     }
   }, [addToast]);
@@ -1514,7 +1472,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUserClick,
     handleUnlockUpgrade,
     handleUpgradeLevel,
-    handleUpgradeAll,
+    handleUpgradeMax,
     handleUnlockAchievements,
     handleUnlockTitles,
     handleGambleSettle,
@@ -1522,7 +1480,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleBuyLevelCap,
     handleBuyRebirthPointLevel,
     handleBuyRebirthMergedUpgrade,
-    handleUpgradeAllRebirth,
+    handleBuyRebirthMergedUpgradeMax,
     handleUnlockCollapse,
     handleUnlockTribulation,
     handleTribulation,

@@ -41,6 +41,8 @@ export interface UserSyncPayload {
   clickCount: number;
   /** 数值排行：历世最高数值（随存档上报，服务端据此排序） */
   highestValue: BigNumData;
+  /** 是否已通关（数值曾达 1ssr）：随成绩上报，榜上以「通关」标记展示 */
+  gameCleared: boolean;
 }
 
 /** 云端存档上报报文 */

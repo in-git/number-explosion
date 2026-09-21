@@ -159,6 +159,13 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
    */
   const archiveList: AttributeItem[] = [
     {
+      id: 'attr-game-cleared',
+      label: '通关',
+      value: state.gameCleared ? '已通关' : '未通关',
+      valueClass: state.gameCleared ? 'text-[#e8c46a]' : 'text-[#6f6656]',
+      detail: '数值曾达 1ssr · 永不复位',
+    },
+    {
       id: 'attr-highest-value',
       label: '最高数值',
       value: BigNum.fromData(state.highestValue).formatChinese(2),

@@ -333,8 +333,10 @@ export const VALUE_RESET_PILL_BASE_MS = 60 * 1000;
 export const REBIRTH_RESET_PILL_BASE_MS = 3 * 60 * 1000;
 /** 渡劫殿：炼制进度推进节拍（ms），同时也是进度条的数据刷新间隔 */
 export const RESET_PILL_TICK_MS = 1_000;
-/** 渡劫殿：产出 1 点「渡劫点」的间隔（ms） */
+/** 渡劫殿：产出「渡劫点」的间隔（ms） */
 export const TRIBULATION_POINT_INTERVAL_MS = 10_000;
+/** 渡劫殿：每个产出周期获得的「渡劫点」数量（每 10 秒 15 点） */
+export const TRIBULATION_POINT_GAIN = 15;
 /** 渡劫殿：自动结算「永劫点」的起始间隔（ms） */
 export const AUTO_REBIRTH_BASE_INTERVAL_MS = 30_000;
 /** 渡劫殿：每结算一次「永劫点」，下一次的间隔增量（ms） */
@@ -747,6 +749,91 @@ export function getUpgradeCost(
   return pow2(currentLevel).mulScalar(10);
 }
 
+/** 数值殿「连升到圆满」的结果：实际可升级数 + 这批升级的总消耗 */
+export interface BulkUpgradeResult {
+  /** 实际可升的级数（0 = 已圆满 / 一级都买不起 / 渡劫点不足） */
+  levels: number;
+  /** levels 级的总消耗 */
+  cost: BigNum;
+}
+
+/**
+ * 数值殿：计算「连升到圆满」实际可购买的级数与总消耗。
+ * 采用与结算完全一致的逐级贪心，故按钮展示的消耗即实际扣除值。
+ * @param budget 当前可用数值
+ * @param maxLevels 本次最多可升级数（受渡劫点限制；无限制时传 Infinity）
+ */
+export function getBulkUpgradeResult(
+  id: UpgradeId,
+  up: UpgradeState,
+  rebirthLevel: number,
+  budget: BigNum,
+  maxLevels: number = Infinity
+): BulkUpgradeResult {
+  const cost0 = new BigNum(0, 0);
+  if (!up.unlocked) return { levels: 0, cost: cost0 };
+
+  let cost = cost0;
+  let levels = 0;
+
+  while (levels < maxLevels) {
+    const current: UpgradeState = { ...up, level: up.level + levels };
+    // 已达等级上限 / 功能性到顶（如频率已至最快间隔）
+    if (isUpgradeMaxed(id, current, rebirthLevel)) break;
+    const maxLevel = getUpgradeMaxLevel(id, current, rebirthLevel);
+    const step = getUpgradeCost(id, current.level, maxLevel);
+    if (!step) break;
+    const total = cost.add(step);
+    if (!budget.gte(total)) break;
+    cost = total;
+    levels += 1;
+  }
+
+  return { levels, cost };
+}
+
+/** 永劫殿「连升到圆满」的结果：实际可购买数 + 这批购买的总消耗（永劫点数） */
+export interface BulkRebirthUpgradeResult {
+  /** 实际可购买的级数（0 = 已圆满 / 点数不足 / 渡劫点不足） */
+  levels: number;
+  /** levels 级的总消耗（永劫点数） */
+  cost: number;
+}
+
+/**
+ * 永劫殿：计算「连升到圆满」实际可购买的级数与总消耗。
+ * 采用与结算完全一致的逐级贪心，故按钮展示的消耗即实际扣除值。
+ * @param level 该属性当前等级
+ * @param budget 当前可用永劫点数
+ * @param maxLevels 本次最多可购买数（受渡劫点限制；无限制时传 Infinity）
+ */
+export function getBulkRebirthUpgradeResult(
+  id: UpgradeId,
+  level: number,
+  budget: number,
+  maxLevels: number = Infinity
+): BulkRebirthUpgradeResult {
+  const start = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  let cost = 0;
+  let levels = 0;
+
+  while (levels < maxLevels) {
+    const current = start + levels;
+    // 上限类：概率已达 100% / 频率已至满级
+    if (isRebirthEffectCapped(id, current)) break;
+    const step =
+      id === 'baseValue'
+        ? getRebirthBaseValueCost(current)
+        : getRebirthMergedUpgradeCost(id, current);
+    const stepNum = Math.max(0, step.toNumber());
+    if (budget < cost + stepNum) break;
+    cost += stepNum;
+    levels += 1;
+  }
+
+  return { levels, cost };
+}
+
 /**
  * 两殿频率效果累加（单一计算入口）：
  * 数值殿与永劫殿各自独立计级、互不影响（各 20 级满级，各存各的等级），
@@ -927,6 +1014,23 @@ export function isChanceCapped(
   if (id === 'critChance') return attrs.critChance >= 1.0;
   if (id === 'comboChance') return attrs.comboChance >= 1.0;
   return false;
+}
+
+/**
+ * 永劫殿某项「连升」时，受「两殿合计概率不超 100%」约束的最大可购买数。
+ * 非概率类返回 Infinity（不受此约束）。
+ * 与旧版一键升级的判定一致：买到的级数恰好把合计概率补到 100% 即止。
+ */
+export function getRebirthChanceHeadroom(
+  attrs: ReturnType<typeof calculateGameAttributes>,
+  id: UpgradeId
+): number {
+  const step =
+    id === 'critChance' ? CRIT_CHANCE_STEP : id === 'comboChance' ? COMBO_CHANCE_STEP : 0;
+  if (step <= 0) return Infinity;
+  const chance = id === 'critChance' ? attrs.critChance : attrs.comboChance;
+  if (chance >= 1) return 0;
+  return Math.max(0, Math.ceil((1 - chance) / step));
 }
 
 export interface ClickResult {

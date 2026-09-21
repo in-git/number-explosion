@@ -39,6 +39,7 @@ export interface UserRow {
   highest_value_e: number;
   total_spent_m: number;
   total_spent_e: number;
+  game_cleared: number;
 }
 
 export function isBoard(v: unknown): v is LeaderboardId {
@@ -70,6 +71,7 @@ function toEntry(row: UserRow, board: LeaderboardId, rank: number): LeaderboardE
       clickCount: row.click_count,
       highestValue: { m: row.highest_value_m, e: row.highest_value_e },
       totalSpent: { m: row.total_spent_m, e: row.total_spent_e },
+      gameCleared: !!row.game_cleared,
     },
   };
 }
@@ -118,6 +120,7 @@ export interface StatsPatch {
   clickCount?: number;
   highestValue?: unknown;
   totalSpent?: unknown;
+  gameCleared?: unknown;
 }
 
 /** 写入/更新玩家成绩（regionId 为 null 时不改动原大区） */
@@ -143,6 +146,7 @@ export function updateUserStats(patch: StatsPatch): void {
        total_spent_m = ?,
        total_spent_e = ?,
        total_spent_score = ?,
+       game_cleared = MAX(game_cleared, ?),
        updated_at = ?
      WHERE id = ?`
   ).run(
@@ -162,6 +166,7 @@ export function updateUserStats(patch: StatsPatch): void {
     spent.m,
     spent.e,
     scoreOf(spent.m, spent.e),
+    patch.gameCleared ? 1 : 0,
     Date.now(),
     patch.userId
   );
@@ -183,5 +188,6 @@ export function patchFromPayload(body: Partial<UserSyncPayload>): StatsPatch {
     clickCount: body.clickCount,
     highestValue: body.highestValue,
     totalSpent: body.totalSpent,
+    gameCleared: body.gameCleared,
   };
 }
