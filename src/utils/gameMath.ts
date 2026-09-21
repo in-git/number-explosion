@@ -267,8 +267,11 @@ export const UPGRADE_METADATA: Record<UpgradeId, { name: string; requiredClicks:
 /** 坍缩所需消耗的永劫点数 */
 export const COLLAPSE_COST = 5;
 
-/** 渡劫：于往生殿「天雷峰」每次渡劫消耗的往生点（恒定 1 万） */
-export const TRIBULATION_COST = 10000;
+/**
+ * 渡劫：于往生殿「天雷峰」每次渡劫消耗的往生点（正式值为 10000）。
+ * ⚠️ 当前临时置 0，仅供测试；测试完成后请改回 10000。
+ */
+export const TRIBULATION_COST = 0;
 /** 每颗渡劫丹所需的往生点 */
 export const TRIBULATION_PILL_COST = 300;
 /** 渡劫次数上限（= 成功的渡劫次数上限） */
@@ -290,6 +293,18 @@ export function getTribulationCost(_currentLevel: number): number {
  */
 export function getTribulationStrikeChance(hasPill: boolean): number {
   return hasPill ? 1 : TRIBULATION_STRIKE_CHANCE;
+}
+
+/**
+ * 一次渡劫的整体通过率 = 9 道雷劫全部通过的概率。
+ * 前 s 道由渡劫丹保过（s = 丹药数与 9 道的较小值），其余每道仅 50%，
+ * 故整体通过率 = 0.5^(9 − s)。
+ * 例：3 颗丹 → 前 3 道必过，后 6 道须各自赌一次 → 0.5^6 = 1.5625%
+ */
+export function getTribulationSuccessChance(pillStock: number): number {
+  const stock = Number.isFinite(pillStock) && pillStock > 0 ? Math.floor(pillStock) : 0;
+  const guaranteed = Math.min(stock, TRIBULATION_STRIKE_COUNT);
+  return Math.pow(TRIBULATION_STRIKE_CHANCE, TRIBULATION_STRIKE_COUNT - guaranteed);
 }
 
 /** 一次渡劫的结算过程 */

@@ -75,6 +75,16 @@ body {
   }
 }
 
+/* 天雷峰·渡劫：当前这一道雷劫的计时进度条（时长由元素内联样式给出） */
+@keyframes strikeProgress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 /* Custom scrollbar matching weathered stone aesthetic（始终可见，便于辨识内容已溢出） */
 * {
   scrollbar-width: thin;
