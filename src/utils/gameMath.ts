@@ -172,11 +172,43 @@ export function getBaseValueBonus(level: number): BigNum {
  * 往生殿的强化作用于永劫殿而非数值殿；新增任何加成来源只需改这里。
  */
 export function getBaseValueUpgradeBonus(state: GameState): BigNum {
-  const shopLevel = state.upgrades?.baseValue?.unlocked ? state.upgrades.baseValue.level : 0;
+  const shopLevel = state.upgrades?.baseValue?.unlocked
+    ? getEffectiveUpgradeLevel(state, 'baseValue')
+    : 0;
   const afterlifeLevel = state.afterlifeUpgradeLevels?.baseValue || 0;
+  // 永劫殿「基础数值」：当前等级 + 永劫重置丹保留的等级（等级为永久道基，转世不清零）
+  const rebirthLevel =
+    (state.rebirthBaseValueLevel || 0) + getRebirthResetKeptLevel(state);
   return getBaseValueBonus(shopLevel).add(
-    getRebirthBaseValueBonus(state.rebirthBaseValueLevel || 0, afterlifeLevel)
+    getRebirthBaseValueBonus(rebirthLevel, afterlifeLevel)
   );
+}
+
+/**
+ * 数值重置丹账本：该功法被重置掉的等级（未使用过则为 0）。
+ * 这部分等级不再参与「升级消耗」的计算，但效果照旧计入。
+ */
+export function getValueResetKeptLevel(state: GameState, id: UpgradeId): number {
+  const lv = state.valueResetLevels?.[id];
+  return Number.isFinite(lv) && lv > 0 ? Math.floor(lv) : 0;
+}
+
+/**
+ * 永劫重置丹账本：永劫殿「基础数值」被重置掉的等级（效果照旧计入）。
+ */
+export function getRebirthResetKeptLevel(state: GameState): number {
+  const lv = state.rebirthResetLevel;
+  return Number.isFinite(lv) && lv > 0 ? Math.floor(lv) : 0;
+}
+
+/**
+ * 某功法在数值殿的「有效等级」= 当前等级 + 数值重置丹保留的等级。
+ * - 效果按有效等级计算（用丹后效果不丢）
+ * - 升级消耗与等级上限仍按当前等级计算（消耗从初始曲线重新开始）
+ */
+export function getEffectiveUpgradeLevel(state: GameState, id: UpgradeId): number {
+  const current = state.upgrades?.[id]?.level || 0;
+  return current + getValueResetKeptLevel(state, id);
 }
 
 /**
@@ -274,7 +306,7 @@ export const COLLAPSE_COST = 5;
 export const TRIBULATION_COST = 0;
 /** 每颗渡劫丹所需的往生点 */
 export const TRIBULATION_PILL_COST = 300;
-/** 渡劫次数上限（= 成功的渡劫次数上限） */
+/** 渡劫次数上限：无论成败均计一次，累计渡劫 9 次后不可再渡 */
 export const TRIBULATION_MAX_COUNT = 9;
 /** 一次渡劫需要承受的雷劫道数 */
 export const TRIBULATION_STRIKE_COUNT = 9;
@@ -282,6 +314,23 @@ export const TRIBULATION_STRIKE_COUNT = 9;
 export const TRIBULATION_STRIKE_INTERVAL_MS = 3000;
 /** 无渡劫丹时，单道雷劫的通过率 */
 export const TRIBULATION_STRIKE_CHANCE = 0.5;
+
+/**
+ * 渡劫殿：炼制一炉「重置丹」的耗时基数（数值重置丹 / 永劫重置丹共用）。
+ * 首炉 10s，此后每炼成一炉耗时 +10s（10s、20s、30s、40s…）。
+ */
+export const RESET_PILL_BASE_MS = 10_000;
+/** 渡劫殿：炼制进度推进节拍（ms），同时也是进度条的数据刷新间隔 */
+export const RESET_PILL_TICK_MS = 1_000;
+
+/**
+ * 渡劫殿：第 n 炉重置丹的炼制耗时（n = 已炼成的炉数，从 0 起）。
+ * 序列：10s、20s、30s、40s…
+ */
+export function getResetPillDurationMs(craftedCount: number): number {
+  const n = Number.isFinite(craftedCount) && craftedCount > 0 ? Math.floor(craftedCount) : 0;
+  return RESET_PILL_BASE_MS * (n + 1);
+}
 
 /** 渡劫（渡劫次数 +1）所需的往生点：恒定 1 万 */
 export function getTribulationCost(_currentLevel: number): number {
@@ -787,7 +836,7 @@ export function calculateGameAttributes(state: GameState) {
   // 13. 「永劫爆炸」带来的额外永劫点数（每 100 万数值 +0.2 × 等级）
   const rebirthPointBonus = getRebirthPointBonusPerMillion(state.rebirthPointLevel || 0);
 
-  // 14. 渡劫次数（= 渡劫成功次数，上限 9）：单次收益取原值的 N 次方
+  // 14. 渡劫次数（成败均计，上限 9）：单次收益取原值的 N 次方
   //     0 次（尚未成功）时指数按 1 计，即次方不参与计算，避免 原值 ^ 0 = 1 打崩数值
   const tribulationExponent = getTribulationExponent(state.tribulationCount || 0);
 

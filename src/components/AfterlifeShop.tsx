@@ -18,7 +18,6 @@ import {
   getRebirthPointsCap,
 } from '../utils/gameMath';
 import { UpgradeButton } from './UpgradeButton';
-import { PressableRow } from './PressableRow';
 
 export const AfterlifeShop: React.FC = () => {
   const { state } = useGameData();
@@ -134,7 +133,7 @@ export const AfterlifeShop: React.FC = () => {
 
       <div className="flex flex-col gap-1.5">
         {order.map((id) => {
-          // 条目名用永劫殿的叫法（「数值升级」对应永劫殿的「基础数值」）
+          // 条目名沿用永劫殿的叫法（baseValue 统一叫「数值升级」）
           const label = REBIRTH_MERGED_UPGRADES.find((u) => u.id === id)?.label ?? id;
           const level = state.afterlifeUpgradeLevels?.[id] || 0;
           // 各条目均为「强化」：放大永劫殿该属性的累计加成（消耗统一为斐波那契数列）
@@ -144,15 +143,11 @@ export const AfterlifeShop: React.FC = () => {
           const canBuy = state.afterlifePoints >= cost;
 
           return (
-            <PressableRow
+            <div
               key={id}
               id={`afterlife-item-${id}`}
-              disabled={!canBuy}
-              onPress={() => {
-                if (canBuy) onBuyAfterlifeUpgrade(id);
-              }}
               className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-                canBuy ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+                canBuy ? '' : 'opacity-50'
               }`}
             >
               <div className="flex-1 min-w-0">
@@ -172,23 +167,25 @@ export const AfterlifeShop: React.FC = () => {
                 </div>
               </div>
 
-              <UpgradeButton id={`btn-afterlife-${id}`} disabled={!canBuy}>
+              <UpgradeButton
+                id={`btn-afterlife-${id}`}
+                disabled={!canBuy}
+                onPress={() => {
+                  if (canBuy) onBuyAfterlifeUpgrade(id);
+                }}
+              >
                 {BigNum.fromNumber(cost).formatChinese(0)} 点
               </UpgradeButton>
-            </PressableRow>
+            </div>
           );
         })}
       </div>
 
       {/* 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点 1,2,3,4,5… */}
-      <PressableRow
+      <div
         id="afterlife-item-rebirth-cap"
-        disabled={!canBuyRebirthCap}
-        onPress={() => {
-          if (canBuyRebirthCap) onBuyRebirthCapUpgrade();
-        }}
         className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-          canBuyRebirthCap ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+          canBuyRebirthCap ? '' : 'opacity-50'
         }`}
       >
         <div className="flex-1 min-w-0">
@@ -212,21 +209,24 @@ export const AfterlifeShop: React.FC = () => {
           </div>
         </div>
 
-        <UpgradeButton id="btn-afterlife-rebirth-cap" disabled={!canBuyRebirthCap}>
+        <UpgradeButton
+          id="btn-afterlife-rebirth-cap"
+          disabled={!canBuyRebirthCap}
+          onPress={() => {
+            if (canBuyRebirthCap) onBuyRebirthCapUpgrade();
+          }}
+        >
           {BigNum.fromNumber(rebirthCapCost).formatChinese(0)} 点
         </UpgradeButton>
-      </PressableRow>
+      </div>
 
-      {/* 渡劫：需先解锁；解锁后进入「天雷峰」（消耗 1 万往生点，成功渡劫点 +1，失败散尽一切） */}
-      {!state.tribulationUnlocked ? (
-        <PressableRow
+      {/* 渡劫：需先解锁；解锁后进入「天雷峰」（消耗 1 万往生点，成功渡劫点 +1，失败散尽一切）
+          已渡劫成功（飞升成仙）后移除入口 */}
+      {!state.tribulationSuccess && (!state.tribulationUnlocked ? (
+        <div
           id="afterlife-item-unlock-tribulation"
-          disabled={!canUnlockTribulation}
-          onPress={() => {
-            if (canUnlockTribulation) onUnlockTribulation();
-          }}
           className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-            canUnlockTribulation ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+            canUnlockTribulation ? '' : 'opacity-50'
           }`}
         >
           <div className="flex-1 min-w-0">
@@ -243,16 +243,18 @@ export const AfterlifeShop: React.FC = () => {
             </div>
           </div>
 
-          <UpgradeButton id="btn-afterlife-unlock-tribulation" disabled={!canUnlockTribulation}>
+          <UpgradeButton
+            id="btn-afterlife-unlock-tribulation"
+            disabled={!canUnlockTribulation}
+            onClick={onUnlockTribulation}
+          >
             {BigNum.fromNumber(TRIBULATION_UNLOCK_COST).formatChinese(0)} 点
           </UpgradeButton>
-        </PressableRow>
+        </div>
       ) : (
-        <PressableRow
+        <div
           id="afterlife-item-tribulation"
-          disabled={false}
-          onPress={onOpenTribulation}
-          className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]"
+          className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors"
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
@@ -265,20 +267,18 @@ export const AfterlifeShop: React.FC = () => {
             </div>
           </div>
 
-          <UpgradeButton id="btn-afterlife-tribulation">渡劫</UpgradeButton>
-        </PressableRow>
-      )}
+          <UpgradeButton id="btn-afterlife-tribulation" onClick={onOpenTribulation}>
+            渡劫
+          </UpgradeButton>
+        </div>
+      ))}
 
       {/* 一键升级（未解锁时显示）：消耗 10 往生点 */}
       {!state.oneKeyUpgradeUnlocked && (
-        <PressableRow
+        <div
           id="afterlife-item-one-key"
-          disabled={!canUnlockOneKey}
-          onPress={() => {
-            if (canUnlockOneKey) onUnlockOneKeyUpgrade();
-          }}
           className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-            canUnlockOneKey ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+            canUnlockOneKey ? '' : 'opacity-50'
           }`}
         >
           <div className="flex-1 min-w-0">
@@ -294,10 +294,14 @@ export const AfterlifeShop: React.FC = () => {
               数值殿开启一键升级 · 自动按「概率 → 数值 → 倍数」升满
             </div>
           </div>
-          <UpgradeButton id="btn-afterlife-unlock-one-key" disabled={!canUnlockOneKey}>
+          <UpgradeButton
+            id="btn-afterlife-unlock-one-key"
+            disabled={!canUnlockOneKey}
+            onClick={onUnlockOneKeyUpgrade}
+          >
             {BigNum.fromNumber(ONE_KEY_UPGRADE_UNLOCK_COST).formatChinese(0)} 点
           </UpgradeButton>
-        </PressableRow>
+        </div>
       )}
 
     </div>

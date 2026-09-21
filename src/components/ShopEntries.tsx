@@ -10,6 +10,7 @@ import {
   Sparkles,
   Store,
   Trophy,
+  Zap,
 } from 'lucide-react';
 import { REBIRTH_THRESHOLD } from '../config';
 import { getTitle } from '../utils/title';
@@ -106,6 +107,18 @@ export const ShopEntries: React.FC = () => {
           >
             <Sparkles size={18} className="text-[#d897fa] flex-shrink-0" />
             <div className={SHOP_TITLE}>往 生 殿</div>
+          </button>
+        )}
+
+        {/* 渡劫殿：渡劫成功（飞升成仙）后显示，耗时炼制重置丹 */}
+        {state.tribulationSuccess && (
+          <button
+            id="btn-open-tribulation-hall"
+            onClick={modals.tribulationHall.open}
+            className={`${SHOP_CARD} bg-[#221a12] border-[#5e3a24] hover:border-[#c8873f] active:translate-y-0.5 cursor-pointer`}
+          >
+            <Zap size={18} className="text-[#e8b56f] flex-shrink-0" />
+            <div className={SHOP_TITLE}>渡 劫 殿</div>
           </button>
         )}
       </div>

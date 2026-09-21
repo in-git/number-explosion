@@ -165,10 +165,50 @@ export function loadGameState(): GameState {
       })(),
       // 往生殿「渡劫」特权：默认未解锁
       tribulationUnlocked: !!parsed.tribulationUnlocked,
+      // 渡劫殿：数值重置丹存量 / 已炼炉数 / 当前炉进度（旧存档的「破风丹」字段迁移至此）
+      valueResetPills: Number.isFinite(parsed.valueResetPills)
+        ? Math.max(0, Math.floor(parsed.valueResetPills))
+        : Number.isFinite(parsed.breakingWindPills)
+          ? Math.max(0, Math.floor(parsed.breakingWindPills))
+          : 0,
+      valueResetCraftCount: Number.isFinite(parsed.valueResetCraftCount)
+        ? Math.max(0, Math.floor(parsed.valueResetCraftCount))
+        : Number.isFinite(parsed.breakingWindCraftCount)
+          ? Math.max(0, Math.floor(parsed.breakingWindCraftCount))
+          : 0,
+      valueResetProgressMs: Number.isFinite(parsed.valueResetProgressMs)
+        ? Math.max(0, parsed.valueResetProgressMs)
+        : Number.isFinite(parsed.breakingWindProgressMs)
+          ? Math.max(0, parsed.breakingWindProgressMs)
+          : 0,
+      valueResetCrafting: !!(parsed.valueResetCrafting ?? parsed.breakingWindCrafting),
+      // 渡劫殿：永劫重置丹存量 / 已炼炉数 / 当前炉进度（默认 0）
+      rebirthResetPills: Number.isFinite(parsed.rebirthResetPills)
+        ? Math.max(0, Math.floor(parsed.rebirthResetPills))
+        : 0,
+      rebirthResetCraftCount: Number.isFinite(parsed.rebirthResetCraftCount)
+        ? Math.max(0, Math.floor(parsed.rebirthResetCraftCount))
+        : 0,
+      rebirthResetProgressMs: Number.isFinite(parsed.rebirthResetProgressMs)
+        ? Math.max(0, parsed.rebirthResetProgressMs)
+        : 0,
+      rebirthResetCrafting: !!parsed.rebirthResetCrafting,
       rebirthToCollapseCount: Number.isFinite(parsed.rebirthToCollapseCount)
         ? Math.max(0, Math.floor(parsed.rebirthToCollapseCount))
         : 0,
       upgrades,
+      // 重置丹账本：记录被重置掉的等级（效果保留）
+      valueResetLevels: (Object.keys(INITIAL_STATE.valueResetLevels) as UpgradeId[]).reduce(
+        (acc, id) => {
+          const saved = parsed.valueResetLevels?.[id] ?? parsed.breakingWindLevels?.[id];
+          acc[id] = Number.isFinite(saved) && saved > 0 ? Math.max(0, Math.floor(saved)) : 0;
+          return acc;
+        },
+        {} as Record<UpgradeId, number>
+      ),
+      rebirthResetLevel: Number.isFinite(parsed.rebirthResetLevel)
+        ? Math.max(0, Math.floor(parsed.rebirthResetLevel))
+        : 0,
       // 旧存档迁移：无明确来源记录时，将当前等级保留为永劫殿独立等级（永久道基）
       rebirthMergedLevels: (Object.keys(INITIAL_STATE.rebirthMergedLevels) as UpgradeId[]).reduce(
         (acc, id) => {

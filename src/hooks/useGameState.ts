@@ -32,9 +32,11 @@ import {
   TRIBULATION_COST,
   TRIBULATION_PILL_COST,
   TRIBULATION_MAX_COUNT,
+  RESET_PILL_TICK_MS,
+  getResetPillDurationMs,
   TribulationOutcome,
 } from '../utils/gameMath';
-import { resetUpgradeLevels } from '../utils/state';
+import { resetToInitialState, resetUpgradeLevels } from '../utils/state';
 import { canAscendRank } from '../utils/title';
 import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { getServerNow, syncServerTime } from '../utils/serverTime';
@@ -556,6 +558,115 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     return () => cancelAnimationFrame(animId);
   }, [addFloatingText, checkUnlockTriggers, commitValue]);
 
+  /**
+   * 渡劫殿：炼制重置丹（数值重置丹 / 永劫重置丹，须手动点击「炼制」）。
+   * - 渡劫成功（飞升成仙）后渡劫殿才存在；未点击则不炼制
+   * - 每 RESET_PILL_TICK_MS 推进一次进度；一炉炼成得 1 颗丹后停炉，须再次点击
+   * - 每炼成一炉，下一炉耗时 +10s：10s、20s、30s、40s…
+   * - 进度与存量随存档落盘，关闭弹窗 / 刷新页面后继续炼制
+   */
+  useEffect(() => {
+    /** 推进一种丹；无需更新时返回 null */
+    const advance = (kind: 'value' | 'rebirth'): Partial<GameState> | null => {
+      const prev = stateRef.current;
+      const isValue = kind === 'value';
+      if (!(isValue ? prev.valueResetCrafting : prev.rebirthResetCrafting)) return null;
+
+      const craftCount = Math.max(
+        0,
+        (isValue ? prev.valueResetCraftCount : prev.rebirthResetCraftCount) || 0
+      );
+      const progressMs =
+        Math.max(0, (isValue ? prev.valueResetProgressMs : prev.rebirthResetProgressMs) || 0) +
+        RESET_PILL_TICK_MS;
+
+      // 炼成一炉：产出 1 颗后停炉
+      if (progressMs >= getResetPillDurationMs(craftCount)) {
+        return isValue
+          ? {
+              valueResetProgressMs: 0,
+              valueResetCraftCount: craftCount + 1,
+              valueResetPills: Math.max(0, prev.valueResetPills || 0) + 1,
+              valueResetCrafting: false,
+            }
+          : {
+              rebirthResetProgressMs: 0,
+              rebirthResetCraftCount: craftCount + 1,
+              rebirthResetPills: Math.max(0, prev.rebirthResetPills || 0) + 1,
+              rebirthResetCrafting: false,
+            };
+      }
+
+      return isValue ? { valueResetProgressMs: progressMs } : { rebirthResetProgressMs: progressMs };
+    };
+
+    const timer = window.setInterval(() => {
+      if (!stateRef.current.tribulationSuccess) return;
+      const valueNext = advance('value');
+      const rebirthNext = advance('rebirth');
+      if (!valueNext && !rebirthNext) return;
+      setState((p) => ({ ...p, ...valueNext, ...rebirthNext }));
+    }, RESET_PILL_TICK_MS);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  /** 渡劫殿：点击「炼制」即开炉 —— 数值重置丹（炼制中不可再次操作） */
+  const handleCraftValueResetPill = useCallback(() => {
+    setState((prev) => {
+      if (!prev.tribulationSuccess || prev.valueResetCrafting) return prev;
+      return { ...prev, valueResetCrafting: true, valueResetProgressMs: 0 };
+    });
+  }, []);
+
+  /** 渡劫殿：点击「炼制」即开炉 —— 永劫重置丹（炼制中不可再次操作） */
+  const handleCraftRebirthResetPill = useCallback(() => {
+    setState((prev) => {
+      if (!prev.tribulationSuccess || prev.rebirthResetCrafting) return prev;
+      return { ...prev, rebirthResetCrafting: true, rebirthResetProgressMs: 0 };
+    });
+  }, []);
+
+  /**
+   * 数值殿：使用一颗「数值重置丹」。
+   * 该项功法的升级消耗从初始曲线重新计算（等级清零），但已获得的效果全部保留：
+   * 清零的等级记入 valueResetLevels，效果仍按「当前等级 + 保留等级」累计。
+   */
+  const handleUseValueResetPill = useCallback((id: UpgradeId) => {
+    setState((prev) => {
+      const pills = Math.max(0, prev.valueResetPills || 0);
+      const up = prev.upgrades?.[id];
+      // 须持有丹药，且该项当前有等级可重置（无等级时消耗无意义）
+      if (pills < 1 || !up || !up.unlocked || up.level <= 0) return prev;
+      const kept = prev.valueResetLevels || INITIAL_STATE.valueResetLevels;
+      return {
+        ...prev,
+        valueResetPills: pills - 1,
+        upgrades: { ...prev.upgrades, [id]: { ...up, level: 0 } },
+        valueResetLevels: { ...kept, [id]: (kept[id] || 0) + up.level },
+      };
+    });
+  }, []);
+
+  /**
+   * 永劫殿：使用一颗「永劫重置丹」。
+   * 「基础数值」的升级消耗从初始曲线重算（等级清零），已获得的效果全部保留：
+   * 清零的等级记入 rebirthResetLevel（永劫殿等级为永久道基，转世不清零）。
+   */
+  const handleUseRebirthResetPill = useCallback(() => {
+    setState((prev) => {
+      const pills = Math.max(0, prev.rebirthResetPills || 0);
+      const level = prev.rebirthBaseValueLevel || 0;
+      if (pills < 1 || level <= 0) return prev;
+      return {
+        ...prev,
+        rebirthResetPills: pills - 1,
+        rebirthBaseValueLevel: 0,
+        rebirthResetLevel: (prev.rebirthResetLevel || 0) + level,
+      };
+    });
+  }, []);
+
   /** 奇趣商殿结算 */
   const handleGambleSettle = useCallback(
     (type: SettleType, amount: BigNum) => {
@@ -665,51 +776,40 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    * 往生殿·天雷峰：渡劫结算
    * - 由展示层按 3 秒一道的节奏降下雷劫，每一道的判定结果由 `resolveTribulation` 预先给出
    * - 点击「渡劫」的瞬间即结算，避免中途关闭弹窗逃避失败
-   * - 成功：渡劫次数 +1（单次收益取原值的渡劫次数次方）
-   * - 失败：失去全部永劫点、坍缩点、往生点
+   * - 成败由渡劫弹窗内的「渡劫效果」面板呈现，此处不弹 toast
+   * - 渡劫次数：无论成败都 +1（上限 TRIBULATION_MAX_COUNT），它同时是收益的次方指数
+   * - 成功：仅扣除本次消耗与渡劫丹
+   * - 失败：数值属性尽数回到初始值（数值 / 各殿等级 / 货币 / 解锁开关全部归零），
+   *   仅保留存档属性（游玩时长 / 总点击次数 / 渡劫次数等历世之迹，见 ARCHIVE_KEYS）
    */
-  const handleTribulation = useCallback(
-    (outcome: TribulationOutcome) => {
-      const prev = stateRef.current;
-      let newCount = prev.tribulationCount || 0;
-      let done = false;
+  const handleTribulation = useCallback((outcome: TribulationOutcome) => {
+    const prev = stateRef.current;
+    if ((prev.tribulationCount || 0) >= TRIBULATION_MAX_COUNT) return;
+    if (prev.afterlifePoints < TRIBULATION_COST) return;
 
-      setState((p) => {
-        if ((p.tribulationCount || 0) >= TRIBULATION_MAX_COUNT) return p;
-        if (p.afterlifePoints < TRIBULATION_COST) return p;
-        done = true;
+    if (!outcome.success) {
+      // 失败：数值属性回到初始值，存档属性原样保留；渡劫次数同样 +1
+      const nextCount = Math.min(TRIBULATION_MAX_COUNT, (prev.tribulationCount || 0) + 1);
+      const next = { ...resetToInitialState(prev), tribulationCount: nextCount };
+      setState(next);
+      setCurrentBigNum(BigNum.fromData(next.currentValue));
+      return;
+    }
 
-        const success = outcome.success;
-        newCount = success
-          ? Math.min(TRIBULATION_MAX_COUNT, (p.tribulationCount || 0) + 1)
-          : p.tribulationCount || 0;
+    const newCount = Math.min(TRIBULATION_MAX_COUNT, (prev.tribulationCount || 0) + 1);
 
-        return {
-          ...p,
-          // 成功：仅扣除本次消耗；失败：三种点数尽数散尽
-          afterlifePoints: success ? Math.max(0, p.afterlifePoints - TRIBULATION_COST) : 0,
-          rebirthPoints: success ? p.rebirthPoints : 0,
-          collapsePoints: success ? p.collapsePoints : 0,
-          // 本次消耗的渡劫丹
-          tribulationPills: Math.max(0, (p.tribulationPills || 0) - outcome.pillsUsed),
-          // 是否渡劫成功：一旦成功即永久为真（未成功前次方不参与计算）
-          tribulationSuccess: p.tribulationSuccess || success,
-          // 渡劫次数：仅成功时 +1（它即收益的次方指数）
-          tribulationCount: newCount,
-        };
-      });
-
-      if (done) {
-        addToast(
-          outcome.success ? '渡劫成功' : '渡劫失败',
-          outcome.success
-            ? `天雷淬体 · 渡劫 ${newCount}/${TRIBULATION_MAX_COUNT} 次 · 单次收益取原值的 ${newCount} 次方`
-            : '天雷贯顶 · 永劫点 / 坍缩点 / 往生点尽数散尽'
-        );
-      }
-    },
-    [addToast]
-  );
+    setState((p) => ({
+      ...p,
+      // 成功：仅扣除本次消耗
+      afterlifePoints: Math.max(0, p.afterlifePoints - TRIBULATION_COST),
+      // 本次消耗的渡劫丹
+      tribulationPills: Math.max(0, (p.tribulationPills || 0) - outcome.pillsUsed),
+      // 一旦成功即永久为真（未成功前次方不参与计算）
+      tribulationSuccess: true,
+      // 渡劫次数：成败均 +1（它即收益的次方指数）
+      tribulationCount: newCount,
+    }));
+  }, []);
 
   /** 往生殿：消耗 100 往生点解锁「渡劫」（解锁后才显示天雷峰入口） */
   const handleUnlockTribulation = useCallback(() => {
@@ -1083,6 +1183,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       // 已购「功法无需解锁」特权：重生后仍保持解锁态，可直接升级
       // 数值殿等级全部清零；永劫殿等级（rebirthMergedLevels / rebirthBaseValueLevel）为永久道基，不受影响
       upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
+      // 数值重置丹保留的数值殿效果属数值属性，随转世一并归零（丹药存量仍保留）
+      valueResetLevels: { ...INITIAL_STATE.valueResetLevels },
     }));
 
     setCurrentBigNum(startValue);
@@ -1106,6 +1208,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthPoints: prev.rebirthPoints - COLLAPSE_COST,
       collapsePoints: prev.collapsePoints + collapseGain,
       upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
+      // 数值重置丹保留的数值殿效果属数值属性，随转世一并归零（丹药存量仍保留）
+      valueResetLevels: { ...INITIAL_STATE.valueResetLevels },
     }));
 
     setCurrentBigNum(startValue);
@@ -1219,6 +1323,10 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleUnlockTribulation,
     handleTribulation,
     handleBuyTribulationPill,
+    handleCraftValueResetPill,
+    handleCraftRebirthResetPill,
+    handleUseValueResetPill,
+    handleUseRebirthResetPill,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
     handleUnlockRanking,

@@ -19,8 +19,8 @@ interface UpgradeButtonProps {
   onPress?: () => void;
   ariaLabel?: string;
   className?: string;
-  /** 色调：gold 金色（默认，升级/购买）；green 绿色（解锁） */
-  tone?: 'gold' | 'green';
+  /** 色调：gold 金色（默认，升级/购买）；green 绿色（解锁）；gray 灰色（常态操作） */
+  tone?: 'gold' | 'green' | 'gray';
 }
 
 const BASE =
@@ -31,6 +31,9 @@ const ACTIVE =
 // 绿色文本：解锁类型的可用态
 const ACTIVE_GREEN =
   'text-[#76d18c] underline decoration-1 underline-offset-4 cursor-pointer hover:text-[#a3e8b3]';
+// 灰色文本：常态操作的可用态
+const ACTIVE_GRAY =
+  'text-[#9a9286] underline decoration-1 underline-offset-4 cursor-pointer hover:text-[#c9c0b0]';
 const DISABLED = 'text-[#5b5548] underline decoration-1 underline-offset-4 cursor-default';
 
 /** 通用升级 / 购买按钮：无背景色、无前置图标；支持单击与长按连发两种模式 */
@@ -59,6 +62,14 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
 
   React.useEffect(() => stop, [stop]);
 
+  const toneClass = disabled
+    ? DISABLED
+    : tone === 'green'
+      ? ACTIVE_GREEN
+      : tone === 'gray'
+        ? ACTIVE_GRAY
+        : ACTIVE;
+
   const start = () => {
     if (disabled) return;
     pressRef.current?.();
@@ -83,9 +94,7 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
         onPointerCancel={stop}
         // 移动端长按弹出菜单 / 文本选择会中断连发，予以阻止
         onContextMenu={(e) => e.preventDefault()}
-        className={`${BASE} select-none touch-none ${
-          disabled ? DISABLED : tone === 'green' ? ACTIVE_GREEN : ACTIVE
-        } ${className}`}
+        className={`${BASE} select-none touch-none ${toneClass} ${className}`}
       >
         {children}
       </button>
@@ -99,9 +108,7 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
       disabled={disabled}
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`${BASE} ${
-        disabled ? DISABLED : tone === 'green' ? ACTIVE_GREEN : ACTIVE
-      } ${className}`}
+      className={`${BASE} ${toneClass} ${className}`}
     >
       {children}
     </button>

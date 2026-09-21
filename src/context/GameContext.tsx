@@ -47,6 +47,10 @@ export interface GameActions {
   handleUnlockTribulation: () => void;
   handleTribulation: (outcome: TribulationOutcome) => void;
   handleBuyTribulationPill: () => void;
+  handleCraftValueResetPill: () => void;
+  handleCraftRebirthResetPill: () => void;
+  handleUseValueResetPill: (id: UpgradeId) => void;
+  handleUseRebirthResetPill: () => void;
   handleBuyValueCap: () => void;
   handleExchangeRebirthToCollapse: (amount: number | 'all') => void;
   handleUnlockRanking: () => void;
@@ -128,6 +132,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleUnlockTribulation,
     handleTribulation,
     handleBuyTribulationPill,
+    handleCraftValueResetPill,
+    handleCraftRebirthResetPill,
+    handleUseValueResetPill,
+    handleUseRebirthResetPill,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
     handleUnlockRanking,
@@ -174,6 +182,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleUnlockTribulation,
       handleTribulation,
       handleBuyTribulationPill,
+      handleCraftValueResetPill,
+      handleCraftRebirthResetPill,
+      handleUseValueResetPill,
+      handleUseRebirthResetPill,
       handleBuyValueCap,
       handleExchangeRebirthToCollapse,
       handleUnlockRanking,
@@ -213,6 +225,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleUnlockTribulation,
       handleTribulation,
       handleBuyTribulationPill,
+      handleCraftValueResetPill,
+      handleCraftRebirthResetPill,
+      handleUseValueResetPill,
+      handleUseRebirthResetPill,
       handleBuyValueCap,
       handleExchangeRebirthToCollapse,
       handleUnlockRanking,

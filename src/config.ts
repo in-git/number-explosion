@@ -228,7 +228,7 @@ export const REBIRTH_SHOP_ORDER: UpgradeId[] = [
  * 永久保留（重生/坍缩不清零），计算时效果与数值殿累加。
  */
 export const REBIRTH_MERGED_UPGRADES: { id: UpgradeId; label: string }[] = [
-  { id: 'baseValue', label: '基础数值' },
+  { id: 'baseValue', label: '数值升级' },
   { id: 'autoFrequency', label: '自动点击频率' },
   { id: 'critMultiplier', label: '暴击倍数' },
   { id: 'critChance', label: '暴击概率' },
@@ -409,6 +409,28 @@ export const INITIAL_STATE: GameState = {
   tribulationCount: 0,
   /** 往生殿「渡劫」特权：默认未解锁 */
   tribulationUnlocked: false,
+  /** 渡劫殿：数值重置丹的存量与炼制进度（默认 0，渡劫成功后炼制） */
+  valueResetPills: 0,
+  valueResetCraftCount: 0,
+  valueResetProgressMs: 0,
+  valueResetCrafting: false,
+  /** 渡劫殿：永劫重置丹的存量与炼制进度 */
+  rebirthResetPills: 0,
+  rebirthResetCraftCount: 0,
+  rebirthResetProgressMs: 0,
+  rebirthResetCrafting: false,
+  /** 数值重置丹账本（被重置掉的等级，效果保留）：默认全为 0 */
+  valueResetLevels: {
+    baseValue: 0,
+    autoClickUnlock: 0,
+    autoFrequency: 0,
+    comboChance: 0,
+    critMultiplier: 0,
+    comboMultiplier: 0,
+    critChance: 0,
+  },
+  /** 永劫重置丹账本（永劫殿基础数值被重置掉的等级） */
+  rebirthResetLevel: 0,
   /** 永劫点数兑换坍缩点数的累计次数 */
   rebirthToCollapseCount: 0,
   notifiedUnlocks: [],

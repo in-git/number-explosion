@@ -31,12 +31,18 @@ const pctText = (ratio: number): string => {
   return `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}%`;
 };
 
-function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
+/**
+ * 功法效果文案。
+ * @param level 当前等级（用于计算升级消耗）
+ * @param keptLevel 数值重置丹保留的等级：效果按「当前等级 + 保留等级」计，故用丹后效果不丢
+ */
+function getUpgradeDesc(id: UpgradeId, level: number, keptLevel: number = 0): UpgradeDesc {
   if (id === 'baseValue') {
     // 格式：升级前的数值 -> 升级后预览（升级后的值以绿色显示）
     // 往生殿强化作用于永劫殿，数值殿此处只看自身累计加成
-    const currentBonus = getBaseValueBonus(level);
-    const nextBonus = getBaseValueBonus(level + 1);
+    const effective = level + keptLevel;
+    const currentBonus = getBaseValueBonus(effective);
+    const nextBonus = getBaseValueBonus(effective + 1);
     return {
       currentDesc: `+${currentBonus.formatChinese(1)}`,
       nextDesc: `+${nextBonus.formatChinese(1)}`,
@@ -95,6 +101,7 @@ export const UpgradesList: React.FC = () => {
     handleUpgradeAll: onUpgradeAll,
     handleUnlockAchievements: onUnlockAchievements,
     handleUnlockTitles: onUnlockTitles,
+    handleUseValueResetPill: onUseValueResetPill,
   } = useGameActions();
   // 成就 / 称号系统是否已开启
   const achievementsUnlocked = state.achievementsUnlocked;
@@ -180,7 +187,9 @@ export const UpgradesList: React.FC = () => {
     // 永劫殿该属性的独立等级：概率类上限需据此扣减，保证两殿合计不超 100%
     const rebirthLevel = state.rebirthMergedLevels?.[id] || 0;
     const maxLevel = getUpgradeMaxLevel(id, upgradeState, rebirthLevel);
-    const desc = getUpgradeDesc(id, upgradeState.level);
+    // 数值重置丹保留的等级：只计入效果，不计入升级消耗
+    const keptLevel = state.valueResetLevels?.[id] || 0;
+    const desc = getUpgradeDesc(id, upgradeState.level, keptLevel);
     // 往生殿的倍数与优惠均已迁移至永劫殿，数值殿升级一律原价
     const currentCost = getUpgradeCost(id, upgradeState.level, maxLevel);
 
@@ -200,6 +209,11 @@ export const UpgradesList: React.FC = () => {
   // 已满级的排到最后，其余保持原有顺序
   const orderedRows = [...rows.filter((r) => !r.isMaxed), ...rows.filter((r) => r.isMaxed)];
   const shownRows = hideMaxed ? orderedRows.filter((r) => !r.isMaxed) : orderedRows;
+
+  // 数值重置丹（作用于「数值升级」）：渡劫成功后可用，须持丹且该项当前已有等级
+  const baseValueUp = state.upgrades.baseValue;
+  const canUseValueReset =
+    (state.valueResetPills || 0) > 0 && baseValueUp.unlocked && baseValueUp.level > 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -230,24 +244,40 @@ export const UpgradesList: React.FC = () => {
         </button>
       </div>
 
-      {/* 长按提示 / 往生殿折扣提示 */}
-      <div className="flex items-center justify-between text-[10px] font-serif text-[#8a7a63] -mt-0.5">
-        <span>长按升级</span>
-        {state.oneKeyUpgradeUnlocked && (
-          <button
-            id="btn-upgrade-all"
-            onClick={handleOneKeyUpgrade}
-            disabled={oneKeyCd > 0}
-            className={`px-2 py-0.5 rounded border transition-colors ${
-              oneKeyCd > 0
-                ? 'text-[#5b5548] border-[#2b2721] cursor-default'
-                : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
-            }`}
-          >
-            {oneKeyCd > 0 ? `一键升级 ${oneKeyCd}s` : '一键升级'}
-          </button>
-        )}
-       
+      {/* 长按提示 / 数值重置丹 / 一键升级 */}
+      <div className="flex items-center justify-between gap-2 text-[10px] font-serif text-[#8a7a63] -mt-0.5">
+        <span className="flex-shrink-0">长按升级</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {/* 数值重置丹：消耗 1 颗，使「数值升级」的消耗从初始曲线重算，已有效果全部保留 */}
+          {state.tribulationSuccess && (
+            <button
+              id="btn-use-value-reset"
+              onClick={() => onUseValueResetPill('baseValue')}
+              disabled={!canUseValueReset}
+              className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 ${
+                canUseValueReset
+                  ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'
+                  : 'text-[#5b5548] border-[#2b2721] cursor-default'
+              }`}
+            >
+              数值重置丹 {state.valueResetPills || 0}
+            </button>
+          )}
+          {state.oneKeyUpgradeUnlocked && (
+            <button
+              id="btn-upgrade-all"
+              onClick={handleOneKeyUpgrade}
+              disabled={oneKeyCd > 0}
+              className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 ${
+                oneKeyCd > 0
+                  ? 'text-[#5b5548] border-[#2b2721] cursor-default'
+                  : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
+              }`}
+            >
+              {oneKeyCd > 0 ? `一键升级 ${oneKeyCd}s` : '一键升级'}
+            </button>
+          )}
+        </div>
       </div>
 
       {shownRows.length === 0 ? (

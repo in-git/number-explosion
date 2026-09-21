@@ -21,6 +21,8 @@ export interface GameModalsState {
   achievements: Disclosure;
   /** 渡劫（天雷峰：成功率 + 渡劫丹） */
   tribulation: Disclosure;
+  /** 渡劫殿（渡劫成功后开启：耗费时间炼制重置丹） */
+  tribulationHall: Disclosure;
   /** 称号详情（当前称号 + 最近的几个修仙等级） */
   title: Disclosure;
   /** 设置面板（设定当前数值 / 重修道途） */
@@ -39,6 +41,7 @@ export function useGameModals(): GameModalsState {
     collapse: useDisclosure(),
     achievements: useDisclosure(),
     tribulation: useDisclosure(),
+    tribulationHall: useDisclosure(),
     title: useDisclosure(),
     settings: useDisclosure(),
   };

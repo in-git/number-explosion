@@ -87,8 +87,17 @@ const effectText = (
 
 export const RebirthShop: React.FC = () => {
   const { state } = useGameData();
-  const { handleBuyRebirthMergedUpgrade, handleUnlockCollapse, handleUnlockRanking, handleBuyAutoUnlock } =
-    useGameActions();
+  const {
+    handleBuyRebirthMergedUpgrade,
+    handleUnlockCollapse,
+    handleUnlockRanking,
+    handleBuyAutoUnlock,
+    handleUseRebirthResetPill: onUseRebirthResetPill,
+  } = useGameActions();
+
+  // 永劫重置丹（作用于「数值升级」）：渡劫成功后可用，须持丹且该等级 > 0
+  const canUseRebirthReset =
+    (state.rebirthResetPills || 0) > 0 && (state.rebirthBaseValueLevel || 0) > 0;
 
   // 各条目的展示由解锁状态决定（未解锁的解锁项常驻，解锁后隐藏）
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
@@ -98,15 +107,45 @@ export const RebirthShop: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between pb-1.5 border-b border-[#2d2822]">
+      <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[#2d2822]">
         <div className="text-[10px] font-mono text-[#8a7a63]">
           永劫点数{' '}
           <span className="text-[#5fa8e6]">
             {BigNum.fromNumber(state.rebirthPoints).formatChinese(0)}
           </span>
         </div>
-        <div className="text-[10px] font-serif text-[#8a7a63]">长按升级</div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-serif text-[#8a7a63]">长按升级</span>
+        </div>
       </div>
+
+      {/* 永劫重置丹：独立一行，位于「数值升级」之上（消耗 1 颗，使「数值升级」的消耗从初始曲线重算，已有效果全部保留） */}
+      {state.tribulationSuccess && (
+        <div
+          id="rebirth-reset-pill-row"
+          className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] ${
+            canUseRebirthReset ? '' : 'opacity-50'
+          }`}
+        >
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-serif text-[#998e7e]">
+              「数值升级」消耗从初始曲线重算 · 已有效果全部保留
+            </span>
+          </div>
+          <button
+            id="btn-use-rebirth-reset"
+            onClick={onUseRebirthResetPill}
+            disabled={!canUseRebirthReset}
+            className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 ${
+              canUseRebirthReset
+                ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'
+                : 'text-[#5b5548] border-[#2b2721] cursor-default'
+            }`}
+          >
+            永劫重置丹 {state.rebirthResetPills || 0}
+          </button>
+        </div>
+      )}
 
       {/* 升级：所有属性均与数值殿独立，等级永久保留，计算时效果与数值殿累加 */}
       <div className="flex flex-col gap-1.5">

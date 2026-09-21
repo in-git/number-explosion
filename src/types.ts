@@ -168,6 +168,33 @@ export interface GameState {
   tribulationCount: number;
   /** 往生殿「渡劫」是否已解锁（消耗 100 往生点一次性解锁，未解锁不显示渡劫入口） */
   tribulationUnlocked: boolean;
+  /** 渡劫殿：持有的「数值重置丹」数量（作用于数值殿，随存档持久化到本地） */
+  valueResetPills: number;
+  /** 渡劫殿：「数值重置丹」已炼成的炉数，决定下一炉耗时（10s、20s、30s…） */
+  valueResetCraftCount: number;
+  /** 渡劫殿：「数值重置丹」当前这一炉已投入的时间（ms） */
+  valueResetProgressMs: number;
+  /** 渡劫殿：「数值重置丹」是否正在炼制（点击炼制才开始，炼制中不可操作） */
+  valueResetCrafting: boolean;
+  /** 渡劫殿：持有的「永劫重置丹」数量（作用于永劫殿「基础数值」，随存档持久化） */
+  rebirthResetPills: number;
+  /** 渡劫殿：「永劫重置丹」已炼成的炉数，决定下一炉耗时（10s、20s、30s…） */
+  rebirthResetCraftCount: number;
+  /** 渡劫殿：「永劫重置丹」当前这一炉已投入的时间（ms） */
+  rebirthResetProgressMs: number;
+  /** 渡劫殿：「永劫重置丹」是否正在炼制（点击炼制才开始，炼制中不可操作） */
+  rebirthResetCrafting: boolean;
+  /**
+   * 「数值重置丹」的账本：按功法记录数值殿中被重置掉的等级。
+   * 使用后该项升级消耗从初始曲线重算（等级清零），
+   * 但已获得的效果仍按「当前等级 + 本字段等级」累计，故效果全部保留。
+   */
+  valueResetLevels: Record<UpgradeId, number>;
+  /**
+   * 「永劫重置丹」的账本：记录永劫殿「基础数值」中被重置掉的等级（效果保留）。
+   * 永劫殿等级为永久道基，故本字段转世不清零。
+   */
+  rebirthResetLevel: number;
   /** 坍缩商殿中「永劫点数 → 坍缩点数」的累计兑换次数（每次恒定 3 点永劫点数） */
   rebirthToCollapseCount: number;
 

@@ -11,6 +11,7 @@ import { RebirthModal } from './RebirthModal';
 import { CollapseModal } from './CollapseModal';
 import { AfterlifeShop } from './AfterlifeShop';
 import { TribulationModal } from './TribulationModal';
+import { TribulationHall } from './TribulationHall';
 import { TitleModal } from './TitleModal';
 import { SettingsModal } from './SettingsModal';
 
@@ -95,6 +96,16 @@ export const GameModals: React.FC = () => {
         subtitle="—— 天 雷 加 身 · 九 死 一 生 ——"
       >
         <TribulationModal />
+      </ModalShell>
+
+      {/* 渡劫殿 Modal：渡劫成功（飞升成仙）后开启，耗时炼制重置丹 */}
+      <ModalShell
+        isOpen={modals.tribulationHall.isOpen}
+        onClose={modals.tribulationHall.close}
+        title="渡 劫 殿"
+        subtitle="—— 炉 火 不 息 · 丹 成 重 置 ——"
+      >
+        <TribulationHall />
       </ModalShell>
 
       {/* 坍缩 Modal */}
