@@ -381,7 +381,7 @@ export const INITIAL_STATE: GameState = {
   },
   /** 永劫殿「基础数值」的独立升级等级（永久，默认 0） */
   rebirthBaseValueLevel: 0,
-  /** 往生殿：各属性已购升级等级（「数值升级」为放大基础倍数，其余为降消耗），默认全为 0 */
+  /** 往生殿：各属性已购强化等级（放大永劫殿对应属性的累计加成），默认全为 0 */
   afterlifeUpgradeLevels: {
     baseValue: 0,
     autoClickUnlock: 0,
@@ -399,6 +399,8 @@ export const INITIAL_STATE: GameState = {
 
   valueCapLevel: 0,
   rebirthPointLevel: 0,
+  /** 渡劫点：默认 1（不影响收益） */
+  tribulationLevel: 1,
   /** 永劫点数兑换坍缩点数的累计次数 */
   rebirthToCollapseCount: 0,
   notifiedUnlocks: [],

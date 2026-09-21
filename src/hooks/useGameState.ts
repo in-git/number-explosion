@@ -23,13 +23,10 @@ import {
   getRebirthToCollapseCost,
   getRebirthPointsFromValue,
   getAfterlifeUpgradeCost,
-  getAfterlifeDiscountPercent,
-  getAfterlifeBaseValueCost,
-  getAfterlifeBaseValueMultiplier,
+  getAfterlifeUpgradeMultiplier,
   getUpgradeCost,
   getUpgradeMaxLevel,
   isUpgradeMaxed,
-  applyAfterlifeDiscount,
   getRebirthPointsCap,
   getRebirthCapUpgradeCost,
 } from '../utils/gameMath';
@@ -406,7 +403,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    */
   const handleUpgradeAll = useCallback(() => {
     const prev = stateRef.current;
-    const afterlifeLevels = prev.afterlifeUpgradeLevels || {};
     const nextUpgrades = { ...prev.upgrades };
     let value = bigNumRef.current;
     let bought = 0;
@@ -426,12 +422,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         const up = nextUpgrades[id];
         if (!up || !up.unlocked || isUpgradeMaxed(id, up, rebirthLevel)) break;
         const maxLevel = getUpgradeMaxLevel(id, up, rebirthLevel);
-        // 往生殿折扣：与单项升级保持一致（「数值升级」不降消耗，故不折扣）
-        const rawCost = getUpgradeCost(id, up.level, maxLevel);
-        const cost =
-          id === 'baseValue'
-            ? rawCost
-            : applyAfterlifeDiscount(rawCost, afterlifeLevels[id] || 0);
+        // 往生殿优惠已全部作用于永劫殿，数值殿升级维持原价
+        const cost = getUpgradeCost(id, up.level, maxLevel);
         if (!cost || !value.gte(cost)) break;
         value = value.sub(cost);
         nextUpgrades[id] = { ...up, level: up.level + 1 };
@@ -630,11 +622,14 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       const level = prev.rebirthMergedLevels?.[id] || 0;
       // 自动点击频率：永劫殿独立 20 级满级，满级后不可再购
       if (id === 'autoFrequency' && level >= AUTO_FREQ_MAX_LEVEL) return;
-      const cost = getRebirthMergedUpgradeCost(id, level).toNumber();
-      if (prev.rebirthPoints < cost) return;
+
+      const cost = getRebirthMergedUpgradeCost(id, level);
+      const costNum = Math.max(0, cost.toNumber());
+      if (prev.rebirthPoints < costNum) return;
+
       setState((p) => ({
         ...p,
-        rebirthPoints: p.rebirthPoints - cost,
+        rebirthPoints: p.rebirthPoints - costNum,
         rebirthMergedLevels: {
           ...p.rebirthMergedLevels,
           [id]: (p.rebirthMergedLevels?.[id] || 0) + 1,
@@ -642,7 +637,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       }));
       addToast(
         '道基淬炼',
-        `永劫「${label}」提升 1 级（Lv.${level + 1}）· 消耗 ${cost} 点永劫点数`
+        `永劫「${label}」提升 1 级（Lv.${level + 1}）· 消耗 ${cost.formatChinese(0)} 点永劫点数`
       );
     },
     [addToast]
@@ -816,7 +811,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     if (done) {
       addToast(
         '往生洞开',
-        `消耗 ${AFTERLIFE_SHOP_UNLOCK_COST} 点坍缩点数 · 各属性升级消耗可进一步折扣`
+        `消耗 ${AFTERLIFE_SHOP_UNLOCK_COST} 点坍缩点数 · 永劫殿升级消耗可进一步折扣`
       );
     }
   }, [addToast]);
@@ -841,9 +836,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   }, [addToast]);
 
   /**
-   * 往生殿：购买指定属性的往生升级
-   * - 「数值升级」：消耗斐波那契数列（1、1、2、3、5…）的往生点，放大数值殿该功法的基础倍数
-   * - 其余属性：消耗公差 4 的等差数列（4、8、12…）的往生点，降低数值殿升级消耗
+   * 往生殿：购买指定属性的往生强化
+   * 消耗统一的斐波那契数列往生点（1、1、2、3、5…），放大永劫殿对应属性的累计加成。
    */
   const handleBuyAfterlifeUpgrade = useCallback(
     (id: UpgradeId) => {
@@ -854,8 +848,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         const levels: Record<UpgradeId, number> =
           prev.afterlifeUpgradeLevels || INITIAL_STATE.afterlifeUpgradeLevels;
         const level = levels[id] || 0;
-        const cost =
-          id === 'baseValue' ? getAfterlifeBaseValueCost(level) : getAfterlifeUpgradeCost(level);
+        const cost = getAfterlifeUpgradeCost(level);
         if (prev.afterlifePoints < cost) return prev;
         done = true;
         newLevel = level + 1;
@@ -868,9 +861,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       if (done) {
         addToast(
           '往生加护',
-          id === 'baseValue'
-            ? `往生殿 数值升级 Lv.${newLevel} · 永劫殿基础数值倍数 ×${getAfterlifeBaseValueMultiplier(newLevel)}`
-            : `往生殿 ${UPGRADE_METADATA[id].name} Lv.${newLevel} · 数值殿升级消耗折扣 +${getAfterlifeDiscountPercent(newLevel).toFixed(1)}%`
+          `往生殿 ${UPGRADE_METADATA[id].name} Lv.${newLevel} · 永劫殿强化倍数 ×${getAfterlifeUpgradeMultiplier(id, newLevel)}`
         );
       }
     },

@@ -5,16 +5,14 @@ import {
   UPGRADE_ORDER,
   AFTERLIFE_POINT_EXCHANGE_COST,
   ONE_KEY_UPGRADE_UNLOCK_COST,
+  REBIRTH_MERGED_UPGRADES,
 } from '../config';
 import {
-  UPGRADE_METADATA,
   getAfterlifeUpgradeCost,
-  getAfterlifeDiscountPercent,
-  getAfterlifeNextDiscount,
-  getAfterlifeBaseValueCost,
-  getAfterlifeBaseValueMultiplier,
-  getAfterlifeNextBaseValueMultiplier,
+  getAfterlifeUpgradeMultiplier,
+  getAfterlifeNextUpgradeMultiplier,
   getRebirthCapUpgradeCost,
+  getRebirthCapStep,
   getRebirthPointsCap,
 } from '../utils/gameMath';
 import { UpgradeButton } from './UpgradeButton';
@@ -24,7 +22,7 @@ interface AfterlifeShopProps {
   state: GameState;
   /** 消耗坍缩点兑换往生点（恒定 10:1）：amount 为兑换次数，'all' = 全部可兑换 */
   onExchangeAfterlifePoint: (amount: number | 'all') => void;
-  /** 购买指定属性的下一级往生加护（消耗往生点，按公差 4 的等差数列递增） */
+  /** 购买指定属性的下一级往生强化（消耗往生点，按斐波那契数列递增，放大永劫殿该属性的累计加成） */
   onBuyAfterlifeUpgrade: (id: UpgradeId) => void;
   /** 提升「永劫点上限」：每级 +100，消耗往生点 1,2,3,4,5… */
   onBuyRebirthCapUpgrade: () => void;
@@ -39,7 +37,7 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
   onBuyRebirthCapUpgrade,
   onUnlockOneKeyUpgrade,
 }) => {
-  // 仅列出数值殿中「可升级（有消耗）」的属性；autoClickUnlock 为解锁项、无升级消耗，故不列入
+  // 仅列出永劫殿中「可升级（有消耗）」的属性；autoClickUnlock 为解锁项、无升级消耗，故不列入
   // 往生殿不提供「频率 / 概率」类升级：自动点击频率、连击概率、暴击概率
   const order = UPGRADE_ORDER.filter(
     (id) =>
@@ -57,10 +55,11 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
   const canExchange10 = state.collapsePoints >= exchangeStep * 10;
   const canExchangeAll = exchangeAllCount > 0;
 
-  // 永劫点上限：基础 100，每级 +100；每级消耗往生点 1,2,3,4,5…
+  // 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点 1,2,3,4,5…
   const capLevel = state.rebirthCapLevel || 0;
   const currentRebirthCap = getRebirthPointsCap(capLevel);
   const nextRebirthCap = getRebirthPointsCap(capLevel + 1);
+  const nextCapStep = getRebirthCapStep(capLevel + 1);
   const rebirthCapCost = getRebirthCapUpgradeCost(capLevel);
   const canBuyRebirthCap = state.afterlifePoints >= rebirthCapCost;
 
@@ -131,19 +130,13 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
 
       <div className="flex flex-col gap-1.5">
         {order.map((id) => {
-          const meta = UPGRADE_METADATA[id];
+          // 条目名用永劫殿的叫法（「数值升级」对应永劫殿的「基础数值」）
+          const label = REBIRTH_MERGED_UPGRADES.find((u) => u.id === id)?.label ?? id;
           const level = state.afterlifeUpgradeLevels?.[id] || 0;
-          // 「数值升级」：不再降低消耗，改为放大数值殿该功法的基础倍数
-          const isBaseValue = id === 'baseValue';
-          const current = isBaseValue
-            ? getAfterlifeBaseValueMultiplier(level)
-            : getAfterlifeDiscountPercent(level);
-          const next = isBaseValue
-            ? getAfterlifeNextBaseValueMultiplier(level)
-            : getAfterlifeNextDiscount(level);
-          const cost = isBaseValue
-            ? getAfterlifeBaseValueCost(level)
-            : getAfterlifeUpgradeCost(level);
+          // 各条目均为「强化」：放大永劫殿该属性的累计加成（消耗统一为斐波那契数列）
+          const current = getAfterlifeUpgradeMultiplier(id, level);
+          const next = getAfterlifeNextUpgradeMultiplier(id, level);
+          const cost = getAfterlifeUpgradeCost(level);
           const canBuy = state.afterlifePoints >= cost;
 
           return (
@@ -161,28 +154,17 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
-                    {meta.name}
+                    {label}
                   </span>
                   <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#a69b8b] flex-shrink-0">
                     Lv.{level}
                   </span>
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-                  {isBaseValue ? (
-                    <>
-                      提升 永劫殿 <span className="text-[#76d18c]">[基础数值]</span> 基础倍数{' '}
-                      <span className="text-[#d897fa] font-mono font-bold">
-                        ×{current} → ×{next}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      降低 数值殿 <span className="text-[#76d18c]">[{meta.name}]</span> 升级消耗{' '}
-                      <span className="text-[#d897fa] font-mono font-bold">
-                        -{current.toFixed(1)}% → -{next.toFixed(1)}%
-                      </span>
-                    </>
-                  )}
+                  强化 永劫殿 <span className="text-[#76d18c]">[{label}]</span> 累计加成{' '}
+                  <span className="text-[#d897fa] font-mono font-bold">
+                    ×{current} → ×{next}
+                  </span>
                 </div>
               </div>
 
@@ -194,7 +176,7 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
         })}
       </div>
 
-      {/* 永劫点上限：基础 100，每级 +100；消耗往生点 1,2,3,4,5… */}
+      {/* 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点 1,2,3,4,5… */}
       <PressableRow
         id="afterlife-item-rebirth-cap"
         disabled={!canBuyRebirthCap}
@@ -215,10 +197,13 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
             </span>
           </div>
           <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-            提升 <span className="text-[#5fa8e6]">[永劫点数]</span> 单次获取上限{' '}
+            单次获取上限{' '}
             <span className="text-[#5fa8e6] font-mono font-bold">
-              {BigNum.fromNumber(currentRebirthCap).formatChinese(0)} →{' '}
-              {BigNum.fromNumber(nextRebirthCap).formatChinese(0)}
+              {BigNum.fromNumber(currentRebirthCap).formatChinese(2)} →{' '}
+              {BigNum.fromNumber(nextRebirthCap).formatChinese(2)}
+            </span>{' '}
+            <span className="text-[#6f6656]">
+              (+{BigNum.fromNumber(nextCapStep).formatChinese(2)})
             </span>
           </div>
         </div>

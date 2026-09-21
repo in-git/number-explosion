@@ -267,6 +267,28 @@ export const UPGRADE_METADATA: Record<UpgradeId, { name: string; requiredClicks:
 /** 坍缩所需消耗的永劫点数 */
 export const COLLAPSE_COST = 5;
 
+/** 渡劫：于永劫殿每次渡劫消耗的永劫点数（恒定 1 万） */
+export const TRIBULATION_COST = 10000;
+/** 渡劫点：默认为 1（此时单次收益保持原值不变） */
+export const TRIBULATION_BASE_LEVEL = 1;
+
+/** 渡劫（渡劫点 +1）所需的永劫点数：恒定 1 万 */
+export function getTribulationCost(_currentLevel: number): number {
+  return TRIBULATION_COST;
+}
+
+/**
+ * 渡劫点作用：单次收益 = 原值 ^ 渡劫点
+ * 例：单次点击值 10、渡劫点 3 → 10³ = 1000；渡劫点为 1 时保持原值不变
+ */
+export function applyTribulation(value: BigNum, tribulationLevel: number): BigNum {
+  const lv =
+    Number.isFinite(tribulationLevel) && tribulationLevel > 0
+      ? Math.floor(tribulationLevel)
+      : TRIBULATION_BASE_LEVEL;
+  return lv <= 1 ? value : value.pow(lv);
+}
+
 /** 数值上限基数：默认 100 万 */
 export const VALUE_CAP_BASE = 1e6;
 
@@ -442,37 +464,14 @@ export function getAutoFrequencyUpgradeCost(currentLevel: number): BigNum {
 }
 
 /**
- * 往生殿：「数值殿升级消耗折扣」特权
- * - 于坍缩殿消耗 20 点坍缩点数解锁（一次性），默认不显示
- * - 每级进一步提升数值殿升级消耗的折扣：第 1 级 10%，之后每级 +1%，最多 50%
- *     · 即 10%、11%、12% … 50%（封顶）
- * - 每级消耗（往生点）为等差数列（公差 4）：第 1 级 4、第 2 级 8、第 3 级 12、第 4 级 16 …
+ * 往生殿：各属性的「强化」特权（仅作用于永劫殿，不再降低消耗）
+ * - 直接放大永劫殿对应属性的基础倍数（即其累计加成）
+ * - 每级消耗（往生点）为斐波那契数列：1、1、2、3、5、8 …（各属性一致）
+ * - 未购买（Lv.0）时倍数为 1（无影响）
  */
-/** 达到指定等级时的折扣百分比（0 表示未购买） */
-export function getAfterlifeDiscountPercent(level: number): number {
-  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  if (lv <= 0) return 0;
-  // 第 1 级 10%，之后每级 +1%，最多 50%
-  return Math.min(10 + (lv - 1), 50);
-}
-
-/** 购买后等级（currentLevel + 1）的折扣百分比 */
-export function getAfterlifeNextDiscount(currentLevel: number): number {
-  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return getAfterlifeDiscountPercent(lv + 1);
-}
-
-/** 购买第 (currentLevel+1) 级所需往生点：等差数列（公差 4），即 4, 8, 12, 16, 20 … */
-export function getAfterlifeUpgradeCost(currentLevel: number): number {
-  const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return 4 * (lv + 1);
-}
 
 /**
- * 往生殿：「数值升级」特权（仅作用于永劫殿的「基础数值」，不再降低消耗）
- * - 直接放大永劫殿「基础数值」的基础倍数（即其累计基础数值加成）
- * - 各等级倍数为类斐波那契数列：5、7、12、19、31 …（每级 = 前两级之和）
- * - 未购买（Lv.0）时倍数为 1（无影响）
+ * 「数值升级」的强化倍数（类斐波那契）：5、7、12、19、31 …（每级 = 前两级之和）
  */
 const AFTERLIFE_BASE_VALUE_MULT_SEQ: number[] = [5, 7];
 export function getAfterlifeBaseValueMultiplier(level: number): number {
@@ -487,30 +486,48 @@ export function getAfterlifeBaseValueMultiplier(level: number): number {
   return AFTERLIFE_BASE_VALUE_MULT_SEQ[lv - 1];
 }
 
-/** 购买后等级（currentLevel + 1）的基础倍数 */
-export function getAfterlifeNextBaseValueMultiplier(currentLevel: number): number {
+/**
+ * 其余属性（连击倍数 / 暴击倍数）的强化倍数：线性递增
+ * 即 2、3、4、5、6 …（等级 + 1；未购买时为 1，无影响）
+ */
+export function getAfterlifeAttributeMultiplier(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  return lv + 1;
+}
+
+/** 按属性取往生殿强化倍数（统一入口）：数值升级走类斐波那契，其余走线性 */
+export function getAfterlifeUpgradeMultiplier(id: UpgradeId, level: number): number {
+  return id === 'baseValue'
+    ? getAfterlifeBaseValueMultiplier(level)
+    : getAfterlifeAttributeMultiplier(level);
+}
+
+/** 购买后等级（currentLevel + 1）的强化倍数 */
+export function getAfterlifeNextUpgradeMultiplier(id: UpgradeId, currentLevel: number): number {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return getAfterlifeBaseValueMultiplier(lv + 1);
+  return getAfterlifeUpgradeMultiplier(id, lv + 1);
 }
 
 /**
- * 往生殿「数值升级」购买第 (currentLevel+1) 级所需往生点：斐波那契数列（从 1 起）
- * 即 1、1、2、3、5、8 …（第 1、2 级各 1，此后每级 = 前两级之和）
+ * 往生殿购买第 (currentLevel+1) 级所需往生点：斐波那契数列（从 1 起）
+ * 即 1、1、2、3、5、8 …（第 1、2 级各 1，此后每级 = 前两级之和）；各属性消耗一致
  */
-export function getAfterlifeBaseValueCost(currentLevel: number): number {
+export function getAfterlifeUpgradeCost(currentLevel: number): number {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
   return getFibonacci(lv + 1);
 }
 
 /** 往生殿「永劫点上限」：未升级时的基础上限 */
 export const REBIRTH_POINTS_BASE_CAP = 100;
-/** 往生殿「永劫点上限」：每级提升量 */
-export const REBIRTH_POINTS_CAP_STEP = 100;
+/** 往生殿「永劫点上限」：第 1 级的提升量 */
+export const REBIRTH_POINTS_CAP_STEP_BASE = 100;
+/** 往生殿「永劫点上限」：每级提升量的线性增量（第 n 级 = 100 + (n−1) × 10） */
+export const REBIRTH_POINTS_CAP_STEP_GROWTH = 10;
 
 /**
  * 往生殿：「永劫点上限」特权
  * - 只限制「每次永劫所得」的点数上限；永劫点的持有量没有上限
- * - 每级提升 100 点单次上限：基础 100，之后 200、300、400、500 …
+ * - 每级提升量线性递增：100、110、120、130、140、150 …
  * - 每级消耗（往生点）为等差数列（差值 1）：1、2、3、4、5 …
  */
 /** 购买第 (currentLevel+1) 级所需往生点：等差数列，即 1, 2, 3, 4, 5 … */
@@ -519,20 +536,27 @@ export function getRebirthCapUpgradeCost(currentLevel: number): number {
   return lv + 1;
 }
 
-/** 当前永劫点获取上限：基础 100 + 等级 × 100，即 100、200、300、400、500 … */
-export function getRebirthPointsCap(level: number): number {
+/** 第 n 级的提升量（线性）：100、110、120、130 … */
+export function getRebirthCapStep(level: number): number {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  return REBIRTH_POINTS_BASE_CAP + lv * REBIRTH_POINTS_CAP_STEP;
+  if (lv <= 0) return 0;
+  return REBIRTH_POINTS_CAP_STEP_BASE + (lv - 1) * REBIRTH_POINTS_CAP_STEP_GROWTH;
 }
 
-/** 将往生殿折扣应用到一次数值殿升级消耗上（折扣封顶 100%，消耗不为负） */
-export function applyAfterlifeDiscount(cost: BigNum | null, level: number): BigNum | null {
-  if (cost === null) return null;
-  const discount = getAfterlifeDiscountPercent(level);
-  if (discount <= 0) return cost;
-  const multiplier = Math.max(0, 1 - discount / 100);
-  return cost.mulScalar(multiplier);
+/**
+ * 当前永劫点获取上限：基础 100 + Σ(每级提升量)
+ * 即 100、200、310、430、560、700、850 …（每级增量分别为 100、110、120、130、140、150）
+ */
+export function getRebirthPointsCap(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  return (
+    REBIRTH_POINTS_BASE_CAP +
+    REBIRTH_POINTS_CAP_STEP_BASE * lv +
+    (REBIRTH_POINTS_CAP_STEP_GROWTH * lv * (lv - 1)) / 2
+  );
 }
+
+
 
 export function getUpgradeCost(
   id: UpgradeId,
@@ -643,21 +667,29 @@ export function calculateGameAttributes(state: GameState) {
       rbComboChanceLevel * COMBO_CHANCE_STEP
   );
 
-  // 5. 连击倍数: 基础 100% + 数值殿每级 +30% + 永劫殿每级 +30%
+  // 5. 连击倍数: 基础 100% + 数值殿每级 +30% + 永劫殿每级 +30% × 往生殿强化倍数
   const rbComboMultLevel = rbLevels.comboMultiplier || 0;
+  const afterlifeComboMult = getAfterlifeUpgradeMultiplier(
+    'comboMultiplier',
+    state.afterlifeUpgradeLevels?.comboMultiplier || 0
+  );
   let comboMultiplier =
     1.0 +
     (comboMultUp.unlocked ? comboMultUp.level * MULTIPLIER_STEP : 0) +
-    rbComboMultLevel * MULTIPLIER_STEP;
+    rbComboMultLevel * MULTIPLIER_STEP * afterlifeComboMult;
 
-  // 6. 暴击倍数: 默认 5% + 成就奖励 + 数值殿每级 +30% + 永劫殿每级 +30%
+  // 6. 暴击倍数: 默认 5% + 成就奖励 + 数值殿每级 +30% + 永劫殿每级 +30% × 往生殿强化倍数
   const achievementCritBonus = getAchievementCritBonus(state);
   const rbCritMultLevel = rbLevels.critMultiplier || 0;
+  const afterlifeCritMult = getAfterlifeUpgradeMultiplier(
+    'critMultiplier',
+    state.afterlifeUpgradeLevels?.critMultiplier || 0
+  );
   let critMultiplier =
     CRIT_MULT_BASE +
     achievementCritBonus +
     (critMultUp.unlocked ? critMultUp.level * MULTIPLIER_STEP : 0) +
-    rbCritMultLevel * MULTIPLIER_STEP;
+    rbCritMultLevel * MULTIPLIER_STEP * afterlifeCritMult;
 
   // 7. 暴击概率: 基础暴击率 + 数值殿每级 +1% + 永劫殿每级 +1%，上限 100%
   const rbCritChanceLevel = rbLevels.critChance || 0;
@@ -684,6 +716,12 @@ export function calculateGameAttributes(state: GameState) {
   // 13. 「永劫爆炸」带来的额外永劫点数（每 100 万数值 +0.2 × 等级）
   const rebirthPointBonus = getRebirthPointBonusPerMillion(state.rebirthPointLevel || 0);
 
+  // 14. 渡劫点：单次收益的次方指数（默认 1）
+  const tribulationLevel =
+    Number.isFinite(state.tribulationLevel) && (state.tribulationLevel || 0) > 0
+      ? Math.floor(state.tribulationLevel)
+      : TRIBULATION_BASE_LEVEL;
+
   return {
     baseValue,
     /** 「数值升级」累计加成（数值殿 × 往生殿倍数 + 永劫殿） */
@@ -702,6 +740,7 @@ export function calculateGameAttributes(state: GameState) {
     totalClickCount,
     rebirthStartValue,
     rebirthPointBonus,
+    tribulationLevel,
     achievementCritBonus,
     playTimeMs: state.playTimeMs || 0,
   };
@@ -726,7 +765,8 @@ export function getExpectedClickValue(state: GameState): BigNum {
     attrs.valueMultiplier +
     critChance * attrs.critMultiplier +
     comboChance * attrs.comboMultiplier;
-  return attrs.baseValue.mulScalar(factor);
+  // 渡劫点：单次收益整体取 N 次方（默认为 1，保持原值）
+  return applyTribulation(attrs.baseValue.mulScalar(factor), attrs.tribulationLevel);
 }
 
 /**
@@ -769,7 +809,8 @@ export function executeClickCalculation(state: GameState): ClickResult {
     factor += attrs.critMultiplier;
   }
 
-  const gainedValue = attrs.baseValue.mulScalar(factor);
+  // 渡劫点：单次收益整体取 N 次方（默认为 1，保持原值）
+  const gainedValue = applyTribulation(attrs.baseValue.mulScalar(factor), attrs.tribulationLevel);
 
   return {
     isCrit,

@@ -15,7 +15,7 @@ import {
   AUTO_FREQ_INTERVAL_BASE,
   AUTO_FREQ_MAX_LEVEL,
   isRebirthEffectCapped,
-  getAfterlifeBaseValueMultiplier,
+  getAfterlifeUpgradeMultiplier,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
 import { UpgradeButton } from './UpgradeButton';
@@ -81,9 +81,12 @@ const effectText = (
       return `${cur} → ${(AUTO_FREQ_INTERVAL_BASE / nextInterval).toFixed(1)}次/s`;
     }
     case 'critMultiplier':
-      return `${pctText(attrs.critMultiplier)} → ${pctText(attrs.critMultiplier + MULTIPLIER_STEP)}`;
-    case 'comboMultiplier':
-      return `${pctText(attrs.comboMultiplier)} → ${pctText(attrs.comboMultiplier + MULTIPLIER_STEP)}`;
+    case 'comboMultiplier': {
+      // 每级 +30% × 往生殿强化倍数
+      const step = MULTIPLIER_STEP * getAfterlifeUpgradeMultiplier(id, afterlifeLevel);
+      const cur = id === 'critMultiplier' ? attrs.critMultiplier : attrs.comboMultiplier;
+      return `${pctText(cur)} → ${pctText(cur + step)}`;
+    }
     case 'critChance':
       return attrs.critChance >= 1.0
         ? `${pctText(attrs.critChance)} → 已至上限`
@@ -138,6 +141,9 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
             id === 'baseValue'
               ? state.rebirthBaseValueLevel || 0
               : state.rebirthMergedLevels?.[id] || 0;
+          // 往生殿：该属性的往生强化等级与强化倍数（放大永劫殿该属性的累计加成）
+          const afterlifeLevel = state.afterlifeUpgradeLevels?.[id] || 0;
+          const afterlifeMult = getAfterlifeUpgradeMultiplier(id, afterlifeLevel);
           // 自动点击频率：永劫殿独立 20 级满级
           const freqMaxed = id === 'autoFrequency' && level >= AUTO_FREQ_MAX_LEVEL;
           const cost = freqMaxed
@@ -146,10 +152,6 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
               ? getRebirthBaseValueCost(level)
               : getRebirthMergedUpgradeCost(id, level);
           const canBuy = cost !== null && state.rebirthPoints >= cost.toNumber();
-          // 「基础数值」受往生殿「数值升级」基础倍数放大
-          const afterlifeLevel = state.afterlifeUpgradeLevels?.baseValue || 0;
-          const baseValueMult =
-            id === 'baseValue' ? getAfterlifeBaseValueMultiplier(afterlifeLevel) : 1;
           return (
             <div
               key={id}
@@ -169,11 +171,11 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">
                   {capText(id) ? `${capText(id)} · ` : ''}
-                  {effectText(id, level, attrs, id === 'baseValue' ? afterlifeLevel : 0)}
+                  {effectText(id, level, attrs, afterlifeLevel)}
                 </div>
-                {baseValueMult > 1 && (
+                {afterlifeMult > 1 && (
                   <div className="text-[10px] font-serif text-[#d897fa] mt-0.5">
-                    往生殿基础倍数 ×{baseValueMult}
+                    往生殿强化 ×{afterlifeMult}（永劫殿加成）
                   </div>
                 )}
               </div>

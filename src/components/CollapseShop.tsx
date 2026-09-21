@@ -258,7 +258,7 @@ export const CollapseShop: React.FC<CollapseShopProps> = ({
                 </span>
               </div>
               <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-                往生殿：各属性升级消耗可进一步折扣
+                往生殿：永劫殿各属性升级消耗可进一步折扣
               </div>
             </div>
 

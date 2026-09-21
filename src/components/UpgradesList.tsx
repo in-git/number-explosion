@@ -15,8 +15,6 @@ import {
   COMBO_CHANCE_STEP,
   CRIT_MULT_BASE,
   MULTIPLIER_STEP,
-  applyAfterlifeDiscount,
-  getAfterlifeDiscountPercent,
 } from '../utils/gameMath';
 import { UPGRADE_ORDER, ACHIEVEMENTS_UNLOCK_COST, TITLE_UNLOCK_COST } from '../config';
 import { UpgradeButton } from './UpgradeButton';
@@ -194,17 +192,9 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
     // 永劫殿该属性的独立等级：概率类上限需据此扣减，保证两殿合计不超 100%
     const rebirthLevel = state.rebirthMergedLevels?.[id] || 0;
     const maxLevel = getUpgradeMaxLevel(id, upgradeState, rebirthLevel);
-    const afterlifeLevel = state.afterlifeUpgradeLevels?.[id] || 0;
-    // 「数值升级」：往生殿强化作用于永劫殿，故此处既不降消耗也无倍数加成
-    const isBaseValue = id === 'baseValue';
     const desc = getUpgradeDesc(id, upgradeState.level);
-    // 往生殿折扣：按当前属性等级降低该属性的数值殿升级消耗（「数值升级」除外）
-    const currentCost = isBaseValue
-      ? getUpgradeCost(id, upgradeState.level, maxLevel)
-      : applyAfterlifeDiscount(
-          getUpgradeCost(id, upgradeState.level, maxLevel),
-          afterlifeLevel,
-        );
+    // 往生殿的倍数与优惠均已迁移至永劫殿，数值殿升级一律原价
+    const currentCost = getUpgradeCost(id, upgradeState.level, maxLevel);
 
     return {
       id,
@@ -213,7 +203,6 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       maxLevel,
       desc,
       currentCost,
-      afterlifeDiscount: isBaseValue ? 0 : getAfterlifeDiscountPercent(afterlifeLevel),
       isMaxed: isUpgradeMaxed(id, upgradeState, rebirthLevel),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
       canAffordUpgrade: currentCost ? currentValue.gte(currentCost) : false,
@@ -280,16 +269,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       ) : (
         <div className="flex flex-col gap-1.5">
           {shownRows.map((row) => {
-            const {
-              id,
-              meta,
-              upgradeState,
-              maxLevel,
-              desc,
-              currentCost,
-              afterlifeDiscount,
-              isMaxed,
-            } = row;
+            const { id, meta, upgradeState, maxLevel, desc, currentCost, isMaxed } = row;
 
             // If not unlocked yet:
             if (!upgradeState.unlocked) {
@@ -360,11 +340,6 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
                     <span className="text-[#6e6456] flex-shrink-0">→</span>
                     <span className="break-words text-[#807667]">{desc.nextDesc}</span>
                   </div>
-                  {afterlifeDiscount > 0 && (
-                    <div className="text-[10px] font-serif text-[#76d18c] mt-0.5">
-                      往生殿优惠 -{afterlifeDiscount.toFixed(0)}%
-                    </div>
-                  )}
                 </div>
 
                 {/* 仅按此按钮升级；支持长按连升（含移动端） */}

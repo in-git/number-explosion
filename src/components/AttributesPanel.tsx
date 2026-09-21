@@ -153,7 +153,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       label: '永劫点上限',
       value: `${BigNum.fromNumber(getRebirthPointsCap(state.rebirthCapLevel || 0)).formatChinese(0)} 点`,
       valueClass: 'text-[#5fa8e6]',
-      detail: '每次永劫所得的点数上限 · 往生殿升级提升 · 每级 +100',
+      detail: '每次永劫所得的点数上限 · 往生殿升级提升 · 每级增量递增（+100、+110、+120…）',
     },
     {
       id: 'attr-rebirth-start-value',

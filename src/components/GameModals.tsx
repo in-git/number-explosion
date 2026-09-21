@@ -230,7 +230,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
       isOpen={modals.afterlifeShop?.isOpen ?? false}
       onClose={modals.afterlifeShop?.close}
       title="往生殿"
-      subtitle="数值殿升级消耗折扣 · 往生点兑换"
+      subtitle="永劫殿升级消耗折扣 · 往生点兑换"
     >
       <AfterlifeShop
         state={state}
