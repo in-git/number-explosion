@@ -426,7 +426,7 @@ export const UpgradesList: React.FC = () => {
             <div
               key={s.id}
               className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-                s.affordable ? 'hover:bg-[#2a2620] hover:border-[#5b5142] animate-[unlockGlow_1.5s_ease-in-out_infinite]' : ''
+                s.affordable ? 'hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
               }`}
             >
               <div className="flex-1 min-w-0">

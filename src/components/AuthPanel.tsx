@@ -82,27 +82,37 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       const regionId = defaultRegionId;
       if (regionId) {
         const attrs = calculateGameAttributes(state);
-        await selectRegion({
-          userId: acc.userId,
-          userName: acc.userName,
-          nickname: acc.nickname,
-          regionId,
-          critChance: attrs.critChance,
-          critMultiplier: attrs.critMultiplier,
-          comboChance: attrs.comboChance,
-          comboMultiplier: attrs.comboMultiplier,
-          rebirthCount: state.rebirthCount || 0,
-          collapsePoints: state.collapsePoints || 0,
-          playTimeMs: state.playTimeMs || 0,
-          clickCount: state.totalClickCount || 0,
-          highestValue: state.highestValue,
-        }, acc.token);
-        onRegionSelected(regionId, defaultRegionName ?? regionId);
+        try {
+          await selectRegion({
+            userId: acc.userId,
+            userName: acc.userName,
+            nickname: acc.nickname,
+            regionId,
+            critChance: attrs.critChance,
+            critMultiplier: attrs.critMultiplier,
+            comboChance: attrs.comboChance,
+            comboMultiplier: attrs.comboMultiplier,
+            rebirthCount: state.rebirthCount || 0,
+            collapsePoints: state.collapsePoints || 0,
+            playTimeMs: state.playTimeMs || 0,
+            clickCount: state.totalClickCount || 0,
+            highestValue: state.highestValue,
+          }, acc.token);
+          onRegionSelected(regionId, defaultRegionName ?? regionId);
+        } catch (upErr) {
+          // 注册已成功（账号已创建），仅入驻上报失败：给出真实错误，便于排查后端
+          const msg = upErr instanceof Error ? upErr.message : String(upErr);
+          setError(`账号已创建，但入驻大区失败：${msg}`);
+          setLoading(false);
+          return;
+        }
       }
 
       onBack();
-    } catch {
-      setError('注册失败 · 请重试');
+    } catch (err) {
+      // 注册/登录本身失败（如账号已存在、网络不可达）
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`注册失败 · ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -110,25 +120,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="text-center text-[11px] font-serif text-[#807565]">
-        天道留名 · 自动赐号
-      </div>
-
-      <div className={CARD}>
-        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">
-          账号（{state.lastCredentials ? '历史记录' : '自动生成'}）
-        </div>
-        <div className="font-mono text-sm text-[#e3ded4] break-all">{cred.userName}</div>
-      </div>
-
-      <div className={CARD}>
-        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">
-          密码（{state.lastCredentials ? '历史记录' : '自动生成'}）
-        </div>
-        <div className="font-mono text-sm text-[#e3ded4] break-all">{cred.password}</div>
-      </div>
-
-      {/* 昵称：必填，展示在排行榜上 */}
+       {/* 昵称：必填，展示在排行榜上 */}
       <div className={CARD}>
         <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">
           昵称（必填 · 显示在排行榜上）
@@ -147,6 +139,21 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           </div>
         )}
       </div>
+      <div className={CARD}>
+        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">
+          账号（{state.lastCredentials ? '历史记录' : '自动生成'}）
+        </div>
+        <div className="font-mono text-sm text-[#e3ded4] break-all">{cred.userName}</div>
+      </div>
+
+      <div className={CARD}>
+        <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">
+          密码（{state.lastCredentials ? '历史记录' : '自动生成'}）
+        </div>
+        <div className="font-mono text-sm text-[#e3ded4] break-all">{cred.password}</div>
+      </div>
+
+    
 
       {/* 默认入驻的大区 */}
       <div className={CARD}>

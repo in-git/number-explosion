@@ -262,13 +262,18 @@ export function loadGameState(): GameState {
   }
 }
 
-/** 存档：时间戳一律写服务器时间，避免本地改时间影响离线结算 */
+/**
+ * 组装完整存档快照（本地落盘与云端上报共用同一结构）：
+ * 时间戳一律写服务器时间，避免本地改时间影响离线结算。
+ */
+export function buildSaveSnapshot(state: GameState, currentValue: BigNumData): GameState {
+  return { ...state, currentValue, lastActiveAt: getServerNow() };
+}
+
+/** 存档到 localStorage */
 export function saveGameState(state: GameState, currentValue: BigNumData): void {
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ ...state, currentValue, lastActiveAt: getServerNow() })
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildSaveSnapshot(state, currentValue)));
   } catch {
     // ignore
   }

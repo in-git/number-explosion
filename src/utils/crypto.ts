@@ -5,7 +5,16 @@
  *
  * 与后端 server/src/utils/seal.ts 的 openEnvelope 互操作：
  * 两端派生规则、base64url 编码一致，且 AES-GCM 的认证标签统一置于密文末尾。
+ *
+ * 注意：这里使用纯 JS 的 @noble 实现，而非原生 crypto.subtle。
+ * 因为 crypto.subtle 仅在安全上下文（https / localhost）可用，
+ * 通过局域网 IP 以 http 访问时 crypto.subtle 为 undefined，会导致
+ * “Cannot read properties of undefined (reading 'digest')”。
+ * noble 的输出格式与原生 WebCrypto、Node crypto 完全一致，可无缝互通。
  */
+import { gcm } from '@noble/ciphers/aes.js';
+import { hmac } from '@noble/hashes/hmac.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 
 export interface SealedEnvelope {
   /** 服务端签发的令牌（bearer 身份） */
@@ -16,30 +25,20 @@ export interface SealedEnvelope {
   sig: string;
 }
 
+const IV_LEN = 12;
 const enc = new TextEncoder();
-const dec = new TextDecoder();
-
-/** SHA-256（返回原始字节，供 importKey 使用） */
-function sha256(input: string): Promise<ArrayBuffer> {
-  return crypto.subtle.digest('SHA-256', enc.encode(input));
-}
 
 /** 由 token 派生 AES 密钥（SHA-256 前 32 字节 → AES-256） */
-async function aesKeyOf(token: string): Promise<CryptoKey> {
-  const raw = await sha256(`datapoint::v1::${token}`);
-  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+function aesKeyOf(token: string): Uint8Array {
+  return sha256(enc.encode(`datapoint::v1::${token}`));
 }
 
 /** 由 token 派生 HMAC 密钥（SHA-256 前 32 字节） */
-async function hmacKeyOf(token: string): Promise<CryptoKey> {
-  const raw = await sha256(`datapoint::sig::v1::${token}`);
-  return crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, [
-    'sign',
-    'verify',
-  ]);
+function hmacKeyOf(token: string): Uint8Array {
+  return sha256(enc.encode(`datapoint::sig::v1::${token}`));
 }
 
-/** ArrayBuffer/Uint8Array → URL-safe base64（无填充） */
+/** Byte → URL-safe base64（无填充） */
 function toBase64Url(bytes: Uint8Array): string {
   let bin = '';
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -51,20 +50,21 @@ function toBase64Url(bytes: Uint8Array): string {
  * 调用方需传入服务端签发的 token（来自 state.account.token）。
  */
 export async function sealEnvelope(payload: unknown, token: string): Promise<SealedEnvelope> {
-  const aesKey = await aesKeyOf(token);
-  const hmacKey = await hmacKeyOf(token);
+  const aesKey = aesKeyOf(token);
+  const hmacKey = hmacKeyOf(token);
 
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  // getRandomValues 在非安全上下文同样可用（仅 subtle 受限）
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
   const plaintext = enc.encode(JSON.stringify(payload));
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, plaintext));
+  // gcm.encrypt 返回 ciphertext || authTag(16B)，与原生 WebCrypto 一致
+  const ct = gcm(aesKey, iv).encrypt(plaintext);
 
-  // ct 末尾已含 16 字节 GCM 认证标签
-  const bundle = new Uint8Array(12 + ct.length);
+  const bundle = new Uint8Array(IV_LEN + ct.length);
   bundle.set(iv, 0);
-  bundle.set(ct, 12);
+  bundle.set(ct, IV_LEN);
 
   const data = toBase64Url(bundle);
-  const sigBuf = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, enc.encode(data)));
+  const sigBuf = hmac(sha256, hmacKey, enc.encode(data));
   const sig = Array.from(sigBuf)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');

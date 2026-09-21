@@ -43,6 +43,13 @@ export interface UserSyncPayload {
   highestValue: BigNumData;
 }
 
+/** 云端存档上报报文 */
+export interface SaveSyncPayload {
+  userId: string;
+  /** 完整存档快照（与本地存档同构） */
+  save: unknown;
+}
+
 /** 后端接口基址（由 vite 代理转发到后端服务） */
 const API_BASE = '/api';
 
@@ -105,6 +112,24 @@ export async function selectRegion(payload: UserSyncPayload, token: string): Pro
   });
   if (!res.ok) throw new Error(`入驻失败: ${res.status}`);
   return (await res.json()) as { ok: boolean };
+}
+
+/**
+ * 上报完整存档：POST /api/user/save（报文加密签名，token 校验归属）。
+ * 供「云端自动存档」每 30s 调用一次，失败由调用方决定是否重试。
+ */
+export async function saveGameToServer(
+  userId: string,
+  save: unknown,
+  token: string
+): Promise<void> {
+  const env = await sealEnvelope({ userId, save } satisfies SaveSyncPayload, token);
+  const res = await fetch(`${API_BASE}/user/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ env }),
+  });
+  if (!res.ok) throw new Error(`存档上报失败: ${res.status}`);
 }
 
 /** 昵称默认值（注册时兜底，与后端一致） */

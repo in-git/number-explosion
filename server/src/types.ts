@@ -55,6 +55,13 @@ export interface UserAccount {
   regionName: string | null;
 }
 
+/** 云端存档上报报文（与前端 src/utils/authApi.ts 的 SaveSyncPayload 对齐） */
+export interface SaveSyncPayload {
+  userId: string;
+  /** 完整存档快照（与本地存档同构） */
+  save: unknown;
+}
+
 export interface UserSyncPayload {
   userId: string;
   userName: string;

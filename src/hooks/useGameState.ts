@@ -46,8 +46,9 @@ import {
 } from '../utils/gameMath';
 import { resetToInitialState, resetUpgradeLevels } from '../utils/state';
 import { canAscendRank } from '../utils/title';
-import { clearGameState, loadGameState, saveGameState } from '../utils/storage';
+import { buildSaveSnapshot, clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { getServerNow, syncServerTime } from '../utils/serverTime';
+import { saveGameToServer } from '../utils/authApi';
 import {
   ACHIEVEMENTS,
   AUTO_UNLOCK_COST,
@@ -107,6 +108,8 @@ const payTribulationPointsTimes = (state: GameState, times: number): Partial<Gam
 const PLAY_TIME_TICK_MS = 5_000;
 /** 自动存档的节流间隔（ms）：数值每秒都在变，逐帧写 localStorage 会拖垮主线程 */
 const AUTO_SAVE_THROTTLE_MS = 1_000;
+/** 云端自动存档间隔（ms）：登录后每隔该时长把完整存档上报一次服务器 */
+const CLOUD_SAVE_INTERVAL_MS = 30_000;
 
 /**
  * 游戏核心状态与全部玩法逻辑（数值、点击、升级、商殿、永劫、坍缩）
@@ -183,6 +186,39 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', onHide);
     };
+  }, []);
+
+  /**
+   * 云端自动存档：登录后每 30s 把完整存档上报服务器。
+   * - 未登录（无 token）时跳过，本地存档仍照常落盘
+   * - 读 ref 取最新值，定时器只需挂载一次，不随数值变化重建
+   * - in-flight 去重：上一轮未返回时跳过本轮，避免请求堆积
+   * - 失败静默：网络波动不打扰玩家，下一轮自动重试
+   */
+  const cloudSavePendingRef = useRef(false);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const account = stateRef.current.account;
+      if (!account?.token || cloudSavePendingRef.current) return;
+
+      cloudSavePendingRef.current = true;
+
+      const snapshot = buildSaveSnapshot(stateRef.current, bigNumRef.current.toData());
+      // 账号密码 / 令牌不随存档上报（二者与账号绑定，登录时另行下发）
+      if (snapshot.account) {
+        snapshot.account = { ...snapshot.account, password: '', token: '' };
+      }
+
+      saveGameToServer(account.userId, snapshot, account.token)
+        .catch(() => {
+          // 静默失败：下一轮自动重试
+        })
+        .finally(() => {
+          cloudSavePendingRef.current = false;
+        });
+    }, CLOUD_SAVE_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   /** 提交数值：任何途径获得的数值都不得突破「数值上限」，同时刷新最高数值纪录 */
@@ -1128,18 +1164,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     if (done) addToast('退出登录', '已退出当前账号 · 账号密码已留存');
   }, [addToast]);
 
-  /** 排行·登顶：修改账号档案（昵称 / 账号 / 密码），本地与榜单展示即时生效 */
-  const handleUpdateAccount = useCallback(
-    (patch: Partial<Pick<UserAccountData, 'nickname' | 'userName' | 'password'>>) => {
-      setState((prev) => {
-        if (!prev.account) return prev;
-        return { ...prev, account: { ...prev.account, ...patch } };
-      });
-      addToast('档案已更', '账号信息已更新');
-    },
-    [addToast]
-  );
-
   /** 排行·登顶：入驻大区（信息已由接口层上报后台，须达「炼气」境） */
   const handleSelectRegion = useCallback(
     (regionId: string, regionName: string) => {
@@ -1519,7 +1543,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleLogin,
     handleLogout,
     handleSelectRegion,
-    handleUpdateAccount,
     confirmRebirth,
     confirmCollapse,
     resetProgress,

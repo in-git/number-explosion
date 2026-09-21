@@ -66,9 +66,6 @@ export interface GameActions {
   handleLogin: (account: UserAccountData) => void;
   handleLogout: () => void;
   handleSelectRegion: (regionId: string, regionName: string) => void;
-  handleUpdateAccount: (
-    patch: Partial<Pick<UserAccountData, 'nickname' | 'userName' | 'password'>>
-  ) => void;
   confirmRebirth: () => void;
   confirmCollapse: () => void;
   dismissOfflineReport: () => void;
@@ -156,7 +153,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleLogin,
     handleLogout,
     handleSelectRegion,
-    handleUpdateAccount,
     confirmRebirth,
     confirmCollapse,
     resetProgress,
@@ -213,7 +209,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleLogin,
       handleLogout,
       handleSelectRegion,
-      handleUpdateAccount,
       confirmRebirth,
       confirmCollapse,
       dismissOfflineReport,
@@ -258,7 +253,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleLogin,
       handleLogout,
       handleSelectRegion,
-      handleUpdateAccount,
       confirmRebirth,
       confirmCollapse,
       dismissOfflineReport,

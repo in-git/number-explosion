@@ -9,7 +9,7 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 /**
  * SQLite（Node 内置 node:sqlite，无需原生编译）
- * 表结构：大区 regions / 玩家 users（含榜单所需的成绩刻度列）
+ * 表结构：大区 regions / 玩家 users（含榜单所需的成绩刻度列）/ 云端存档 saves
  */
 export const db = new DatabaseSync(path.join(DATA_DIR, 'leaderboard.db'));
 
@@ -49,6 +49,11 @@ db.exec(`
     updated_at          INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS saves (
+    user_id    TEXT PRIMARY KEY,
+    data       TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 // 旧库迁移：补齐后加的列（须在建索引之前）
@@ -82,4 +87,16 @@ export function userIdByToken(token: string): string | null {
   if (typeof token !== 'string' || token === '') return null;
   const row = findByToken.get(token) as { id: string } | undefined;
   return row?.id ?? null;
+}
+
+/** 云端存档单条上限（字符数）：超出即拒绝，防止恶意报文撑爆数据库 */
+export const SAVE_MAX_CHARS = 200_000;
+
+/** 写入 / 覆盖玩家的云端存档（每人仅保留最新一份） */
+const upsertSaveStmt = db.prepare(`
+  INSERT INTO saves (user_id, data, updated_at) VALUES (?, ?, ?)
+  ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
+`);
+export function upsertSave(userId: string, data: string): void {
+  upsertSaveStmt.run(userId, data, Date.now());
 }

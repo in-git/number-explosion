@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { db, userIdByToken } from '../db.js';
-import type { UserSyncPayload } from '../types.js';
+import { db, SAVE_MAX_CHARS, upsertSave, userIdByToken } from '../db.js';
+import type { SaveSyncPayload, UserSyncPayload } from '../types.js';
 import {
   isBoard,
   patchFromPayload,
@@ -64,5 +64,31 @@ userRouter.post('/region', (req, res) => {
   updateUserStats(patchFromPayload({ ...body, userId }));
   broadcastBoards();
 
+  res.json({ ok: true });
+});
+
+/** 云端自动存档：POST /api/user/save（报文加密签名，token 校验归属，每人仅保留最新一份） */
+userRouter.post('/save', (req, res) => {
+  let payload: unknown;
+  try {
+    payload = openEnvelope((req.body ?? {}).env);
+  } catch (err) {
+    return res.status(403).json({ error: err instanceof EnvelopeError ? err.message : '报文校验失败' });
+  }
+
+  const userId = userIdByToken(((req.body.env as { token?: string })?.token) ?? '');
+  if (!userId) return res.status(401).json({ error: '令牌无效' });
+
+  const body = payload as Partial<SaveSyncPayload> | null | undefined;
+  if (!body || typeof body !== 'object' || body.save === undefined) {
+    return res.status(400).json({ error: '缺少存档数据' });
+  }
+
+  const data = JSON.stringify(body.save);
+  if (data.length > SAVE_MAX_CHARS) {
+    return res.status(413).json({ error: '存档过大' });
+  }
+
+  upsertSave(userId, data);
   res.json({ ok: true });
 });
