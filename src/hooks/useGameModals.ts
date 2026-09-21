@@ -25,8 +25,10 @@ export interface GameModalsState {
   tribulationHall: Disclosure;
   /** 称号详情（当前称号 + 最近的几个修仙等级） */
   title: Disclosure;
-  /** 设置面板（作者 / 帮助 / 修改数据 三个入口） */
+  /** 设置面板（个人中心 / 作者 / 帮助 / 修改数据 四个入口） */
   settings: Disclosure;
+  /** 个人中心（账号信息；未登录时复用登录注册面板） */
+  userCenter: Disclosure;
   /** 作者（署名与作品信息） */
   author: Disclosure;
   /** 帮助文档（玩法指引） */
@@ -52,6 +54,7 @@ export function useGameModals(): GameModalsState {
     tribulationHall: useDisclosure(),
     title: useDisclosure(),
     settings: useDisclosure(),
+    userCenter: useDisclosure(),
     author: useDisclosure(),
     help: useDisclosure(),
     editData: useDisclosure(),

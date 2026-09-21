@@ -14,6 +14,7 @@ import { TribulationModal } from './TribulationModal';
 import { TribulationHall } from './TribulationHall';
 import { TitleModal } from './TitleModal';
 import { SettingsModal } from './SettingsModal';
+import { UserCenter } from './UserCenter';
 import { AuthorModal } from './AuthorModal';
 import { HelpModal } from './HelpModal';
 import { EditDataModal } from './EditDataModal';
@@ -127,8 +128,18 @@ export const GameModals: React.FC = () => {
         <TitleModal />
       </ModalShell>
 
-      {/* 设置 Modal（作者 / 帮助 / 修改数据 三入口） */}
+      {/* 设置 Modal（个人中心 / 作者 / 帮助 / 修改数据 四入口） */}
       <SettingsModal />
+
+      {/* 个人中心 Modal：未登录时复用排行榜的登录注册面板 */}
+      <ModalShell
+        isOpen={modals.userCenter.isOpen}
+        onClose={modals.userCenter.close}
+        title="个 人 中 心"
+        subtitle="—— 道 号 与 历 世 之 迹 ——"
+      >
+        <UserCenter />
+      </ModalShell>
 
       {/* 作者 / 帮助 / 修改数据：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
       <AuthorModal />

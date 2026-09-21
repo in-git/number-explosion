@@ -14,7 +14,7 @@ import {
   fetchLeaderboard,
   submitScore,
 } from '../utils/leaderboardApi';
-import { fetchRegions } from '../utils/authApi';
+import { useDefaultRegion } from '../hooks/useDefaultRegion';
 import { leaderboardSocket } from '../utils/leaderboardSocket';
 import { canAscendRank } from '../utils/title';
 
@@ -94,8 +94,8 @@ export const Ranking: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<LeaderboardEntry | null>(null);
-  // 进入排行即确定默认大区：取最新（最后一个）大区
-  const [defaultRegion, setDefaultRegion] = useState<{ id: string; name: string } | null>(null);
+  // 进入排行即确定默认大区（最新大区），与个人中心共用同一 Hook
+  const defaultRegion = useDefaultRegion();
 
   const attrs = calculateGameAttributes(state);
   const myScore = selfScore(board, state);
@@ -156,26 +156,16 @@ export const Ranking: React.FC = () => {
   // 否则 current 仍在，后台会一直按指数退避重连
   useEffect(() => () => leaderboardSocket.unsubscribe(), []);
 
-  // 点入排行：拉取大区并默认加入最新大区
-  useEffect(() => {
-    let cancelled = false;
-    fetchRegions()
-      .then((list) => {
-        if (cancelled || list.length === 0) return;
-        const last = list[list.length - 1];
-        setDefaultRegion({ id: last.id, name: last.name });
-      })
-      .catch(() => {
-        /* 大区拉取失败时保持未选区状态 */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  /** 订阅身份：登录 / 退出后 userId 变化，需要重新订阅 */
+  const selfUserId = state.account?.userId ?? SELF_USER_ID;
 
-  // 成绩变化的标记：仅在自身成绩变动时重新拉取
-  const scoreKey = `${board}|${myScore.m}|${myScore.e}`;
-
+  /**
+   * 订阅榜单：仅在「切换榜单」或「登录身份变化」时重新订阅。
+   * 注意：绝不能依赖自身成绩——自动点击会让最高数值每帧变化，
+   * 那样本效果会每帧重跑，既造成请求风暴，也会因 then 里的 setSelected(null)
+   * 把刚刚展开的手风琴详情立刻收起。
+   * 服务端数据变更由 WebSocket 推送（listener）实时刷新，无需重订阅。
+   */
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -205,8 +195,9 @@ export const Ranking: React.FC = () => {
       cancelled = true;
       leaderboardSocket.off(listener);
     };
+    // 仅随「榜单 / 登录身份」重订阅；listener 每次重建并由 off 清理，不作依赖
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scoreKey]);
+  }, [board, selfUserId]);
 
   // 登录注册 / 选择大区流程
   if (showAuth) {

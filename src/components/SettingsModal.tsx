@@ -1,8 +1,8 @@
 import React from 'react';
-import { BookOpen, Database, User } from 'lucide-react';
+import { BookOpen, CircleUserRound, Database, User } from 'lucide-react';
 import { useModals } from '../context/GameContext';
 
-/** 设置面板：仅保留三个入口，各自打开独立弹窗 */
+/** 设置面板：仅保留四个入口，各自打开独立弹窗 */
 export const SettingsModal: React.FC = () => {
   const modals = useModals();
 
@@ -15,6 +15,13 @@ export const SettingsModal: React.FC = () => {
     Icon: typeof User;
     onClick: () => void;
   }[] = [
+    {
+      id: 'personal-center',
+      title: '个 人 中 心',
+      desc: '账号信息 · 登录 / 退出',
+      Icon: CircleUserRound,
+      onClick: modals.userCenter.open,
+    },
     {
       id: 'author',
       title: '作 者',
@@ -67,7 +74,7 @@ export const SettingsModal: React.FC = () => {
           </button>
         </div>
 
-        {/* 三个入口 */}
+        {/* 四个入口 */}
         <div className="relative flex flex-col gap-2">
           {entries.map((e) => (
             <button

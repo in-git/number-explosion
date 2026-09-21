@@ -84,13 +84,6 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       detail: '坍缩殿提升上限 · 每次永劫 +100万 · 达到上限后数值不再增长',
     },
     {
-      id: 'attr-highest-value',
-      label: '最高数值',
-      value: BigNum.fromData(state.highestValue).formatChinese(2),
-      valueClass: 'text-[#e8b56f]',
-      detail: '历世最高纪录',
-    },
-    {
       id: 'attr-value-mult',
       label: '数值倍率',
       value: `${BigNum.fromNumber(attrs.valueMultiplier).formatChinese(2)}x`,
@@ -142,7 +135,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-rebirth-point-bonus',
       label: '永劫点数加成',
-      value: `+${attrs.rebirthPointBonus} / 百万`,
+      value: `${attrs.rebirthPointBonus}`,
       detail: '「永劫爆炸」升级 · 永劫时每 100 万数值额外获得',
     },
     {
@@ -165,6 +158,13 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
    * 与 utils/state.ts 的 ARCHIVE_KEYS 对应（lastActiveAt / notifiedUnlocks 属内部记账，不在此展示）。
    */
   const archiveList: AttributeItem[] = [
+    {
+      id: 'attr-highest-value',
+      label: '最高数值',
+      value: BigNum.fromData(state.highestValue).formatChinese(2),
+      valueClass: 'text-[#e8b56f]',
+      detail: '历世最高纪录 · 渡劫失败 / 永劫 / 坍缩均不清零',
+    },
     {
       id: 'attr-play-time',
       label: '游玩时长',

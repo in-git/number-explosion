@@ -28,6 +28,7 @@ export function resetUpgradeLevels(
  */
 export const ARCHIVE_KEYS = [
   // 历世记录
+  'highestValue', // 历世最高数值纪录（永不清零：渡劫失败 / 永劫 / 坍缩均保留）
   'playTimeMs', // 游玩时长
   'totalClickCount', // 总点击次数（历世累计）——当世点击 clickCount 属数值属性，会被重置
   'tribulationCount', // 渡劫次数（成败均计一次，同时是收益的次方指数）

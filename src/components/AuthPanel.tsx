@@ -19,8 +19,15 @@ interface AuthPanelProps {
   onLogin: (account: UserAccountData) => void;
   /** 入驻大区成功 */
   onRegionSelected: (regionId: string, regionName: string) => void;
-  /** 返回榜单 */
+  /** 返回来源页（排行榜 / 个人中心） */
   onBack: () => void;
+  /** 返回按钮文案（默认「返回榜单」） */
+  backLabel?: string;
+  /**
+   * 注册/登录成功后的回调；缺省时沿用 onBack 回到来源页。
+   * 个人中心传入空实现即可原地停留，直接展示账号信息。
+   */
+  onSuccess?: () => void;
 }
 
 const CARD = 'rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2.5';
@@ -36,6 +43,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   onLogin,
   onRegionSelected,
   onBack,
+  backLabel = '返回榜单',
+  onSuccess,
 }) => {
   // 已有历史记录则直接沿用，不再重新生成账号密码
   const [cred, setCred] = useState(() => {
@@ -108,7 +117,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
         }
       }
 
-      onBack();
+      // 有 onSuccess 则交给调用方决定去向（如个人中心原地停留），否则回到来源页
+      (onSuccess ?? onBack)();
     } catch (err) {
       // 注册/登录本身失败（如账号已存在、网络不可达）
       const msg = err instanceof Error ? err.message : String(err);
@@ -186,7 +196,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           onClick={onBack}
           className="flex-1 py-2.5 rounded-lg border border-[#3b3429] bg-[#241f1a] hover:bg-[#2e2821] text-xs font-serif text-[#a69c8c] cursor-pointer"
         >
-          返回榜单
+          {backLabel}
         </button>
         <button
           id="btn-auth-register"

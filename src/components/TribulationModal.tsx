@@ -296,10 +296,10 @@ const ResultModule: React.FC<ResultModuleProps> = ({ outcome, tribulationCount }
 };
 
 /* ------------------------------------------------------------------ *
- * 天雷峰·渡劫：按「开始 → 渡劫中 → 渡劫后」三阶段切换，三块 UI 互不干扰
+ * 渡劫：按「提示 → 开始 → 渡劫中 → 渡劫后」四阶段切换，各块 UI 互不干扰
  * ------------------------------------------------------------------ */
 
-/** 渡劫三阶段：ready 开始 / running 渡劫中 / result 渡劫后 */
+/** 登峰后的三个阶段：ready 开始 / running 渡劫中 / result 渡劫后 */
 type TribulationView =
   | { kind: 'ready' }
   | { kind: 'running' }
@@ -383,36 +383,40 @@ export const TribulationModal: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center gap-4 pb-2">
-      {/* 天雷峰：三阶段共用的标题 */}
-      <div className="w-full text-center pt-1">
-        <div
-          className="font-serif font-bold text-3xl sm:text-4xl tracking-[0.28em] text-[#f2ded0]"
-          style={{ textShadow: '0 2px 14px rgba(240,121,121,0.55), 0 2px 6px rgba(0,0,0,0.95)' }}
-        >
-          天 雷 峰
-        </div>
-      </div>
-
       {!entered ? (
+        /* 一 · 渡劫提示：入峰问心（尚未登峰，故不显示「天雷峰」标题） */
         <DisclaimerModule
           onStay={modals.tribulation.close}
           onConfirm={() => setEntered(true)}
         />
       ) : (
         <>
-              {view.kind === 'ready' && (
-            <ReadyModule
-              canTribulate={canTribulate}
-              canBuyPill={canBuyPill}
-              pills={pills}
-              afterlifePoints={state.afterlifePoints}
-              strikeChance={strikeChance}
-              successChance={successChance}
-              onStart={startTribulation}
-              onBuyPill={onBuyPill}
-            />
+          {view.kind === 'ready' && (
+            <>
+              {/* 二 · 开始渡劫：天雷峰标题仅在此阶段显示 */}
+              <div className="w-full text-center pt-1">
+                <div
+                  className="font-serif font-bold text-3xl sm:text-4xl tracking-[0.28em] text-[#f2ded0]"
+                  style={{ textShadow: '0 2px 14px rgba(240,121,121,0.55), 0 2px 6px rgba(0,0,0,0.95)' }}
+                >
+                  天 雷 峰
+                </div>
+              </div>
+
+              <ReadyModule
+                canTribulate={canTribulate}
+                canBuyPill={canBuyPill}
+                pills={pills}
+                afterlifePoints={state.afterlifePoints}
+                strikeChance={strikeChance}
+                successChance={successChance}
+                onStart={startTribulation}
+                onBuyPill={onBuyPill}
+              />
+            </>
           )}
 
+          {/* 三 · 渡劫中 / 四 · 渡劫后：均不显示「天雷峰」标题 */}
           {view.kind === 'running' && (
             <RunningModule
               revealed={revealed}
