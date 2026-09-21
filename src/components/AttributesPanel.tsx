@@ -5,8 +5,6 @@ import { BigNum } from '../utils/bigNumber';
 import {
   calculateGameAttributes,
   getValueCap,
-  getBaseValueBonus,
-  getRebirthBaseValueBonus,
   getRebirthPointsCap,
 } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
@@ -25,9 +23,9 @@ interface AttributeItem {
   valueClass?: string;
 }
 
-/** 通用属性行：无背景色、标题前无图标 */
+/** 通用属性行：无背景色、标题前无图标；行高写死，保证列表整齐 */
 const AttributeRow: React.FC<{ item: AttributeItem }> = ({ item }) => (
-  <div id={item.id} className="flex items-center justify-between gap-3 py-1 px-1">
+  <div id={item.id} className="flex h-7 items-center justify-between gap-3 px-1">
     <div className="flex items-center gap-2 min-w-0">
       <span className="font-serif text-[11px] sm:text-xs text-[#948a7a] whitespace-nowrap">
         {item.label}
@@ -51,8 +49,6 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const attrs = calculateGameAttributes(state);
-  const baseValueUp = state.upgrades.baseValue;
-  const rebirthBvLevel = state.rebirthBaseValueLevel || 0;
   const title = getTitle(state);
 
   // Format auto-click string
@@ -66,12 +62,9 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-base-upgrade',
       label: '数值升级',
-      value: (baseValueUp.unlocked ? getBaseValueBonus(baseValueUp.level) : new BigNum(0, 0))
-        .add(getRebirthBaseValueBonus(rebirthBvLevel))
-        .formatChinese(1),
-      detail: `当前单次基础: ${attrs.baseValue.formatChinese(1)}${
-        rebirthBvLevel > 0 ? ` · 永劫 +${getRebirthBaseValueBonus(rebirthBvLevel).formatChinese(1)}` : ''
-      }`,
+      // 统一取自 calculateGameAttributes（已含数值殿 × 往生殿基础倍数 + 永劫殿）
+      value: attrs.baseValueUpgradeBonus.formatChinese(1),
+      detail: '数值殿 + 永劫殿累计加成 · 已含往生殿基础倍数',
     },
  
     {
@@ -177,7 +170,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
         {/* Subtle Section Header with expand toggle */}
         <div
          onClick={() => setIsExpanded((v) => !v)}
-          className={`flex items-center justify-between  ${
+          className={`flex h-6 items-center justify-between ${
             isExpanded ? 'mb-1' : ''
           }`}
         >
@@ -201,7 +194,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
 
         {/* 资源区：置顶常显，为 0 的不显示；全部为空时整块不渲染 */}
         {(attrs.rebirthPoints > 0 || attrs.collapsePoints > 0 || state.afterlifePoints > 0) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5">
+          <div className="flex h-7 flex-wrap items-center gap-x-4 overflow-hidden">
           {attrs.rebirthPoints > 0 && (
             <div className="flex items-center gap-1.5">
               <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">永劫点数</span>

@@ -31,7 +31,8 @@ export interface UpgradeState {
 export interface FloatingText {
   id: string;
   text: string;
-  type: 'crit' | 'combo' | 'crit-combo' | 'normal';
+  /** 连击与暴击互斥，不存在同时触发的类型 */
+  type: 'crit' | 'combo' | 'normal';
   createdAt: number;
   offsetAngle: number;
   distance: number;
@@ -125,7 +126,11 @@ export interface GameState {
    * 与数值殿「数值升级」完全独立、效果累加：每级提升 +2（线性），消耗 1,1,3,5,7...（前两级各 1，此后每级 +2）
    */
   rebirthBaseValueLevel: number;
-  /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值殿的升级消耗，消耗按公差 4 的等差数列递增（4、8、12、16…） */
+  /**
+   * 往生殿：各属性已购买的升级等级
+   * - 「数值升级」：不再降低消耗，而是放大数值殿该功法的基础倍数（5、7、12、19、31…），消耗往生点为斐波那契数列（1、1、2、3、5…）
+   * - 其余属性：每级进一步降低该属性在数值殿的升级消耗，消耗按公差 4 的等差数列递增（4、8、12、16…）
+   */
   afterlifeUpgradeLevels: Record<UpgradeId, number>;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
   account: UserAccountData | null;

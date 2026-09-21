@@ -165,30 +165,43 @@ export function getBaseValueBonus(level: number): BigNum {
 }
 
 /**
- * 「数值殿·数值升级」实际基础数值加成 = 累计加成 × 往生殿「数值升级」基础倍数
- * 往生殿该属性不再降低消耗，而是放大这个加成（未购买时倍数为 1，不影响结果）
+ * 「数值升级」累计加成 —— 唯一计算入口。
+ * = 数值殿累计加成 + 永劫殿「基础数值」累计加成 × 往生殿「数值升级」基础倍数
+ * （数值殿未解锁时其部分按 0 计；往生殿未购买时倍数为 1）
+ *
+ * 往生殿的强化作用于永劫殿而非数值殿；新增任何加成来源只需改这里。
  */
-export function getShopBaseValueBonus(level: number, afterlifeLevel: number): BigNum {
-  const bonus = getBaseValueBonus(level);
-  const mult = getAfterlifeBaseValueMultiplier(afterlifeLevel);
-  return mult === 1 ? bonus : bonus.mulScalar(mult);
+export function getBaseValueUpgradeBonus(state: GameState): BigNum {
+  const shopLevel = state.upgrades?.baseValue?.unlocked ? state.upgrades.baseValue.level : 0;
+  const afterlifeLevel = state.afterlifeUpgradeLevels?.baseValue || 0;
+  return getBaseValueBonus(shopLevel).add(
+    getRebirthBaseValueBonus(state.rebirthBaseValueLevel || 0, afterlifeLevel)
+  );
 }
 
 /**
  * 「永劫殿·基础数值」每级提升量（线性 +2）：
- * 每级固定 +2，累计加成随等级线性增长（与数值殿加成累加）
+ * 每级固定 +2，累计加成随等级线性增长（与数值殿加成累加）；
+ * 受往生殿「数值升级」基础倍数放大（未购买时倍数为 1）
  */
-export function getRebirthBaseValueGain(level: number): BigNum {
+export function getRebirthBaseValueGain(level: number, afterlifeLevel: number = 0): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   if (lv <= 0) return new BigNum(0, 0);
-  return new BigNum(2, 0);
+  const gain = new BigNum(2, 0);
+  const mult = getAfterlifeBaseValueMultiplier(afterlifeLevel);
+  return mult === 1 ? gain : gain.mulScalar(mult);
 }
 
-/** 「永劫殿·基础数值」累计加成：每级 +2，共 2 × level（线性） */
-export function getRebirthBaseValueBonus(level: number): BigNum {
+/**
+ * 「永劫殿·基础数值」累计加成：每级 +2，共 2 × level（线性），
+ * 再乘以往生殿「数值升级」基础倍数（未购买时倍数为 1）
+ */
+export function getRebirthBaseValueBonus(level: number, afterlifeLevel: number = 0): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   if (lv <= 0) return new BigNum(0, 0);
-  return new BigNum(2 * lv, 0);
+  const bonus = new BigNum(2 * lv, 0);
+  const mult = getAfterlifeBaseValueMultiplier(afterlifeLevel);
+  return mult === 1 ? bonus : bonus.mulScalar(mult);
 }
 
 /**
@@ -347,8 +360,9 @@ export const BASE_MAX_LEVEL = 20;
 export const LEVEL_CAP_PER_POINT = 50;
 
 /**
- * 永劫殿某属性是否已达效果上限（上限类属性：概率 / 频率）。
- * 达到上限后，数值殿对应的升级项不再产生任何效果，可直接隐藏。
+ * 永劫殿某属性是否已达「永劫殿自身」的效果上限（上限类属性：概率 / 频率）。
+ * 仅用于永劫殿升级面板隐藏已满项；数值殿不再使用它——
+ * 数值殿概率上限已改为按「100% − 永劫殿同属性概率」动态计算（见 getUpgradeMaxLevel）。
  * - 自动点击频率: 永劫殿独立 20 级满级，间隔已至下限 10ms
  * - 连击概率: 每级 +5%，20 级即 100%
  * - 暴击概率: 基础 5% + 每级 +1%，95 级即 100%
@@ -363,21 +377,33 @@ export function isRebirthEffectCapped(id: UpgradeId, rebirthLevel: number): bool
 }
 
 /**
- * 某功法当前的等级上限
+ * 某功法在「数值殿」当前的等级上限
  * - 自动点击: 不可升级，上限恒为 0
  * - 自动点击频率: 固定 20 级满级，不随等级上限特权扩展
- * - 连击概率: 每级 +5%，20 级即 100%
- * - 暴击概率: 基础 5% + 每级 +1%，95 级即 100%
- *   （概率类上限取「效果达到 100%」所需等级，不再受 20 级默认上限限制）
- * - 其余: 默认 20 级 + 永劫商殿中购买的次数 × 50 级
+ * - 连击概率: 上限 = 100% − 永劫殿连击概率（两殿合计不溢出 100%）
+ * - 暴击概率: 上限 = 100% − 基础暴击率 − 永劫殿暴击概率
+ * - 其余: 默认 20 级 + 坍缩殿购买的次数 × 50 级
+ * @param rebirthLevel 永劫殿中该属性的独立等级（概率类必须传入，否则上限按永劫殿 0 级计）
  */
-export function getUpgradeMaxLevel(id: UpgradeId, up: UpgradeState): number {
+export function getUpgradeMaxLevel(
+  id: UpgradeId,
+  up: UpgradeState,
+  rebirthLevel: number = 0
+): number {
   if (id === 'autoClickUnlock') return 0; // 自动点击不可升级
   if (id === 'autoFrequency') return BASE_MAX_LEVEL; // 频率固定 20 级满级
-  // 概率类：上限 = 达到 100% 所需等级
-  if (id === 'comboChance') return Math.round(1 / COMBO_CHANCE_STEP); // 20 级 → 100%
+
+  const rb = Number.isFinite(rebirthLevel) && rebirthLevel > 0 ? Math.floor(rebirthLevel) : 0;
+
+  // 概率类：上限 = 补满至 100% 所需的剩余等级（永劫殿已提供的部分不计入数值殿）
+  if (id === 'comboChance') {
+    return Math.max(0, Math.round((1 - rb * COMBO_CHANCE_STEP) / COMBO_CHANCE_STEP));
+  }
   if (id === 'critChance') {
-    return Math.round((1 - CRIT_CHANCE_BASE) / CRIT_CHANCE_STEP); // 95 级 → 100%
+    return Math.max(
+      0,
+      Math.round((1 - CRIT_CHANCE_BASE - rb * CRIT_CHANCE_STEP) / CRIT_CHANCE_STEP)
+    );
   }
   return BASE_MAX_LEVEL + (up.capBonus || 0) * LEVEL_CAP_PER_POINT;
 }
@@ -388,22 +414,20 @@ export function getUpgradeMaxLevel(id: UpgradeId, up: UpgradeState): number {
  * - 自动点击: 不可升级
  */
 /** 该功法是否已臻圆满（达到等级上限，或功能性到顶） */
-export function isUpgradeMaxed(id: UpgradeId, up: UpgradeState): boolean {
+export function isUpgradeMaxed(
+  id: UpgradeId,
+  up: UpgradeState,
+  rebirthLevel: number = 0
+): boolean {
   if (!up.unlocked) return false;
 
-  const maxLevel = getUpgradeMaxLevel(id, up);
+  const maxLevel = getUpgradeMaxLevel(id, up, rebirthLevel);
   if (getUpgradeCost(id, up.level, maxLevel) === null) return true;
 
   // 功能性上限：即便还能买等级，效果也已达顶点
   if (id === 'autoFrequency') {
     // 已达最快间隔（10ms 一次），再快已无意义
     return getAutoClickRate(up.level).intervalMs <= AUTO_FREQ_INTERVAL_MIN;
-  }
-  if (id === 'comboChance') {
-    return Math.min(1.0, up.level * COMBO_CHANCE_STEP) >= 1.0;
-  }
-  if (id === 'critChance') {
-    return Math.min(1.0, CRIT_CHANCE_BASE + up.level * CRIT_CHANCE_STEP) >= 1.0;
   }
   return false;
 }
@@ -445,8 +469,8 @@ export function getAfterlifeUpgradeCost(currentLevel: number): number {
 }
 
 /**
- * 往生殿：「数值升级」特权（仅作用于数值殿的「数值升级」，不再降低消耗）
- * - 直接放大数值殿「数值升级」的基础倍数（即其累计基础数值加成）
+ * 往生殿：「数值升级」特权（仅作用于永劫殿的「基础数值」，不再降低消耗）
+ * - 直接放大永劫殿「基础数值」的基础倍数（即其累计基础数值加成）
  * - 各等级倍数为类斐波那契数列：5、7、12、19、31 …（每级 = 前两级之和）
  * - 未购买（Lv.0）时倍数为 1（无影响）
  */
@@ -578,7 +602,6 @@ export function getAutoClickRate(level: number): AutoClickRate {
  * Calculate all live attributes for display and math
  */
 export function calculateGameAttributes(state: GameState) {
-  const baseValueUp = state.upgrades.baseValue;
   const autoClickUp = state.upgrades.autoClickUnlock;
   const autoFreqUp = state.upgrades.autoFrequency;
   const comboChanceUp = state.upgrades.comboChance;
@@ -589,15 +612,10 @@ export function calculateGameAttributes(state: GameState) {
   // 0. 数值殿与永劫殿的「数值升级」完全独立：
   //    数值殿等级（upgrades.baseValue.level）随转世清零；永劫殿等级（rebirthBaseValueLevel）永久保留
 
-  // 1. 基础数值 = 默认值 + 数值殿加成 + 永劫殿加成（两殿效果为累加关系，互不影响）
-  //    数值殿: 0.7 × 斐波那契；永劫殿: 10 × 斐波那契
-  const shopBaseBonus = baseValueUp.unlocked
-    ? getShopBaseValueBonus(baseValueUp.level, state.afterlifeUpgradeLevels?.baseValue || 0)
-    : new BigNum(0, 0);
-  const rebirthBaseBonus = getRebirthBaseValueBonus(state.rebirthBaseValueLevel || 0);
-  const baseValue = new BigNum(BASE_VALUE_INITIAL, 0)
-    .add(shopBaseBonus)
-    .add(rebirthBaseBonus);
+  // 1. 基础数值 = 默认值 + 「数值升级」累计加成
+  //    （加成由 getBaseValueUpgradeBonus 统一计算：数值殿 + 永劫殿 × 往生殿倍数）
+  const baseValueUpgradeBonus = getBaseValueUpgradeBonus(state);
+  const baseValue = new BigNum(BASE_VALUE_INITIAL, 0).add(baseValueUpgradeBonus);
 
   // 2. 数值倍率
   const valueMultiplier = state.baseValueMultiplier;
@@ -668,6 +686,8 @@ export function calculateGameAttributes(state: GameState) {
 
   return {
     baseValue,
+    /** 「数值升级」累计加成（数值殿 × 往生殿倍数 + 永劫殿） */
+    baseValueUpgradeBonus,
     valueMultiplier,
     autoClicksPerSec,
     autoClicksPerMs,
@@ -699,10 +719,13 @@ export interface ClickResult {
  */
 export function getExpectedClickValue(state: GameState): BigNum {
   const attrs = calculateGameAttributes(state);
+  // 与 executeClickCalculation 保持一致：连击 / 暴击互斥，暴击优先
+  const critChance = Math.min(1, attrs.critChance);
+  const comboChance = Math.max(0, Math.min(attrs.comboChance, 1 - critChance));
   const factor =
     attrs.valueMultiplier +
-    attrs.comboChance * attrs.comboMultiplier +
-    attrs.critChance * attrs.critMultiplier;
+    critChance * attrs.critMultiplier +
+    comboChance * attrs.comboMultiplier;
   return attrs.baseValue.mulScalar(factor);
 }
 
@@ -723,21 +746,19 @@ export function getOfflineGain(state: GameState, seconds: number): BigNum {
 
 /**
  * 每次点击数值=基础数值*数值倍率+基础数值*连击倍数(判断触发)+基础数值*暴击倍数(判断触发)
+ * 连击与暴击互斥：单次点击只会触发其一（暴击优先）
  * 与永劫点数、坍缩点数无关
  * 自动点击与用户点击共享一个算法
  */
 export function executeClickCalculation(state: GameState): ClickResult {
   const attrs = calculateGameAttributes(state);
 
-  // 1. 连击判定
-  const rollCombo = Math.random();
-  const isCombo = attrs.comboChance > 0 && rollCombo < attrs.comboChance;
+  // 1. 单次点击只会触发其一：连击与暴击互斥（暴击优先，连击占用剩余区间）
+  const roll = Math.random();
+  const isCrit = roll < attrs.critChance;
+  const isCombo = !isCrit && roll < attrs.critChance + attrs.comboChance;
 
-  // 2. 暴击判定
-  const rollCrit = Math.random();
-  const isCrit = rollCrit < attrs.critChance;
-
-  // 3. 计算基础累加项
+  // 2. 计算基础累加项
   // 基础数值*数值倍率 + 基础数值*连击倍数(判断触发) + 基础数值*暴击倍数(判断触发)
   let factor = attrs.valueMultiplier;
 

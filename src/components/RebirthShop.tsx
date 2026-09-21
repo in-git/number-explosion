@@ -15,6 +15,7 @@ import {
   AUTO_FREQ_INTERVAL_BASE,
   AUTO_FREQ_MAX_LEVEL,
   isRebirthEffectCapped,
+  getAfterlifeBaseValueMultiplier,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
 import { UpgradeButton } from './UpgradeButton';
@@ -58,13 +59,16 @@ const pctText = (ratio: number): string => {
 const effectText = (
   id: UpgradeId,
   level: number,
-  attrs: ReturnType<typeof calculateGameAttributes>
+  attrs: ReturnType<typeof calculateGameAttributes>,
+  afterlifeLevel: number = 0
 ): string => {
   switch (id) {
     case 'baseValue': {
-      // 独立公式：每级固定 +2（线性增长）
+      // 独立公式：每级固定 +2（线性增长），并受往生殿「数值升级」基础倍数放大
       const cur = `基础 ${attrs.baseValue.formatChinese(1)}`;
-      const next = `基础 ${attrs.baseValue.add(getRebirthBaseValueGain(level + 1)).formatChinese(1)}`;
+      const next = `基础 ${attrs.baseValue
+        .add(getRebirthBaseValueGain(level + 1, afterlifeLevel))
+        .formatChinese(1)}`;
       return `${cur} → ${next}`;
     }
     case 'autoFrequency': {
@@ -142,6 +146,10 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
               ? getRebirthBaseValueCost(level)
               : getRebirthMergedUpgradeCost(id, level);
           const canBuy = cost !== null && state.rebirthPoints >= cost.toNumber();
+          // 「基础数值」受往生殿「数值升级」基础倍数放大
+          const afterlifeLevel = state.afterlifeUpgradeLevels?.baseValue || 0;
+          const baseValueMult =
+            id === 'baseValue' ? getAfterlifeBaseValueMultiplier(afterlifeLevel) : 1;
           return (
             <div
               key={id}
@@ -161,8 +169,13 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">
                   {capText(id) ? `${capText(id)} · ` : ''}
-                  {effectText(id, level, attrs)}
+                  {effectText(id, level, attrs, id === 'baseValue' ? afterlifeLevel : 0)}
                 </div>
+                {baseValueMult > 1 && (
+                  <div className="text-[10px] font-serif text-[#d897fa] mt-0.5">
+                    往生殿基础倍数 ×{baseValueMult}
+                  </div>
+                )}
               </div>
               <UpgradeButton
                 id={`btn-rebirth-merged-${id}`}

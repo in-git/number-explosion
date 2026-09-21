@@ -84,8 +84,8 @@ export const CoreNumberDisplay: React.FC<CoreNumberDisplayProps> = ({
         <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-[#6d614f]" />
         <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-[#6d614f]" />
 
-        {/* Central numeric display area */}
-        <div className="relative z-10 flex flex-col items-center justify-center py-8 sm:py-12 px-4 text-center min-h-[170px] sm:min-h-[210px]">
+        {/* Central numeric display area（固定高度，避免数值长度变化导致主页抖动） */}
+        <div className="relative z-10 flex h-[190px] sm:h-[230px] md:h-[250px] flex-col items-center justify-center px-4 text-center">
           <div className="text-xs sm:text-sm tracking-[0.25em] text-[#8c8273] font-serif mb-2 flex items-center gap-2">
             <span className="w-6 h-[1px] bg-[#4a4235]" />
             <span>太 虚 衍 化 · 本 源 数 值</span>
@@ -120,9 +120,8 @@ export const CoreNumberDisplay: React.FC<CoreNumberDisplayProps> = ({
 
               let colorClass = 'text-[#d6cec0]';
 
-              if (item.type === 'crit-combo') {
-                colorClass = 'text-[#f59e0b] font-black drop-shadow-[0_2px_6px_rgba(0,0,0,1)]';
-              } else if (item.type === 'crit') {
+              // 暴击红色显示（连击与暴击互斥，不存在两者同时触发）
+              if (item.type === 'crit') {
                 colorClass = 'text-[#ef4444] font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,1)]';
               } else if (item.type === 'combo') {
                 colorClass = 'text-[#06b6d4] font-bold';

@@ -44,6 +44,7 @@ export default function App() {
           onOpenRanking={modals.ranking.open}
           onOpenRebirthModal={modals.rebirth.open}
           onOpenAchievementsModal={modals.achievements.open}
+          onOpenTitleModal={modals.title.open}
           onOpenSettingsModal={modals.settings.open}
         />
       </main>
@@ -81,6 +82,9 @@ export default function App() {
         onSetDebugValue={game.debugSetValue}
         onSetRebirthPoints={game.debugSetRebirthPoints}
         onSetCollapsePoints={game.debugSetCollapsePoints}
+        onResetAfterlifeUpgrades={game.resetAfterlifeUpgrades}
+        onResetCollapseUpgrades={game.resetCollapseUpgrades}
+        onResetRebirthUpgrades={game.resetRebirthUpgrades}
         onResetProgress={game.resetProgress}
       />
 

@@ -30,23 +30,31 @@ interface ShopEntriesProps {
   onOpenRebirthModal: () => void;
   /** 成就面板入口（累计点击成就） */
   onOpenAchievementsModal: () => void;
+  /** 称号详情入口（当前称号 + 最近的几个修仙等级） */
+  onOpenTitleModal: () => void;
   /** 设置面板入口 */
   onOpenSettingsModal: () => void;
 }
 
-/** 商殿卡片：同一排铺满，列宽自适应，内部为上下结构（图标在上、文字在下） */
+/** 商殿卡片：同一排铺满，列宽自适应，内部为上下结构（图标在上、文字在下）；高度写死 */
 const SHOP_CARD =
-  'flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-xl border-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all text-center';
+  'flex h-[70px] flex-col items-center justify-center gap-1.5 px-2 rounded-xl border-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all text-center';
 /** 商殿网格：固定一排三个，超出换行 */
 const SHOP_GRID = 'grid gap-2 grid-cols-3';
 const SHOP_TITLE =
   'text-[11px] sm:text-sm font-serif font-bold tracking-[0.1em] sm:tracking-[0.2em] text-[#ded7cb] leading-tight';
 
-/** 功能卡片：列表排布，一行一个 */
+/** 功能卡片：列表排布，一行一个；高度写死 */
 const LIST_CARD =
-  'flex items-center justify-between gap-3 p-3.5 rounded-xl border-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all text-left';
+  'flex h-[52px] items-center justify-between gap-3 px-3.5 rounded-xl border-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all text-left';
 const LIST_TITLE =
   'text-sm font-serif font-bold tracking-[0.2em] text-[#ded7cb] whitespace-nowrap';
+
+/** 称号 / 排行 / 成就：同排三项时的紧凑卡片；高度写死 */
+const TRIPLE_CARD =
+  'flex h-[44px] items-center justify-between gap-1.5 px-2 rounded-xl border-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all text-left min-w-0';
+const TRIPLE_TITLE =
+  'text-[11px] sm:text-sm font-serif font-bold tracking-[0.08em] sm:tracking-[0.16em] text-[#ded7cb] whitespace-nowrap';
 
 export const ShopEntries: React.FC<ShopEntriesProps> = ({
   state,
@@ -59,6 +67,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   onOpenRanking,
   onOpenRebirthModal,
   onOpenAchievementsModal,
+  onOpenTitleModal,
   onOpenSettingsModal,
 }) => {
   // 永劫商殿：永劫之道开启后才出现；坍缩商殿：解锁坍缩后即出现（无需先坍缩一次）
@@ -162,43 +171,42 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
 
     
 
-        {/* 排行（消耗 1 点永劫点数解锁后显示） */}
-        {rankingUnlocked && (
-          <button
-            id="btn-open-ranking"
-            onClick={onOpenRanking}
-            className={`${LIST_CARD} bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
-          >
-            <div className={LIST_TITLE}>排 行</div>
-            <BarChart3 size={18} className="text-[#8c8273] flex-shrink-0" />
-          </button>
-        )}
-
-        {/* 称号 + 成就：同一排（需在数值殿分别开启对应系统后显示） */}
-        {(state.titleUnlocked || state.achievementsUnlocked) && (
+        {/* 称号 + 排行 + 成就：同一排（各自解锁后显示） */}
+        {(state.titleUnlocked || rankingUnlocked || state.achievementsUnlocked) && (
           <div className="flex gap-2">
             {state.titleUnlocked && (
-              <div
+              <button
                 id="home-title"
-                className={`${LIST_CARD} flex-1 min-w-0 bg-[#1a1715] border-[#2b2721]`}
+                onClick={onOpenTitleModal}
+                className={`${TRIPLE_CARD} flex-1 bg-[#1a1715] border-[#2b2721] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
               >
-                <div className={LIST_TITLE}>称 号</div>
+                <div className={TRIPLE_TITLE}>称 号</div>
                 <span
-                  className="font-serif font-bold text-sm whitespace-nowrap truncate"
+                  className="font-serif font-bold text-[11px] sm:text-sm whitespace-nowrap truncate"
                   style={{ color: title.color }}
                 >
                   {title.name}
                 </span>
-              </div>
+              </button>
+            )}
+            {rankingUnlocked && (
+              <button
+                id="btn-open-ranking"
+                onClick={onOpenRanking}
+                className={`${TRIPLE_CARD} flex-1 bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
+              >
+                <div className={TRIPLE_TITLE}>排 行</div>
+                <BarChart3 size={16} className="text-[#8c8273] flex-shrink-0" />
+              </button>
             )}
             {state.achievementsUnlocked && (
               <button
                 id="btn-open-achievements"
                 onClick={onOpenAchievementsModal}
-                className={`${LIST_CARD} flex-1 bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
+                className={`${TRIPLE_CARD} flex-1 bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
               >
-                <div className={LIST_TITLE}>成 就</div>
-                <Trophy size={18} className="text-[#8c8273] flex-shrink-0" />
+                <div className={TRIPLE_TITLE}>成 就</div>
+                <Trophy size={16} className="text-[#8c8273] flex-shrink-0" />
               </button>
             )}
           </div>

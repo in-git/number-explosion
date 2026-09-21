@@ -7,6 +7,12 @@ interface SettingsModalProps {
   onSetValue: (val: BigNum) => void;
   onSetRebirthPoints: (n: number) => void;
   onSetCollapsePoints: (n: number) => void;
+  /** 重置往生殿升级等级（不返还已消耗的往生点） */
+  onResetAfterlifeUpgrades: () => void;
+  /** 重置坍缩殿升级等级（不返还已消耗的坍缩点） */
+  onResetCollapseUpgrades: () => void;
+  /** 重置永劫殿升级等级（不返还已消耗的永劫点数） */
+  onResetRebirthUpgrades: () => void;
   onResetProgress: () => void;
   currentValue: BigNum;
 }
@@ -37,6 +43,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSetValue,
   onSetRebirthPoints,
   onSetCollapsePoints,
+  onResetAfterlifeUpgrades,
+  onResetCollapseUpgrades,
+  onResetRebirthUpgrades,
   onResetProgress,
   currentValue,
 }) => {
@@ -102,6 +111,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onClose();
     }
   };
+
+  /** 单项重置：二次确认后执行（不关闭面板，便于连续重置多项） */
+  const handleUpgradeReset = (label: string, action: () => void) => {
+    if (window.confirm(`确定重置${label}升级？等级将归零，且不返还已消耗的点数。`)) {
+      action();
+    }
+  };
+
+  /** 各殿升级重置入口 */
+  const upgradeResetFields: { id: string; title: string; action: () => void }[] = [
+    { id: 'afterlife', title: '往生殿', action: onResetAfterlifeUpgrades },
+    { id: 'collapse', title: '坍缩殿', action: onResetCollapseUpgrades },
+    { id: 'rebirth', title: '永劫殿', action: onResetRebirthUpgrades },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs modal-scroll">
@@ -189,6 +212,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="px-2 py-2 rounded-lg bg-[#241f1a] border border-[#3b3429] hover:border-[#8a653f] active:translate-y-0.5 text-sm font-serif text-[#ded7cb] cursor-pointer transition-colors"
               >
                 {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 重置各殿升级：等级归零，不返还已消耗点数 */}
+        <div className="rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2.5 mb-3">
+          <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">重置升级</div>
+          <div className="text-[10px] font-mono text-[#8f8574] leading-relaxed mb-2">
+            将对应殿的升级等级归零 · 不返还已消耗点数
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {upgradeResetFields.map((f) => (
+              <button
+                key={f.id}
+                id={`btn-settings-reset-${f.id}`}
+                onClick={() => handleUpgradeReset(f.title, f.action)}
+                className="px-2 py-2 rounded-lg bg-[#241f1a] border border-[#3b3429] hover:border-[#8a653f] active:translate-y-0.5 text-xs font-serif text-[#ded7cb] cursor-pointer transition-colors"
+              >
+                重置{f.title}
               </button>
             ))}
           </div>

@@ -19,6 +19,8 @@ export interface GameModalsState {
   collapse: Disclosure;
   /** 成就面板（历世累计点击成就） */
   achievements: Disclosure;
+  /** 称号详情（当前称号 + 最近的几个修仙等级） */
+  title: Disclosure;
   /** 设置面板（设定当前数值 / 重修道途） */
   settings: Disclosure;
 }
@@ -34,6 +36,7 @@ export function useGameModals(): GameModalsState {
     rebirth: useDisclosure(),
     collapse: useDisclosure(),
     achievements: useDisclosure(),
+    title: useDisclosure(),
     settings: useDisclosure(),
   };
 }

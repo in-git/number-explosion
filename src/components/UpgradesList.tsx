@@ -50,6 +50,7 @@ const pctText = (ratio: number): string => {
 function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
   if (id === 'baseValue') {
     // 格式：升级前的数值 -> 升级后预览（升级后的值以绿色显示）
+    // 往生殿强化作用于永劫殿，数值殿此处只看自身累计加成
     const currentBonus = getBaseValueBonus(level);
     const nextBonus = getBaseValueBonus(level + 1);
     return {
@@ -135,8 +136,9 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
     if (state.clickCount < UPGRADE_METADATA[id].requiredClicks && !state.upgrades[id].unlocked) {
       return false;
     }
-    // 概率 / 频率类：永劫殿该属性已达效果上限时，数值殿再升也无效果，不再显示该升级项
-    if (isRebirthEffectCapped(id, state.rebirthMergedLevels?.[id] || 0)) {
+    // 仅频率类：永劫殿已达最快间隔时数值殿再升也无效果，隐藏该项
+    // 概率类不再被移除：其等级上限已改为「100% − 永劫殿同属性概率」动态计算
+    if (id === 'autoFrequency' && isRebirthEffectCapped(id, state.rebirthMergedLevels?.[id] || 0)) {
       return false;
     }
     return true;
@@ -189,14 +191,20 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
   const rows = visibleUpgrades.map((id) => {
     const meta = UPGRADE_METADATA[id];
     const upgradeState = state.upgrades[id];
-    const maxLevel = getUpgradeMaxLevel(id, upgradeState);
-    const desc = getUpgradeDesc(id, upgradeState.level);
-    // 往生殿折扣：按当前属性等级降低该属性的数值殿升级消耗
+    // 永劫殿该属性的独立等级：概率类上限需据此扣减，保证两殿合计不超 100%
+    const rebirthLevel = state.rebirthMergedLevels?.[id] || 0;
+    const maxLevel = getUpgradeMaxLevel(id, upgradeState, rebirthLevel);
     const afterlifeLevel = state.afterlifeUpgradeLevels?.[id] || 0;
-    const currentCost = applyAfterlifeDiscount(
-      getUpgradeCost(id, upgradeState.level, maxLevel),
-      afterlifeLevel,
-    );
+    // 「数值升级」：往生殿强化作用于永劫殿，故此处既不降消耗也无倍数加成
+    const isBaseValue = id === 'baseValue';
+    const desc = getUpgradeDesc(id, upgradeState.level);
+    // 往生殿折扣：按当前属性等级降低该属性的数值殿升级消耗（「数值升级」除外）
+    const currentCost = isBaseValue
+      ? getUpgradeCost(id, upgradeState.level, maxLevel)
+      : applyAfterlifeDiscount(
+          getUpgradeCost(id, upgradeState.level, maxLevel),
+          afterlifeLevel,
+        );
 
     return {
       id,
@@ -205,8 +213,8 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       maxLevel,
       desc,
       currentCost,
-      afterlifeDiscount: getAfterlifeDiscountPercent(afterlifeLevel),
-      isMaxed: isUpgradeMaxed(id, upgradeState),
+      afterlifeDiscount: isBaseValue ? 0 : getAfterlifeDiscountPercent(afterlifeLevel),
+      isMaxed: isUpgradeMaxed(id, upgradeState, rebirthLevel),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
       canAffordUpgrade: currentCost ? currentValue.gte(currentCost) : false,
     };
@@ -272,8 +280,16 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       ) : (
         <div className="flex flex-col gap-1.5">
           {shownRows.map((row) => {
-            const { id, meta, upgradeState, maxLevel, desc, currentCost, afterlifeDiscount, isMaxed } =
-              row;
+            const {
+              id,
+              meta,
+              upgradeState,
+              maxLevel,
+              desc,
+              currentCost,
+              afterlifeDiscount,
+              isMaxed,
+            } = row;
 
             // If not unlocked yet:
             if (!upgradeState.unlocked) {

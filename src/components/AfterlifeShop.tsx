@@ -170,7 +170,7 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
                 <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
                   {isBaseValue ? (
                     <>
-                      提升 数值殿 <span className="text-[#76d18c]">[{meta.name}]</span> 基础倍数{' '}
+                      提升 永劫殿 <span className="text-[#76d18c]">[基础数值]</span> 基础倍数{' '}
                       <span className="text-[#d897fa] font-mono font-bold">
                         ×{current} → ×{next}
                       </span>

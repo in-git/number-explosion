@@ -12,6 +12,7 @@ import { AchievementsModal } from './AchievementsModal';
 import { RebirthModal } from './RebirthModal';
 import { CollapseModal } from './CollapseModal';
 import { AfterlifeShop } from './AfterlifeShop';
+import { TitleModal } from './TitleModal';
 import { SettingsModal } from './SettingsModal';
 import { getExtraRebirthPoints, getRebirthPointsCap } from '../utils/gameMath';
 
@@ -69,6 +70,12 @@ interface GameModalsProps {
   onSetRebirthPoints: (n: number) => void;
   /** 调试：直接设置坍缩点数 */
   onSetCollapsePoints: (n: number) => void;
+  /** 重置往生殿升级等级 */
+  onResetAfterlifeUpgrades: () => void;
+  /** 重置坍缩殿升级等级 */
+  onResetCollapseUpgrades: () => void;
+  /** 重置永劫殿升级等级 */
+  onResetRebirthUpgrades: () => void;
   onResetProgress: () => void;
 }
 
@@ -106,6 +113,9 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onSetDebugValue,
   onSetRebirthPoints,
   onSetCollapsePoints,
+  onResetAfterlifeUpgrades,
+  onResetCollapseUpgrades,
+  onResetRebirthUpgrades,
   onResetProgress,
 }) => (
   <>
@@ -251,6 +261,16 @@ export const GameModals: React.FC<GameModalsProps> = ({
       state={state}
     />
 
+    {/* 称号详情 Modal */}
+    <ModalShell
+      isOpen={modals.title.isOpen}
+      onClose={modals.title.close}
+      title="称 号"
+      subtitle="—— 天 道 授 名 · 各 有 其 位 ——"
+    >
+      <TitleModal state={state} />
+    </ModalShell>
+
     {/* 设置 Modal */}
     <SettingsModal
       isOpen={modals.settings.isOpen}
@@ -258,6 +278,9 @@ export const GameModals: React.FC<GameModalsProps> = ({
       onSetValue={onSetDebugValue}
       onSetRebirthPoints={onSetRebirthPoints}
       onSetCollapsePoints={onSetCollapsePoints}
+      onResetAfterlifeUpgrades={onResetAfterlifeUpgrades}
+      onResetCollapseUpgrades={onResetCollapseUpgrades}
+      onResetRebirthUpgrades={onResetRebirthUpgrades}
       onResetProgress={onResetProgress}
       currentValue={currentValue}
     />
