@@ -229,7 +229,7 @@ export const CollapseShop: React.FC = () => {
               if (canUnlockAfterlifeShop) onUnlockAfterlifeShop();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canUnlockAfterlifeShop ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+              canUnlockAfterlifeShop ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142] animate-[unlockGlow_1.5s_ease-in-out_infinite]' : ''
             }`}
           >
             <div className="flex-1 min-w-0">

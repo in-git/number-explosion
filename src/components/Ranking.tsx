@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { BigNumData, GameState } from '../types';
+import { BigNumData, GameState, UserAccountData } from '../types';
 import { useGameActions, useGameData } from '../context/GameContext';
 import { AuthPanel } from './AuthPanel';
 import { calculateGameAttributes } from '../utils/gameMath';
@@ -76,9 +76,99 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
       <ProfileItem label="坍缩重数" value={`${BigNum.fromNumber(profile.collapsePoints).formatChinese(0)} 重`} />
       <ProfileItem label="游玩时长" value={formatDuration(profile.playTimeMs)} />
     </div>
-  
   </div>
 );
+
+/** 本座档案：昵称置顶，账号与密码均可修改（仅登录后展示） */
+const AccountEditor: React.FC<{
+  account: UserAccountData;
+  onSave: (
+    patch: Partial<Pick<UserAccountData, 'nickname' | 'userName' | 'password'>>
+  ) => void;
+}> = ({ account, onSave }) => {
+  const [nickname, setNickname] = useState(account.nickname);
+  const [userName, setUserName] = useState(account.userName);
+  const [password, setPassword] = useState(account.password);
+  const [showPwd, setShowPwd] = useState(false);
+
+  const dirty =
+    nickname !== account.nickname ||
+    userName !== account.userName ||
+    password !== account.password;
+
+  const handleSave = () => {
+    const finalNick = nickname.trim();
+    const finalUser = userName.trim();
+    const finalPwd = password.trim();
+    if (finalNick === '' || finalUser === '' || finalPwd === '') return;
+    onSave({ nickname: finalNick, userName: finalUser, password: finalPwd });
+    setNickname(finalNick);
+    setUserName(finalUser);
+    setPassword(finalPwd);
+  };
+
+  const inputCls =
+    'flex-1 min-w-0 px-2 py-1.5 rounded bg-[#0f1216] border border-[#2c3440] text-sm text-[#e3ded4] outline-none focus:border-[#5b8db8]';
+
+  return (
+    <div className="rounded-lg border border-[#6b5a3f] bg-[#241f16] p-2.5 flex flex-col gap-2">
+      <div className="text-[11px] font-serif text-[#c9a86a]">本座档案</div>
+
+      {/* 昵称：置顶，展示在排行榜上 */}
+      <div>
+        <div className="text-[10px] font-serif text-[#8fa6bd] mb-1">昵称（排行榜展示）</div>
+        <input
+          id="rank-nickname-input"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          maxLength={12}
+          className={inputCls + ' font-serif'}
+        />
+      </div>
+
+      {/* 账号 */}
+      <div>
+        <div className="text-[10px] font-serif text-[#8fa6bd] mb-1">账号</div>
+        <input
+          id="rank-username-input"
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          className={inputCls + ' font-mono'}
+        />
+      </div>
+
+      {/* 密码 */}
+      <div>
+        <div className="text-[10px] font-serif text-[#8fa6bd] mb-1">密码</div>
+        <div className="flex items-center gap-1.5">
+          <input
+            id="rank-password-input"
+            type={showPwd ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={inputCls + ' font-mono'}
+          />
+          <button
+            id="btn-rank-toggle-pwd"
+            onClick={() => setShowPwd((v) => !v)}
+            className="px-2 py-1.5 rounded border border-[#3b3429] bg-[#1a1816] hover:border-[#5b5142] text-[10px] font-serif text-[#a69c8c] cursor-pointer flex-shrink-0"
+          >
+            {showPwd ? '隐藏' : '显示'}
+          </button>
+        </div>
+      </div>
+
+      <button
+        id="btn-rank-save-account"
+        onClick={handleSave}
+        disabled={!dirty}
+        className="w-full py-2 rounded-lg border-2 border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c] text-xs font-serif font-bold text-[#f5ebd7] cursor-pointer active:translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        保 存
+      </button>
+    </div>
+  );
+};
 
 /** 排行榜：数据全部来自后端接口（GET /api/leaderboard） */
 export const Ranking: React.FC = () => {
@@ -87,6 +177,7 @@ export const Ranking: React.FC = () => {
     handleLogin: onLogin,
     handleLogout: onLogout,
     handleSelectRegion: onRegionSelected,
+    handleUpdateAccount,
   } = useGameActions();
 
   const [board, setBoard] = useState<LeaderboardId>('value');
@@ -144,6 +235,8 @@ export const Ranking: React.FC = () => {
       playTimeMs: state.playTimeMs || 0,
       rebirthCount: state.rebirthCount || 0,
       clickCount: state.totalClickCount || 0,
+      highestValue: state.highestValue,
+      token: account.token,
     }).catch(() => {
       /* 上报失败不影响浏览榜单 */
     });
@@ -223,6 +316,29 @@ export const Ranking: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-2">
+      {/* 本座档案：昵称置顶，账号与密码可修改（登录后展示） */}
+      {state.account && (
+        <AccountEditor
+          account={state.account}
+          onSave={(patch) => {
+            handleUpdateAccount(patch);
+            // 昵称 / 账号变更后重新上报，使榜单显示同步
+            const next = { ...state.account!, ...patch };
+            submitScore({
+              userId: next.userId,
+              userName: next.userName,
+              playTimeMs: state.playTimeMs || 0,
+              rebirthCount: state.rebirthCount || 0,
+              clickCount: state.totalClickCount || 0,
+              highestValue: state.highestValue,
+              token: next.token,
+            }).catch(() => {
+              /* 上报失败不影响本地修改 */
+            });
+          }}
+        />
+      )}
+
       {/* tabbar：数值 / 富豪 / 时长 / 重生 / 连点 */}
       <div className="grid grid-cols-5 gap-1.5">
         {BOARD_TABS.map((t) => (

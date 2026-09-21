@@ -75,3 +75,11 @@ export function seedRegions(): void {
   );
   REGION_SEED.forEach((r, i) => insertRegion.run(r.id, r.name, r.desc, r.online, i));
 }
+
+/** 由令牌反查玩家 id：上报报文须携带服务端签发的 token，否则视为伪造 */
+const findByToken = db.prepare('SELECT id FROM users WHERE token = ?');
+export function userIdByToken(token: string): string | null {
+  if (typeof token !== 'string' || token === '') return null;
+  const row = findByToken.get(token) as { id: string } | undefined;
+  return row?.id ?? null;
+}

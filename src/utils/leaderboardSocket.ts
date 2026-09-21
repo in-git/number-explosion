@@ -1,4 +1,5 @@
-import type { LeaderboardId, LeaderboardResponse, ScoreReport } from './leaderboardApi';
+import type { LeaderboardId, LeaderboardResponse } from './leaderboardApi';
+import type { SealedEnvelope } from './crypto';
 
 /**
  * 榜单 WebSocket 客户端（单例）
@@ -182,10 +183,10 @@ class LeaderboardSocket {
     }
   }
 
-  /** 通过长连接上报成绩 */
-  report(report: ScoreReport): boolean {
+  /** 通过长连接上报成绩（加密信封） */
+  reportEnvelope(env: SealedEnvelope): boolean {
     if (!this.connected) return false;
-    this.ws?.send(JSON.stringify({ type: 'score', payload: report }));
+    this.ws?.send(JSON.stringify({ type: 'score', env }));
     return true;
   }
 }

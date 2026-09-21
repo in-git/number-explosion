@@ -1,6 +1,7 @@
 import { BigNum } from './bigNumber';
 import { BigNumData } from '../types';
 import { leaderboardSocket } from './leaderboardSocket';
+import { sealEnvelope } from './crypto';
 
 /** 榜单类型：数值 / 富豪 / 时长 / 重生次数 */
 export type LeaderboardId = 'value' | 'wealth' | 'playTime' | 'rebirth' | 'clicks';
@@ -52,6 +53,10 @@ export interface ScoreReport {
   playTimeMs: number;
   rebirthCount: number;
   clickCount: number;
+  /** 数值排行：历世最高数值 */
+  highestValue: BigNumData;
+  /** 服务端签发的令牌（用于加密签名与归属校验） */
+  token: string;
 }
 
 /** 榜单展示条数（后端返回已截断，前端保持一致展示说明） */
@@ -86,14 +91,15 @@ export async function fetchLeaderboard(
   return (await res.json()) as LeaderboardResponse;
 }
 
-/** 上报本人成绩：优先走长连接，否则 POST /api/leaderboard/score */
+/** 上报本人成绩：优先走长连接，否则 POST /api/leaderboard/score（均加密签名） */
 export async function submitScore(report: ScoreReport): Promise<void> {
-  if (leaderboardSocket.report(report)) return;
+  const env = await sealEnvelope(report, report.token);
+  if (leaderboardSocket.reportEnvelope(env)) return;
 
   const res = await fetch(`${API_BASE}/leaderboard/score`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(report),
+    body: JSON.stringify({ env }),
   });
   if (!res.ok) throw new Error(`成绩上报失败: ${res.status}`);
 }

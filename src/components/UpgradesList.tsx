@@ -325,7 +325,7 @@ export const UpgradesList: React.FC = () => {
                   }}
                   className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#16211a] border border-[#2f4a35] transition-colors ${
                     row.canAffordUnlock
-                      ? 'cursor-pointer hover:bg-[#1c2c22] hover:border-[#4d7a56]'
+                      ? 'cursor-pointer hover:bg-[#1c2c22] hover:border-[#4d7a56] animate-[unlockGlowGreen_1.5s_ease-in-out_infinite]'
                       : ''
                   }`}
                 >
@@ -426,7 +426,7 @@ export const UpgradesList: React.FC = () => {
             <div
               key={s.id}
               className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-                s.affordable ? 'hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+                s.affordable ? 'hover:bg-[#2a2620] hover:border-[#5b5142] animate-[unlockGlow_1.5s_ease-in-out_infinite]' : ''
               }`}
             >
               <div className="flex-1 min-w-0">

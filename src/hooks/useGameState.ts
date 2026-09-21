@@ -1128,6 +1128,18 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     if (done) addToast('退出登录', '已退出当前账号 · 账号密码已留存');
   }, [addToast]);
 
+  /** 排行·登顶：修改账号档案（昵称 / 账号 / 密码），本地与榜单展示即时生效 */
+  const handleUpdateAccount = useCallback(
+    (patch: Partial<Pick<UserAccountData, 'nickname' | 'userName' | 'password'>>) => {
+      setState((prev) => {
+        if (!prev.account) return prev;
+        return { ...prev, account: { ...prev.account, ...patch } };
+      });
+      addToast('档案已更', '账号信息已更新');
+    },
+    [addToast]
+  );
+
   /** 排行·登顶：入驻大区（信息已由接口层上报后台，须达「炼气」境） */
   const handleSelectRegion = useCallback(
     (regionId: string, regionName: string) => {
@@ -1507,6 +1519,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleLogin,
     handleLogout,
     handleSelectRegion,
+    handleUpdateAccount,
     confirmRebirth,
     confirmCollapse,
     resetProgress,

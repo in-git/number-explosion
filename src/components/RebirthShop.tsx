@@ -277,7 +277,7 @@ export const RebirthShop: React.FC = () => {
               if (canBuyAutoUnlock) handleBuyAutoUnlock();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canBuyAutoUnlock ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
+              canBuyAutoUnlock ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142] animate-[unlockGlow_1.5s_ease-in-out_infinite]' : 'opacity-50'
             }`}
           >
             <div className="flex-1 min-w-0">
@@ -303,7 +303,7 @@ export const RebirthShop: React.FC = () => {
               if (canUnlockRanking) handleUnlockRanking();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canUnlockRanking ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
+              canUnlockRanking ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142] animate-[unlockGlow_1.5s_ease-in-out_infinite]' : 'opacity-50'
             }`}
           >
             <div className="flex-1 min-w-0">
@@ -329,7 +329,7 @@ export const RebirthShop: React.FC = () => {
               if (canUnlockCollapse) handleUnlockCollapse();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-              canUnlockCollapse ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
+              canUnlockCollapse ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142] animate-[unlockGlow_1.5s_ease-in-out_infinite]' : 'opacity-50'
             }`}
           >
             <div className="flex-1 min-w-0">

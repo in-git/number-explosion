@@ -78,7 +78,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
         regionName: null,
       });
 
-      // 登录即上报：进入排行时已默认加入最新大区
+      // 登录即上报：进入排行时已默认加入最新大区（报文加密签名）
       const regionId = defaultRegionId;
       if (regionId) {
         const attrs = calculateGameAttributes(state);
@@ -95,8 +95,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           collapsePoints: state.collapsePoints || 0,
           playTimeMs: state.playTimeMs || 0,
           clickCount: state.totalClickCount || 0,
-     
-        });
+          highestValue: state.highestValue,
+        }, acc.token);
         onRegionSelected(regionId, defaultRegionName ?? regionId);
       }
 

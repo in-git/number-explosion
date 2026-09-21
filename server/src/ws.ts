@@ -1,7 +1,9 @@
 import type { Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { LeaderboardId } from './types.js';
+import type { LeaderboardId, UserSyncPayload } from './types.js';
 import { isBoard, patchFromPayload, queryLeaderboard, updateUserStats } from './services/leaderboard.js';
+import { userIdByToken } from './db.js';
+import { EnvelopeError, openEnvelope } from './utils/seal.js';
 
 /**
  * WebSocket 服务：前端长连接订阅榜单，数据变更时由服务端推送，
@@ -67,9 +69,20 @@ export function attachWebSocket(server: Server): void {
       }
 
       if (msg.type === 'score') {
-        const payload = (msg.payload ?? {}) as Record<string, unknown> & { userId?: string };
-        if (!payload.userId) return send(ws, { type: 'error', message: '缺少 userId' });
-        updateUserStats(patchFromPayload(payload));
+        const env = (msg as { env?: unknown }).env;
+        let payload: unknown;
+        try {
+          payload = openEnvelope(env);
+        } catch (err) {
+          return send(ws, {
+            type: 'error',
+            message: err instanceof EnvelopeError ? err.message : '报文校验失败',
+          });
+        }
+        const token = (env as { token?: string } | null)?.token ?? '';
+        const userId = userIdByToken(token);
+        if (!userId) return send(ws, { type: 'error', message: '令牌无效' });
+        updateUserStats(patchFromPayload({ ...(payload as Partial<UserSyncPayload>), userId }));
         broadcastBoards();
         return;
       }

@@ -226,7 +226,7 @@ export const AfterlifeShop: React.FC = () => {
         <div
           id="afterlife-item-unlock-tribulation"
           className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-            canUnlockTribulation ? '' : 'opacity-50'
+            canUnlockTribulation ? 'animate-[unlockGlow_1.5s_ease-in-out_infinite]' : 'opacity-50'
           }`}
         >
           <div className="flex-1 min-w-0">
@@ -254,7 +254,7 @@ export const AfterlifeShop: React.FC = () => {
       ) : (
         <div
           id="afterlife-item-tribulation"
-          className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors"
+          className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors animate-[unlockGlow_1.5s_ease-in-out_infinite]"
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
@@ -278,7 +278,7 @@ export const AfterlifeShop: React.FC = () => {
         <div
           id="afterlife-item-one-key"
           className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
-            canUnlockOneKey ? '' : 'opacity-50'
+            canUnlockOneKey ? 'animate-[unlockGlow_1.5s_ease-in-out_infinite]' : 'opacity-50'
           }`}
         >
           <div className="flex-1 min-w-0">

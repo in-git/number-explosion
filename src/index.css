@@ -75,6 +75,32 @@ body {
   }
 }
 
+/* 解锁功能（金色）：可解锁时边框金色脉动，引导玩家点击 */
+@keyframes unlockGlow {
+  0%,
+  100% {
+    border-color: #5b5142;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    border-color: #f5dd9a;
+    box-shadow: 0 0 16px rgba(245, 221, 154, 0.85);
+  }
+}
+
+/* 解锁功能（绿色）：数值殿功法以点击量解锁 */
+@keyframes unlockGlowGreen {
+  0%,
+  100% {
+    border-color: #2f4a35;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    border-color: #76d18c;
+    box-shadow: 0 0 16px rgba(118, 209, 140, 0.8);
+  }
+}
+
 /* 天雷峰·渡劫：当前这一道雷劫的计时进度条（时长由元素内联样式给出） */
 @keyframes strikeProgress {
   from {

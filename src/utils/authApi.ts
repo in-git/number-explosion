@@ -1,4 +1,6 @@
 import { DEFAULT_NICKNAME } from '../config';
+import type { BigNumData } from '../types';
+import { sealEnvelope } from './crypto';
 
 /** 服务器大区 */
 export interface Region {
@@ -37,6 +39,8 @@ export interface UserSyncPayload {
   playTimeMs: number;
   /** 连点榜：历世累计点击次数 */
   clickCount: number;
+  /** 数值排行：历世最高数值（随存档上报，服务端据此排序） */
+  highestValue: BigNumData;
 }
 
 /** 后端接口基址（由 vite 代理转发到后端服务） */
@@ -91,12 +95,13 @@ export async function fetchRegions(): Promise<Region[]> {
   return data.regions ?? [];
 }
 
-/** 选择大区并上报用户信息：POST /api/user/region */
-export async function selectRegion(payload: UserSyncPayload): Promise<{ ok: boolean }> {
+/** 选择大区并上报用户信息：POST /api/user/region（报文加密签名，token 校验归属） */
+export async function selectRegion(payload: UserSyncPayload, token: string): Promise<{ ok: boolean }> {
+  const env = await sealEnvelope(payload, token);
   const res = await fetch(`${API_BASE}/user/region`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ env }),
   });
   if (!res.ok) throw new Error(`入驻失败: ${res.status}`);
   return (await res.json()) as { ok: boolean };
