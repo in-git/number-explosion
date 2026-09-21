@@ -325,6 +325,8 @@ export const AFTERLIFE_SHOP_UNLOCK_COST = 20;
 export const AFTERLIFE_POINT_EXCHANGE_COST = 10;
 /** 往生殿：「一键升级」特权消耗的往生点（解锁后数值殿显示一键升级） */
 export const ONE_KEY_UPGRADE_UNLOCK_COST = 10;
+/** 往生殿：「渡劫」特权消耗的往生点（解锁后才显示天雷峰渡劫入口） */
+export const TRIBULATION_UNLOCK_COST = 100;
 
 /** 排行昵称默认值（必填，用户可自行修改） */
 export const DEFAULT_NICKNAME = '数爆玩家';
@@ -399,8 +401,14 @@ export const INITIAL_STATE: GameState = {
 
   valueCapLevel: 0,
   rebirthPointLevel: 0,
-  /** 渡劫点：默认 1（不影响收益） */
-  tribulationLevel: 1,
+  /** 已服用的渡劫丹数量：默认 0 */
+  tribulationPills: 0,
+  /** 是否已渡劫成功：默认否（未成功前次方不参与计算） */
+  tribulationSuccess: false,
+  /** 渡劫次数（= 成功次数，仅成功 +1）：默认 0 */
+  tribulationCount: 0,
+  /** 往生殿「渡劫」特权：默认未解锁 */
+  tribulationUnlocked: false,
   /** 永劫点数兑换坍缩点数的累计次数 */
   rebirthToCollapseCount: 0,
   notifiedUnlocks: [],

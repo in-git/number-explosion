@@ -156,6 +156,16 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       detail: '每次永劫所得的点数上限 · 往生殿升级提升 · 每级增量递增（+100、+110、+120…）',
     },
     {
+      id: 'attr-tribulation',
+      label: '渡劫次数',
+      value: `${state.tribulationCount || 0} / 9 次`,
+      valueClass: 'text-[#e8b56f]',
+      detail:
+        state.tribulationCount > 0
+          ? `单次收益取原值的 ${attrs.tribulationExponent} 次方`
+          : '尚未渡劫成功 · 次方暂不参与收益计算',
+    },
+    {
       id: 'attr-rebirth-start-value',
       label: '永劫初始数值',
       value: attrs.rebirthStartValue.formatChinese(2),

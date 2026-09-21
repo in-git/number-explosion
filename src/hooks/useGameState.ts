@@ -29,6 +29,10 @@ import {
   isUpgradeMaxed,
   getRebirthPointsCap,
   getRebirthCapUpgradeCost,
+  TRIBULATION_COST,
+  TRIBULATION_PILL_COST,
+  TRIBULATION_MAX_COUNT,
+  getTribulationSuccessRate,
 } from '../utils/gameMath';
 import { resetUpgradeLevels } from '../utils/state';
 import { canAscendRank } from '../utils/title';
@@ -41,6 +45,7 @@ import {
   AFTERLIFE_SHOP_UNLOCK_COST,
   AFTERLIFE_POINT_EXCHANGE_COST,
   ONE_KEY_UPGRADE_UNLOCK_COST,
+  TRIBULATION_UNLOCK_COST,
   INITIAL_STATE,
   OFFLINE_MAX_MS,
   OFFLINE_MIN_MS,
@@ -656,6 +661,89 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('坍缩觉醒', `消耗 ${COLLAPSE_COST} 点永劫值 · 太虚坍缩已开启`);
   }, [addToast]);
 
+  /**
+   * 往生殿·天雷峰：渡劫
+   * - 消耗 1 万往生点发起一次渡劫（成功率先行判定，成功率 = 基础成功率 + 渡劫丹 × 10%）
+   * - 成功：渡劫点 +1（单次收益取原值的渡劫点次方）
+   * - 失败：失去全部永劫点、坍缩点、往生点
+   */
+  const handleTribulation = useCallback(() => {
+    const prev = stateRef.current;
+    // 渡劫次数（成功次数）上限 9：达上限后不可再渡劫
+    if ((prev.tribulationCount || 0) >= TRIBULATION_MAX_COUNT) return;
+    if (prev.afterlifePoints < TRIBULATION_COST) return;
+
+    const chance = getTribulationSuccessRate(prev.tribulationPills || 0);
+    const success = Math.random() < chance;
+    const newCount = success
+      ? Math.min(TRIBULATION_MAX_COUNT, (prev.tribulationCount || 0) + 1)
+      : prev.tribulationCount || 0;
+
+    setState((p) => ({
+      ...p,
+      // 成功：仅扣除本次消耗；失败：三种点数尽数散尽
+      afterlifePoints: success ? Math.max(0, p.afterlifePoints - TRIBULATION_COST) : 0,
+      rebirthPoints: success ? p.rebirthPoints : 0,
+      collapsePoints: success ? p.collapsePoints : 0,
+      // 是否渡劫成功：一旦成功即永久为真（未成功前次方不参与计算）
+      tribulationSuccess: p.tribulationSuccess || success,
+      // 渡劫次数：仅成功时 +1（它即收益的次方指数）
+      tribulationCount: success
+        ? Math.min(TRIBULATION_MAX_COUNT, (p.tribulationCount || 0) + 1)
+        : p.tribulationCount || 0,
+    }));
+
+    addToast(
+      success ? '渡劫成功' : '渡劫失败',
+      success
+        ? `天雷淬体 · 渡劫 ${newCount}/${TRIBULATION_MAX_COUNT} 次 · 单次收益取原值的 ${newCount} 次方`
+        : '天雷贯顶 · 永劫点 / 坍缩点 / 往生点尽数散尽'
+    );
+  }, [addToast]);
+
+  /** 往生殿：消耗 100 往生点解锁「渡劫」（解锁后才显示天雷峰入口） */
+  const handleUnlockTribulation = useCallback(() => {
+    let done = false;
+    setState((prev) => {
+      if (prev.tribulationUnlocked || prev.afterlifePoints < TRIBULATION_UNLOCK_COST) return prev;
+      done = true;
+      return {
+        ...prev,
+        afterlifePoints: prev.afterlifePoints - TRIBULATION_UNLOCK_COST,
+        tribulationUnlocked: true,
+      };
+    });
+    if (done) {
+      addToast(
+        '渡劫洞开',
+        `消耗 ${TRIBULATION_UNLOCK_COST} 点往生点 · 天雷峰已开，成则飞升成仙，败则飞禽走兽`
+      );
+    }
+  }, [addToast]);
+
+  /** 往生殿·天雷峰：服用渡劫丹（300 往生点，渡劫成功率 +10%） */
+  const handleBuyTribulationPill = useCallback(() => {
+    let done = false;
+    let newPills = 0;
+    setState((prev) => {
+      if (prev.afterlifePoints < TRIBULATION_PILL_COST) return prev;
+      if (getTribulationSuccessRate(prev.tribulationPills || 0) >= 1) return prev;
+      done = true;
+      newPills = (prev.tribulationPills || 0) + 1;
+      return {
+        ...prev,
+        afterlifePoints: prev.afterlifePoints - TRIBULATION_PILL_COST,
+        tribulationPills: newPills,
+      };
+    });
+    if (done) {
+      addToast(
+        '渡劫丹',
+        `已服 ${newPills} 颗 · 渡劫成功率 ${(getTribulationSuccessRate(newPills) * 100).toFixed(0)}% · 消耗 ${TRIBULATION_PILL_COST} 点往生点`
+      );
+    }
+  }, [addToast]);
+
   /** 坍缩商殿：消耗按等差数列递增（差值 1）的坍缩点数，提升数值上限 */
   const handleBuyValueCap = useCallback(() => {
     const prev = stateRef.current;
@@ -1122,6 +1210,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleBuyRebirthPointLevel,
     handleBuyRebirthMergedUpgrade,
     handleUnlockCollapse,
+    handleUnlockTribulation,
+    handleTribulation,
+    handleBuyTribulationPill,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
     handleUnlockRanking,

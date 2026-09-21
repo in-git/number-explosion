@@ -143,33 +143,33 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
 
       {/* 永劫 / 成就 / 设置：依旧是列表，一行一个 */}
       <div className="flex flex-col gap-2">
-        {/* 永劫（内含坍缩入口） */}
-        <button
-          id="btn-open-rebirth"
-          onClick={onOpenRebirthModal}
-          disabled={!canOpenRebirth}
-          className={`relative ${LIST_CARD} ${
-            canOpenRebirth
-              ? 'bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer animate-[rebirthGlow_1.5s_ease-in-out_infinite]'
-              : 'bg-[#171513] border-[#2b2721] cursor-not-allowed'
-          }`}
-          style={{ overflow: 'visible' }}
-        >
-          <div
-            className={`text-sm font-serif font-bold tracking-[0.2em] whitespace-nowrap ${
-              canOpenRebirth ? 'text-[#ded7cb]' : 'text-[#6b6455]'
+        {/* 永劫（内含坍缩入口）：已渡劫成功（飞升成仙）后不再显示 */}
+        {!state.tribulationSuccess && (
+          <button
+            id="btn-open-rebirth"
+            onClick={onOpenRebirthModal}
+            disabled={!canOpenRebirth}
+            className={`relative ${LIST_CARD} ${
+              canOpenRebirth
+                ? 'bg-[#1a1816] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer animate-[rebirthGlow_1.5s_ease-in-out_infinite]'
+                : 'bg-[#171513] border-[#2b2721] cursor-not-allowed'
             }`}
+            style={{ overflow: 'visible' }}
           >
-            永 劫
-          </div>
-          <InfinityIcon size={18} className="text-[#8c8273] flex-shrink-0" />
-          {/* 门槛标签：右上角溢出边界的红色标签 */}
-          <span className="absolute -top-2 -right-2 text-[9px] font-mono px-1 py-px rounded bg-[#3a1717] border border-[#7a2a2a] text-[#f07979] flex-shrink-0">
-            {REBIRTH_THRESHOLD.formatChinese(0).replace('万', 'w')}
-          </span>
-        </button>
-
-    
+            <div
+              className={`text-sm font-serif font-bold tracking-[0.2em] whitespace-nowrap ${
+                canOpenRebirth ? 'text-[#ded7cb]' : 'text-[#6b6455]'
+              }`}
+            >
+              永 劫
+            </div>
+            <InfinityIcon size={18} className="text-[#8c8273] flex-shrink-0" />
+            {/* 门槛标签：右上角溢出边界的红色标签 */}
+            <span className="absolute -top-2 -right-2 text-[9px] font-mono px-1 py-px rounded bg-[#3a1717] border border-[#7a2a2a] text-[#f07979] flex-shrink-0">
+              {REBIRTH_THRESHOLD.formatChinese(0).replace('万', 'w')}
+            </span>
+          </button>
+        )}
 
         {/* 称号 + 排行 + 成就：同一排（各自解锁后显示） */}
         {(state.titleUnlocked || rankingUnlocked || state.achievementsUnlocked) && (

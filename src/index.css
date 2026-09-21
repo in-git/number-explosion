@@ -62,6 +62,19 @@ body {
   }
 }
 
+/* 天雷峰·渡劫：圆钮雷光脉动 */
+@keyframes tribulationPulse {
+  0%,
+  100% {
+    border-color: #8a653f;
+    box-shadow: 0 0 18px rgba(240, 121, 121, 0.35);
+  }
+  50% {
+    border-color: #f07979;
+    box-shadow: 0 0 34px rgba(240, 121, 121, 0.85);
+  }
+}
+
 /* Custom scrollbar matching weathered stone aesthetic（始终可见，便于辨识内容已溢出） */
 * {
   scrollbar-width: thin;

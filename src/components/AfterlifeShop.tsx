@@ -5,6 +5,7 @@ import {
   UPGRADE_ORDER,
   AFTERLIFE_POINT_EXCHANGE_COST,
   ONE_KEY_UPGRADE_UNLOCK_COST,
+  TRIBULATION_UNLOCK_COST,
   REBIRTH_MERGED_UPGRADES,
 } from '../config';
 import {
@@ -28,6 +29,10 @@ interface AfterlifeShopProps {
   onBuyRebirthCapUpgrade: () => void;
   /** 消耗 10 往生点解锁「一键升级」（解锁后数值殿才显示一键升级按钮） */
   onUnlockOneKeyUpgrade: () => void;
+  /** 消耗 100 往生点解锁「渡劫」（解锁后才显示天雷峰入口） */
+  onUnlockTribulation: () => void;
+  /** 打开「天雷峰」渡劫模态框 */
+  onOpenTribulation: () => void;
 }
 
 export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
@@ -36,6 +41,8 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
   onBuyAfterlifeUpgrade,
   onBuyRebirthCapUpgrade,
   onUnlockOneKeyUpgrade,
+  onUnlockTribulation,
+  onOpenTribulation,
 }) => {
   // 仅列出永劫殿中「可升级（有消耗）」的属性；autoClickUnlock 为解锁项、无升级消耗，故不列入
   // 往生殿不提供「频率 / 概率」类升级：自动点击频率、连击概率、暴击概率
@@ -65,6 +72,10 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
 
   // 一键升级：消耗 10 往生点解锁，解锁后数值殿才显示一键升级按钮
   const canUnlockOneKey = state.afterlifePoints >= ONE_KEY_UPGRADE_UNLOCK_COST;
+
+  // 渡劫：需先消耗 100 往生点解锁；实际渡劫在「天雷峰」模态框内进行
+  const canUnlockTribulation =
+    !state.tribulationUnlocked && state.afterlifePoints >= TRIBULATION_UNLOCK_COST;
 
   return (
     <div className="flex flex-col gap-2">
@@ -212,6 +223,58 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
           {BigNum.fromNumber(rebirthCapCost).formatChinese(0)} 点
         </UpgradeButton>
       </PressableRow>
+
+      {/* 渡劫：需先解锁；解锁后进入「天雷峰」（消耗 1 万往生点，成功渡劫点 +1，失败散尽一切） */}
+      {!state.tribulationUnlocked ? (
+        <PressableRow
+          id="afterlife-item-unlock-tribulation"
+          disabled={!canUnlockTribulation}
+          onPress={() => {
+            if (canUnlockTribulation) onUnlockTribulation();
+          }}
+          className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
+            canUnlockTribulation ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : ''
+          }`}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
+                解锁渡劫
+              </span>
+              <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">
+                未开启
+              </span>
+            </div>
+            <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
+              天雷峰：成则飞升成仙，败则飞禽走兽
+            </div>
+          </div>
+
+          <UpgradeButton id="btn-afterlife-unlock-tribulation" disabled={!canUnlockTribulation}>
+            {BigNum.fromNumber(TRIBULATION_UNLOCK_COST).formatChinese(0)} 点
+          </UpgradeButton>
+        </PressableRow>
+      ) : (
+        <PressableRow
+          id="afterlife-item-tribulation"
+          disabled={false}
+          onPress={onOpenTribulation}
+          className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] break-words">
+                渡劫
+              </span>
+            </div>
+            <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
+              成则飞升成仙，败则飞禽走兽
+            </div>
+          </div>
+
+          <UpgradeButton id="btn-afterlife-tribulation">渡劫</UpgradeButton>
+        </PressableRow>
+      )}
 
       {/* 一键升级（未解锁时显示）：消耗 10 往生点 */}
       {!state.oneKeyUpgradeUnlocked && (

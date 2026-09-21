@@ -12,6 +12,7 @@ import { AchievementsModal } from './AchievementsModal';
 import { RebirthModal } from './RebirthModal';
 import { CollapseModal } from './CollapseModal';
 import { AfterlifeShop } from './AfterlifeShop';
+import { TribulationModal } from './TribulationModal';
 import { TitleModal } from './TitleModal';
 import { SettingsModal } from './SettingsModal';
 import { getExtraRebirthPoints, getRebirthPointsCap } from '../utils/gameMath';
@@ -32,7 +33,12 @@ interface GameModalsProps {
   onBuyLevelCap: (id: UpgradeId) => void;
   onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
   onUnlockCollapse: () => void;
-
+  /** 往生殿：解锁「渡劫」（消耗 100 往生点） */
+  onUnlockTribulation: () => void;
+  /** 往生殿·天雷峰：渡劫（消耗 1 万往生点，成功渡劫点 +1，失败失去全部点数） */
+  onTribulation: () => void;
+  /** 往生殿·天雷峰：服用渡劫丹（300 往生点，渡劫成功率 +10%） */
+  onBuyTribulationPill: () => void;
   /** 消耗 20 点坍缩点数解锁往生殿（于坍缩殿） */
   onUnlockAfterlifeShop: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
@@ -93,6 +99,9 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onBuyLevelCap,
   onBuyRebirthMergedUpgrade,
   onUnlockCollapse,
+  onUnlockTribulation,
+  onTribulation,
+  onBuyTribulationPill,
   onUnlockAfterlifeShop,
   onUnlockRanking,
   onBuyAutoUnlock,
@@ -238,6 +247,25 @@ export const GameModals: React.FC<GameModalsProps> = ({
         onBuyAfterlifeUpgrade={onBuyAfterlifeUpgrade}
         onBuyRebirthCapUpgrade={onBuyRebirthCapUpgrade}
         onUnlockOneKeyUpgrade={onUnlockOneKeyUpgrade}
+        onUnlockTribulation={onUnlockTribulation}
+        onOpenTribulation={() => {
+          modals.afterlifeShop.close();
+          modals.tribulation.open();
+        }}
+      />
+    </ModalShell>
+
+    {/* 渡劫 · 天雷峰 Modal */}
+    <ModalShell
+      isOpen={modals.tribulation.isOpen}
+      onClose={modals.tribulation.close}
+      title="渡 劫"
+      subtitle="—— 天 雷 加 身 · 九 死 一 生 ——"
+    >
+      <TribulationModal
+        state={state}
+        onTribulate={onTribulation}
+        onBuyPill={onBuyTribulationPill}
       />
     </ModalShell>
 

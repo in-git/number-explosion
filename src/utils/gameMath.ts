@@ -267,26 +267,46 @@ export const UPGRADE_METADATA: Record<UpgradeId, { name: string; requiredClicks:
 /** 坍缩所需消耗的永劫点数 */
 export const COLLAPSE_COST = 5;
 
-/** 渡劫：于永劫殿每次渡劫消耗的永劫点数（恒定 1 万） */
+/** 渡劫：于往生殿「天雷峰」每次渡劫消耗的往生点（恒定 1 万） */
 export const TRIBULATION_COST = 10000;
-/** 渡劫点：默认为 1（此时单次收益保持原值不变） */
-export const TRIBULATION_BASE_LEVEL = 1;
+/** 渡劫基础成功率（未服用渡劫丹时，默认 0：全靠渡劫丹堆积） */
+export const TRIBULATION_BASE_CHANCE = 0;
+/** 每颗渡劫丹提升的成功率 */
+export const TRIBULATION_PILL_BONUS = 0.1;
+/** 每颗渡劫丹所需的往生点 */
+export const TRIBULATION_PILL_COST = 300;
+/** 渡劫次数上限（含失败的尝试） */
+export const TRIBULATION_MAX_COUNT = 9;
 
-/** 渡劫（渡劫点 +1）所需的永劫点数：恒定 1 万 */
+/** 渡劫（渡劫点 +1）所需的往生点：恒定 1 万 */
 export function getTribulationCost(_currentLevel: number): number {
   return TRIBULATION_COST;
 }
 
 /**
- * 渡劫点作用：单次收益 = 原值 ^ 渡劫点
- * 例：单次点击值 10、渡劫点 3 → 10³ = 1000；渡劫点为 1 时保持原值不变
+ * 当前渡劫成功率 = 基础成功率（默认 0）+ 渡劫丹数 × 10%，上限 100%
  */
-export function applyTribulation(value: BigNum, tribulationLevel: number): BigNum {
-  const lv =
-    Number.isFinite(tribulationLevel) && tribulationLevel > 0
-      ? Math.floor(tribulationLevel)
-      : TRIBULATION_BASE_LEVEL;
-  return lv <= 1 ? value : value.pow(lv);
+export function getTribulationSuccessRate(pills: number): number {
+  const n = Number.isFinite(pills) && pills > 0 ? Math.floor(pills) : 0;
+  return Math.min(1, TRIBULATION_BASE_CHANCE + n * TRIBULATION_PILL_BONUS);
+}
+
+/**
+ * 渡劫作用：单次收益 = 原值 ^ 渡劫次数
+ * - 渡劫次数为 0（尚未成功）或 1 时保持原值不变：绝不做 原值 ^ 0 = 1 这类会打崩数值的运算
+ * 例：单次点击值 10、渡劫次数 3 → 10³ = 1000
+ */
+export function applyTribulation(value: BigNum, tribulationTimes: number): BigNum {
+  const times =
+    Number.isFinite(tribulationTimes) && tribulationTimes > 0 ? Math.floor(tribulationTimes) : 0;
+  return times <= 1 ? value : value.pow(times);
+}
+
+/** 渡劫次数（0~9）对应的次方指数：未成功（0 次）时按 1 计，即不参与计算 */
+export function getTribulationExponent(tribulationTimes: number): number {
+  const times =
+    Number.isFinite(tribulationTimes) && tribulationTimes > 0 ? Math.floor(tribulationTimes) : 0;
+  return Math.min(TRIBULATION_MAX_COUNT, Math.max(1, times));
 }
 
 /** 数值上限基数：默认 100 万 */
@@ -716,11 +736,9 @@ export function calculateGameAttributes(state: GameState) {
   // 13. 「永劫爆炸」带来的额外永劫点数（每 100 万数值 +0.2 × 等级）
   const rebirthPointBonus = getRebirthPointBonusPerMillion(state.rebirthPointLevel || 0);
 
-  // 14. 渡劫点：单次收益的次方指数（默认 1）
-  const tribulationLevel =
-    Number.isFinite(state.tribulationLevel) && (state.tribulationLevel || 0) > 0
-      ? Math.floor(state.tribulationLevel)
-      : TRIBULATION_BASE_LEVEL;
+  // 14. 渡劫次数（= 渡劫成功次数，上限 9）：单次收益取原值的 N 次方
+  //     0 次（尚未成功）时指数按 1 计，即次方不参与计算，避免 原值 ^ 0 = 1 打崩数值
+  const tribulationExponent = getTribulationExponent(state.tribulationCount || 0);
 
   return {
     baseValue,
@@ -740,7 +758,8 @@ export function calculateGameAttributes(state: GameState) {
     totalClickCount,
     rebirthStartValue,
     rebirthPointBonus,
-    tribulationLevel,
+    /** 渡劫次方指数（0 次时为 1，即不参与计算） */
+    tribulationExponent,
     achievementCritBonus,
     playTimeMs: state.playTimeMs || 0,
   };
@@ -765,8 +784,8 @@ export function getExpectedClickValue(state: GameState): BigNum {
     attrs.valueMultiplier +
     critChance * attrs.critMultiplier +
     comboChance * attrs.comboMultiplier;
-  // 渡劫点：单次收益整体取 N 次方（默认为 1，保持原值）
-  return applyTribulation(attrs.baseValue.mulScalar(factor), attrs.tribulationLevel);
+  // 渡劫：单次收益整体取「渡劫次数」次方（0 次时为 1，保持原值）
+  return applyTribulation(attrs.baseValue.mulScalar(factor), attrs.tribulationExponent);
 }
 
 /**
@@ -809,8 +828,8 @@ export function executeClickCalculation(state: GameState): ClickResult {
     factor += attrs.critMultiplier;
   }
 
-  // 渡劫点：单次收益整体取 N 次方（默认为 1，保持原值）
-  const gainedValue = applyTribulation(attrs.baseValue.mulScalar(factor), attrs.tribulationLevel);
+  // 渡劫：单次收益整体取「渡劫次数」次方（0 次时为 1，保持原值）
+  const gainedValue = applyTribulation(attrs.baseValue.mulScalar(factor), attrs.tribulationExponent);
 
   return {
     isCrit,

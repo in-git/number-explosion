@@ -62,6 +62,9 @@ export default function App() {
         onBuyLevelCap={game.handleBuyLevelCap}
         onBuyRebirthMergedUpgrade={game.handleBuyRebirthMergedUpgrade}
         onUnlockCollapse={game.handleUnlockCollapse}
+        onUnlockTribulation={game.handleUnlockTribulation}
+        onTribulation={game.handleTribulation}
+        onBuyTribulationPill={game.handleBuyTribulationPill}
         onUnlockAfterlifeShop={game.handleUnlockAfterlifeShop}
         onUnlockRanking={game.handleUnlockRanking}
         onBuyAutoUnlock={game.handleBuyAutoUnlock}

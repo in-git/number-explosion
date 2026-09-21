@@ -144,12 +144,18 @@ export interface GameState {
    * 每级使永劫时「每 100 万数值」额外 +0.2 点永劫点数
    */
   rebirthPointLevel: number;
+  /** 已服用的渡劫丹数量：每颗 +10% 渡劫成功率（往生殿购买，300 往生点/颗） */
+  tribulationPills: number;
+  /** 是否已渡劫成功：未成功前「渡劫次方」不参与收益计算，避免数值崩塌 */
+  tribulationSuccess: boolean;
   /**
-   * 渡劫点：单次收益的次方指数（默认 1，此时收益保持原值不变）。
-   * 于永劫殿消耗 1 万永劫点数可渡劫一次（+1）；单次收益 = 原值 ^ 渡劫点
-   * 例：单次点击值 10、渡劫点 3 → 10³ = 1000
+   * 渡劫次数（= 渡劫成功次数，仅成功时 +1），上限 9（TRIBULATION_MAX_COUNT）。
+   * 单次收益 = 原值 ^ 渡劫次数：0 次时不参与计算（原值 ^ 0 = 1 会打崩数值）。
+   * 例：单次点击值 10、渡劫次数 3 → 10³ = 1000
    */
-  tribulationLevel: number;
+  tribulationCount: number;
+  /** 往生殿「渡劫」是否已解锁（消耗 100 往生点一次性解锁，未解锁不显示渡劫入口） */
+  tribulationUnlocked: boolean;
   /** 坍缩商殿中「永劫点数 → 坍缩点数」的累计兑换次数（每次恒定 3 点永劫点数） */
   rebirthToCollapseCount: number;
 

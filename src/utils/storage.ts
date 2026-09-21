@@ -12,6 +12,7 @@ import {
   STORAGE_KEY,
 } from '../config';
 import { getServerNow } from './serverTime';
+import { TRIBULATION_MAX_COUNT } from './gameMath';
 
 /** 清洗账号信息：非法则视为未登录 */
 function sanitizeAccount(raw: unknown): UserAccountData | null {
@@ -146,6 +147,24 @@ export function loadGameState(): GameState {
       rebirthPointLevel: Number.isFinite(parsed.rebirthPointLevel)
         ? Math.max(0, Math.floor(parsed.rebirthPointLevel))
         : 0,
+      // 渡劫丹：默认 0
+      tribulationPills: Number.isFinite(parsed.tribulationPills)
+        ? Math.max(0, Math.floor(parsed.tribulationPills))
+        : 0,
+      // 是否已渡劫成功：默认否
+      tribulationSuccess: !!parsed.tribulationSuccess,
+      // 渡劫次数（= 成功次数，上限 9）：旧存档由「渡劫点 − 1」迁移而来
+      tribulationCount: (() => {
+        const migrated = Number.isFinite(parsed.tribulationLevel) ? parsed.tribulationLevel - 1 : NaN;
+        const raw = Number.isFinite(migrated)
+          ? migrated
+          : Number.isFinite(parsed.tribulationCount)
+            ? parsed.tribulationCount
+            : 0;
+        return Math.min(TRIBULATION_MAX_COUNT, Math.max(0, Math.floor(raw)));
+      })(),
+      // 往生殿「渡劫」特权：默认未解锁
+      tribulationUnlocked: !!parsed.tribulationUnlocked,
       rebirthToCollapseCount: Number.isFinite(parsed.rebirthToCollapseCount)
         ? Math.max(0, Math.floor(parsed.rebirthToCollapseCount))
         : 0,
