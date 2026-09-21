@@ -24,7 +24,7 @@ export interface UpgradeConfig {
 export interface UpgradeState {
   unlocked: boolean;
   level: number;
-  /** 在永劫商店中用永劫点数购买的等级上限加成次数（每次 +50 级上限） */
+  /** 在永劫商殿中用永劫点数购买的等级上限加成次数（每次 +50 级上限） */
   capBonus: number;
 }
 
@@ -105,40 +105,37 @@ export interface GameState {
   rankingUnlocked: boolean;
   /** 是否已购买「功法无需解锁」特权（消耗 1 点永劫点数，永久生效） */
   upgradesAutoUnlocked: boolean;
-  /** 是否已解锁「往生殿」特权（于坍缩店消耗 20 点坍缩点数解锁，永久生效，默认不显示） */
+  /** 是否已解锁「往生殿」特权（于坍缩殿消耗 20 点坍缩点数解锁，永久生效，默认不显示） */
   afterlifeShopUnlocked: boolean;
-  /** 成就系统是否已开启（数值店花费 50 万数值解锁，默认关闭） */
+  /** 成就系统是否已开启（数值殿花费 50 万数值解锁，默认关闭） */
   achievementsUnlocked: boolean;
-  /** 称号系统是否已开启（数值店花费 200 万数值解锁，默认关闭） */
+  /** 称号系统是否已开启（数值殿花费 200 万数值解锁，默认关闭） */
   titleUnlocked: boolean;
   /**
-   * 永劫店各属性的独立升级等级（永久道基，永不清零）。
-   * 与数值店完全独立，计算时效果累加；「基础数值」另存于 rebirthBaseValueLevel。
+   * 永劫殿各属性的独立升级等级（永久道基，永不清零）。
+   * 与数值殿完全独立，计算时效果累加；「基础数值」另存于 rebirthBaseValueLevel。
    */
   rebirthMergedLevels: Record<UpgradeId, number>;
   /**
-   * 永劫店「基础数值」的独立升级等级（永久，永不清零）。
-   * 与数值店「数值升级」完全独立、效果累加：每级提升 10×斐波那契（10,20,30,50...），消耗 1,2,3,5,8...（斐波那契）
+   * 永劫殿「基础数值」的独立升级等级（永久，永不清零）。
+   * 与数值殿「数值升级」完全独立、效果累加：每级提升 10×斐波那契（10,20,30,50...），消耗 1,2,3,5,8...（斐波那契）
    */
   rebirthBaseValueLevel: number;
-  /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值店的升级消耗，消耗按 2×斐波那契增长 */
+  /** 往生殿：各属性已购买的升级等级，每级进一步降低该属性在数值殿的升级消耗，消耗按 2×斐波那契增长 */
   afterlifeUpgradeLevels: Record<UpgradeId, number>;
   /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
   account: UserAccountData | null;
   /** 上次登录的账号密码与昵称（登录界面直接复用，不再重新生成） */
   lastCredentials: LoginCredentials | null;
 
-  /** 数值上限的提升次数（坍缩商店购买，每级 +100万，0 = 默认 100万）；另每次永劫永久 +100万 */
+  /** 数值上限的提升次数（坍缩商殿购买，每级 +100万，0 = 默认 100万）；另每次永劫永久 +100万 */
   valueCapLevel: number;
   /**
-   * 「永劫点数获取」的升级次数（坍缩商店购买，消耗按斐波拉契递增的坍缩点数）
+   * 「永劫点数获取」的升级次数（坍缩商殿购买，消耗按斐波拉契递增的坍缩点数）
    * 每级在永劫时额外 +1 点永劫点数
    */
   rebirthPointLevel: number;
-  /**
-   * 坍缩商店中「永劫点数 → 坍缩点数」的累计兑换次数
-   * 前 50 次每次 3 点永劫点数；第 51 次起消耗按 50 + 斐波拉契 递增
-   */
+  /** 坍缩商殿中「永劫点数 → 坍缩点数」的累计兑换次数（每次恒定 3 点永劫点数） */
   rebirthToCollapseCount: number;
 
   /** 已经弹出过解锁提示的条目（功法 id / 'rebirth' / 'collapse'），持久化避免刷新后重复提示 */

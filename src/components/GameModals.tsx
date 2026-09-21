@@ -21,23 +21,23 @@ interface GameModalsProps {
   collapseGain: number;
   onUnlockUpgrade: (id: UpgradeId, cost: BigNum) => void;
   onUpgradeLevel: (id: UpgradeId, cost: BigNum) => void;
-  /** 数值店：开启成就系统（50 万数值） */
+  /** 数值殿：开启成就系统（50 万数值） */
   onUnlockAchievements: () => void;
-  /** 数值店：开启称号系统（200 万数值） */
+  /** 数值殿：开启称号系统（200 万数值） */
   onUnlockTitles: () => void;
   onBuyLevelCap: (id: UpgradeId) => void;
   onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
   onUnlockCollapse: () => void;
 
-  /** 消耗 20 点坍缩点数解锁往生店（于坍缩店） */
+  /** 消耗 20 点坍缩点数解锁往生殿（于坍缩殿） */
   onUnlockAfterlifeShop: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
   onUnlockRanking: () => void;
   /** 消耗 1 点永劫点数购买「功法无需解锁」特权 */
   onBuyAutoUnlock: () => void;
-  /** 往生店：消耗 10 点坍缩点兑换 1 点往生点 */
+  /** 往生殿：消耗 10 点坍缩点兑换 1 点往生点 */
   onExchangeAfterlifePoint: () => void;
-  /** 往生殿：消耗斐波那契递增的往生点，提升某属性在数值店的升级折扣 */
+  /** 往生殿：消耗斐波那契递增的往生点，提升某属性在数值殿的升级折扣 */
   onBuyAfterlifeUpgrade: (id: UpgradeId) => void;
   /** 排行·登顶：注册/登录 */
   onLogin: (account: UserAccountData) => void;
@@ -53,7 +53,7 @@ interface GameModalsProps {
 
 
   onGambleSettle: (type: SettleType, amount: BigNum) => void;
-  /** 奇趣店：点数类货币结算 */
+  /** 奇趣殿：点数类货币结算 */
   onGambleSettlePoints: (currency: PointsCurrency, type: SettleType, amount: number) => void;
   onConfirmRebirth: () => void;
   onConfirmCollapse: () => void;
@@ -65,7 +65,7 @@ interface GameModalsProps {
   onResetProgress: () => void;
 }
 
-/** 全部弹窗：数值商店 / 永劫商店 / 坍缩商店 / 奇趣商店 / 永劫 / 坍缩 */
+/** 全部弹窗：数值商殿 / 永劫商殿 / 坍缩商殿 / 奇趣商殿 / 永劫 / 坍缩 */
 export const GameModals: React.FC<GameModalsProps> = ({
   modals,
   state,
@@ -99,11 +99,11 @@ export const GameModals: React.FC<GameModalsProps> = ({
   onResetProgress,
 }) => (
   <>
-    {/* 数值商店 Modal */}
+    {/* 数值商殿 Modal */}
     <ModalShell
       isOpen={modals.upgradeShop.isOpen}
       onClose={modals.upgradeShop.close}
-      title="数 值 店"
+      title="数 值 殿"
       subtitle="—— 先 启 封 印 · 方 可 习 炼 ——"
     >
       <UpgradesList
@@ -118,11 +118,11 @@ export const GameModals: React.FC<GameModalsProps> = ({
       />
     </ModalShell>
 
-    {/* 永劫商店 Modal */}
+    {/* 永劫商殿 Modal */}
     <ModalShell
       isOpen={modals.rebirthShop.isOpen}
       onClose={modals.rebirthShop.close}
-      title="永 劫 店"
+      title="永 劫 殿"
     >
       <RebirthShop
         state={state}
@@ -133,11 +133,11 @@ export const GameModals: React.FC<GameModalsProps> = ({
       />
     </ModalShell>
 
-    {/* 坍缩商店 Modal */}
+    {/* 坍缩商殿 Modal */}
     <ModalShell
       isOpen={modals.collapseShop.isOpen}
       onClose={modals.collapseShop.close}
-      title="坍 缩 店"
+      title="坍 缩 殿"
       subtitle="—— 一 元 复 始 · 上 限 突 破 ——"
     >
       <CollapseShop
@@ -172,11 +172,11 @@ export const GameModals: React.FC<GameModalsProps> = ({
       />
     </ModalShell>
 
-    {/* 奇趣商店 Modal */}
+    {/* 奇趣商殿 Modal */}
     <ModalShell
       isOpen={modals.funShop.isOpen}
       onClose={modals.funShop.close}
-      title="奇 趣 店 · 博 弈 造 化"
+      title="奇 趣 殿 · 博 弈 造 化"
     >
       <FunShop
         currentValue={currentValue}
@@ -201,12 +201,12 @@ export const GameModals: React.FC<GameModalsProps> = ({
       currentRebirthCount={state.rebirthCount}
     />
 
-    {/* 往生店 Modal */}
+    {/* 往生殿 Modal */}
     <ModalShell
       isOpen={modals.afterlifeShop?.isOpen ?? false}
       onClose={modals.afterlifeShop?.close}
       title="往生殿"
-      subtitle="数值店升级消耗折扣 · 往生点兑换"
+      subtitle="数值殿升级消耗折扣 · 往生点兑换"
     >
       <AfterlifeShop
         state={state}

@@ -1,17 +1,17 @@
 import { useDisclosure, Disclosure } from './useDisclosure';
 
 export interface GameModalsState {
-  /** 数值商店（功法升级） */
+  /** 数值商殿（功法升级） */
   upgradeShop: Disclosure;
-  /** 永劫商店（等级上限 / 解锁坍缩） */
+  /** 永劫商殿（等级上限 / 解锁坍缩） */
   rebirthShop: Disclosure;
-  /** 坍缩商店（数值上限 +100万 等） */
+  /** 坍缩商殿（数值上限 +100万 等） */
   collapseShop: Disclosure;
-  /** 往生店（数值店升级折扣，坍缩店解锁后显示） */
+  /** 往生殿（数值殿升级折扣，坍缩殿解锁后显示） */
   afterlifeShop: Disclosure;
   /** 排行榜（永劫后解锁） */
   ranking: Disclosure;
-  /** 奇趣商店（博弈） */
+  /** 奇趣商殿（博弈） */
   funShop: Disclosure;
   /** 永劫确认 */
   rebirth: Disclosure;

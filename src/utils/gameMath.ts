@@ -103,32 +103,22 @@ export function getExtraRebirthPoints(level: number): number {
   return Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
 }
 
-/** 兑换：每次消耗 3 点永劫点数换 1 点坍缩点数 */
+/** 兑换：每次消耗 3 点永劫点数换 1 点坍缩点数（恒定 3:1，不随次数加价） */
 export const REBIRTH_TO_COLLAPSE_BASE_COST = 3;
-/** 兑换：前 50 次维持基础消耗，不加价 */
-export const REBIRTH_TO_COLLAPSE_FREE_TIMES = 50;
-/** 兑换：50 次之后的消耗基数（50 + 斐波拉契） */
-export const REBIRTH_TO_COLLAPSE_RAISE_BASE = 50;
 
 /**
- * 「永劫点数 → 坍缩点数」第 (n+1) 次兑换所需的永劫点数（n = 已兑换次数）
- * - 前 50 次：恒定 3 点
- * - 第 51 次起：50 + F(n - 50)，即 50, 51, 51, 52, 53, 55, 58 ...
+ * 「永劫点数 → 坍缩点数」第 (n+1) 次兑换所需的永劫点数：恒定 3 点
  */
 export function getRebirthToCollapseCost(exchangedTimes: number): BigNum {
-  const n = Number.isFinite(exchangedTimes) && exchangedTimes > 0 ? Math.floor(exchangedTimes) : 0;
-  if (n < REBIRTH_TO_COLLAPSE_FREE_TIMES) {
-    return new BigNum(REBIRTH_TO_COLLAPSE_BASE_COST, 0);
-  }
-  return getFibonacciBig(n - REBIRTH_TO_COLLAPSE_FREE_TIMES).add(REBIRTH_TO_COLLAPSE_RAISE_BASE);
+  return new BigNum(REBIRTH_TO_COLLAPSE_BASE_COST, 0);
 }
 
 
 
 /**
- * 「数值店·数值升级」每级提升量（斐波那契数列，BigNum 防溢出）：
+ * 「数值殿·数值升级」每级提升量（斐波那契数列，BigNum 防溢出）：
  * 1, 2, 3, 5, 8, 13, 21 ...（第 1、2 级为 1、2；第 n 级 = 前两级之和）
- * 注意：仅作用于数值店等级，与永劫店的「基础数值」完全独立。
+ * 注意：仅作用于数值殿等级，与永劫殿的「基础数值」完全独立。
  */
 const BASE_VALUE_GAIN_SEQ: BigNum[] = [new BigNum(1, 0), new BigNum(2, 0)];
 export function getBaseValueLevelGain(level: number): BigNum {
@@ -141,10 +131,10 @@ export function getBaseValueLevelGain(level: number): BigNum {
   return BASE_VALUE_GAIN_SEQ[lv - 1];
 }
 
-/** 「数值店·数值升级」效果系数：累计加成整体 × 0.7（仅效果，升级消耗不变） */
+/** 「数值殿·数值升级」效果系数：累计加成整体 × 0.7（仅效果，升级消耗不变） */
 export const BASE_VALUE_EFFECT_FACTOR = 0.7;
 
-/** 「数值店·数值升级」累计加成：Σ(每级提升量) × 0.7 = (a(level+2) − 2) × 0.7 */
+/** 「数值殿·数值升级」累计加成：Σ(每级提升量) × 0.7 = (a(level+2) − 2) × 0.7 */
 export function getBaseValueBonus(level: number): BigNum {
   if (level <= 0) return new BigNum(0, 0);
   return getBaseValueLevelGain(level + 2)
@@ -153,8 +143,8 @@ export function getBaseValueBonus(level: number): BigNum {
 }
 
 /**
- * 「永劫店·基础数值」每级提升量（斐波那契 × 10）：
- * 10, 20, 30, 50, 80, 130 ...（第 n 级 = 10 × F(n+1)，与数值店加成累加）
+ * 「永劫殿·基础数值」每级提升量（斐波那契 × 10）：
+ * 10, 20, 30, 50, 80, 130 ...（第 n 级 = 10 × F(n+1)，与数值殿加成累加）
  */
 export function getRebirthBaseValueGain(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
@@ -162,7 +152,7 @@ export function getRebirthBaseValueGain(level: number): BigNum {
   return getFibonacciBig(lv + 1).mulScalar(10);
 }
 
-/** 「永劫店·基础数值」累计加成：Σ(每级提升量) = 10 × (F(level+3) − 2)，即 10, 30, 60, 110 ... */
+/** 「永劫殿·基础数值」累计加成：Σ(每级提升量) = 10 × (F(level+3) − 2)，即 10, 30, 60, 110 ... */
 export function getRebirthBaseValueBonus(level: number): BigNum {
   if (level <= 0) return new BigNum(0, 0);
   return getFibonacciBig(level + 3)
@@ -170,7 +160,7 @@ export function getRebirthBaseValueBonus(level: number): BigNum {
     .mulScalar(10);
 }
 
-/** 「永劫店·基础数值」升级消耗（斐波那契）：第 n 次购买消耗 F(n)，即 1, 1, 2, 3, 5, 8 ... */
+/** 「永劫殿·基础数值」升级消耗（斐波那契）：第 n 次购买消耗 F(n)，即 1, 1, 2, 3, 5, 8 ... */
 export function getRebirthBaseValueCost(currentLevel: number): BigNum {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
   return getFibonacciBig(lv + 1);
@@ -270,7 +260,7 @@ export function getRebirthCapBonus(rebirthCount: number): BigNum {
 }
 
 /**
- * 数值上限：默认 100 万 + 坍缩店每级提升量（斐波那契式递增）+ 永劫加成（每次永劫 +100 万）
+ * 数值上限：默认 100 万 + 坍缩殿每级提升量（斐波那契式递增）+ 永劫加成（每次永劫 +100 万）
  * = 100万 + Σ(每级提升量) + 永劫次数 × 100万
  */
 export function getValueCap(level: number, rebirthCount: number = 0): BigNum {
@@ -292,13 +282,13 @@ export function getValueCapCost(level: number): BigNum {
 }
 
 /**
- * 永劫商店：单独升级某项永劫基础属性的消耗（永劫点数）
+ * 永劫商殿：单独升级某项永劫基础属性的消耗（永劫点数）
  * - 自动点击频率：消耗始终为 1 点
  * - 其余属性：等差数列递增（差值 1），第 n 次购买消耗 n 点（1, 2, 3, 4 ...）
  * 消耗依据当前升级等级（即已购买次数）计算。
  */
 export function getRebirthMergedUpgradeCost(id: UpgradeId, level: number): BigNum {
-  // 自动点击频率：永劫店升级消耗始终为 1 点
+  // 自动点击频率：永劫殿升级消耗始终为 1 点
   if (id === 'autoFrequency') return new BigNum(1, 0);
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   return new BigNum(lv + 1, 0);
@@ -306,11 +296,11 @@ export function getRebirthMergedUpgradeCost(id: UpgradeId, level: number): BigNu
 
 /** 连击概率: 每级 +5%（0.05），上限 100% */
 export const COMBO_CHANCE_STEP = 0.05;
-/** 暴击概率: 基础 5%，每级 +1%（0.01），上限 100%（两店通用步长） */
+/** 暴击概率: 基础 5%，每级 +1%（0.01），上限 100%（两殿通用步长） */
 export const CRIT_CHANCE_BASE = 0.05;
 export const CRIT_CHANCE_STEP = 0.01;
 
-/** 暴击倍数: 默认基数 5%（0.05），升级/成就/永劫店加成在此之上累加 */
+/** 暴击倍数: 默认基数 5%（0.05），升级/成就/永劫殿加成在此之上累加 */
 export const CRIT_MULT_BASE = 0.05;
 
 /** 暴击倍数 / 连击倍数: 每次升级 +30% */
@@ -322,9 +312,9 @@ export const BASE_MAX_LEVEL = 20;
 export const LEVEL_CAP_PER_POINT = 50;
 
 /**
- * 永劫店某属性是否已达效果上限（上限类属性：概率 / 频率）。
- * 达到上限后，数值店对应的升级项不再产生任何效果，可直接隐藏。
- * - 自动点击频率: 永劫店独立 20 级满级，间隔已至下限 10ms
+ * 永劫殿某属性是否已达效果上限（上限类属性：概率 / 频率）。
+ * 达到上限后，数值殿对应的升级项不再产生任何效果，可直接隐藏。
+ * - 自动点击频率: 永劫殿独立 20 级满级，间隔已至下限 10ms
  * - 连击概率: 每级 +5%，20 级即 100%
  * - 暴击概率: 基础 5% + 每级 +1%，95 级即 100%
  * 其余属性无此类效果上限，恒返回 false。
@@ -338,7 +328,7 @@ export function isRebirthEffectCapped(id: UpgradeId, rebirthLevel: number): bool
 }
 
 /**
- * 某功法当前的等级上限 = 默认 20 级 + 永劫商店中购买的次数 × 50 级
+ * 某功法当前的等级上限 = 默认 20 级 + 永劫商殿中购买的次数 × 50 级
  * - 自动点击: 不可升级，上限恒为 0
  * - 自动点击频率: 固定 20 级满级，不随等级上限特权扩展
  */
@@ -384,9 +374,9 @@ export function getAutoFrequencyUpgradeCost(currentLevel: number): BigNum {
 }
 
 /**
- * 往生店：「数值店升级消耗折扣」特权
- * - 于坍缩店消耗 20 点坍缩点数解锁（一次性），默认不显示
- * - 每级进一步提升数值店升级消耗的折扣：
+ * 往生殿：「数值殿升级消耗折扣」特权
+ * - 于坍缩殿消耗 20 点坍缩点数解锁（一次性），默认不显示
+ * - 每级进一步提升数值殿升级消耗的折扣：
  *     · 第 1 级：固定降低 5%
  *     · 第 L 级（L≥2）：5% + 斐波那契 F(L+4) × 20%
  *       即 5%、5+8×0.2、5+13×0.2、5+21×0.2 …（8/13/21 为斐波那契数列）
@@ -413,7 +403,7 @@ export function getAfterlifeUpgradeCost(currentLevel: number): number {
   return lv + 1;
 }
 
-/** 将往生店折扣应用到一次数值店升级消耗上（折扣封顶 100%，消耗不为负） */
+/** 将往生殿折扣应用到一次数值殿升级消耗上（折扣封顶 100%，消耗不为负） */
 export function applyAfterlifeDiscount(cost: BigNum | null, level: number): BigNum | null {
   if (cost === null) return null;
   const discount = getAfterlifeDiscountPercent(level);
@@ -442,9 +432,9 @@ export function getUpgradeCost(
 }
 
 /**
- * 两店频率效果累加（单一计算入口）：
- * 数值店与永劫店各自独立计级、互不影响（各 20 级满级，各存各的等级），
- * 总间隔 = 1000ms −（数值店等级 + 永劫店等级）× 49.5ms，下限 10ms（100次/s）
+ * 两殿频率效果累加（单一计算入口）：
+ * 数值殿与永劫殿各自独立计级、互不影响（各 20 级满级，各存各的等级），
+ * 总间隔 = 1000ms −（数值殿等级 + 永劫殿等级）× 49.5ms，下限 10ms（100次/s）
  */
 export function getCombinedAutoIntervalMs(shopLevel: number, rebirthLevel: number): number {
   const shop = Number.isFinite(shopLevel) && shopLevel > 0 ? Math.floor(shopLevel) : 0;
@@ -457,7 +447,7 @@ export function getCombinedAutoIntervalMs(shopLevel: number, rebirthLevel: numbe
 
 /**
  * 自动点击频率: 初始 1次/1000ms，每级缩短 49.5ms，20 级升满至 10ms 一次（100次/s）
- * - 数值店与永劫店各自独立计级（各 20 级满级），计算时两店效果累加，见 getCombinedAutoIntervalMs
+ * - 数值殿与永劫殿各自独立计级（各 20 级满级），计算时两殿效果累加，见 getCombinedAutoIntervalMs
  */
 export const AUTO_FREQ_INTERVAL_BASE = 1000;
 /** 最快间隔：10ms 一次（100次/s） */
@@ -498,11 +488,11 @@ export function calculateGameAttributes(state: GameState) {
   const comboMultUp = state.upgrades.comboMultiplier;
   const critChanceUp = state.upgrades.critChance;
 
-  // 0. 数值店与永劫店的「数值升级」完全独立：
-  //    数值店等级（upgrades.baseValue.level）随转世清零；永劫店等级（rebirthBaseValueLevel）永久保留
+  // 0. 数值殿与永劫殿的「数值升级」完全独立：
+  //    数值殿等级（upgrades.baseValue.level）随转世清零；永劫殿等级（rebirthBaseValueLevel）永久保留
 
-  // 1. 基础数值 = 默认值 + 数值店加成 + 永劫店加成（两店效果为累加关系，互不影响）
-  //    数值店: 0.7 × 斐波那契；永劫店: 10 × 斐波那契
+  // 1. 基础数值 = 默认值 + 数值殿加成 + 永劫殿加成（两殿效果为累加关系，互不影响）
+  //    数值殿: 0.7 × 斐波那契；永劫殿: 10 × 斐波那契
   const shopBaseBonus = baseValueUp.unlocked
     ? getBaseValueBonus(baseValueUp.level)
     : new BigNum(0, 0);
@@ -514,10 +504,10 @@ export function calculateGameAttributes(state: GameState) {
   // 2. 数值倍率
   const valueMultiplier = state.baseValueMultiplier;
 
-  // 永劫店各属性的独立等级（永久道基），与数值店分开计级，效果在下方逐项累加
+  // 永劫殿各属性的独立等级（永久道基），与数值殿分开计级，效果在下方逐项累加
   const rbLevels = state.rebirthMergedLevels || ({} as Record<UpgradeId, number>);
 
-  // 3. 自动点击频率：数值店与永劫店独立计级、互不影响，效果累加（须已解锁自动点击）
+  // 3. 自动点击频率：数值殿与永劫殿独立计级、互不影响，效果累加（须已解锁自动点击）
   let autoClicksPerSec = 0;
   let autoIntervalMs = AUTO_FREQ_INTERVAL_BASE;
   let autoClicksPerMs = 0;
@@ -529,7 +519,7 @@ export function calculateGameAttributes(state: GameState) {
     autoClicksPerSec = AUTO_FREQ_INTERVAL_BASE / autoIntervalMs;
   }
 
-  // 4. 连击概率: 数值店每级 +5% + 永劫店每级 +5%，上限 100%
+  // 4. 连击概率: 数值殿每级 +5% + 永劫殿每级 +5%，上限 100%
   const rbComboChanceLevel = rbLevels.comboChance || 0;
   let comboChance = Math.min(
     1.0,
@@ -537,14 +527,14 @@ export function calculateGameAttributes(state: GameState) {
       rbComboChanceLevel * COMBO_CHANCE_STEP
   );
 
-  // 5. 连击倍数: 基础 100% + 数值店每级 +30% + 永劫店每级 +30%
+  // 5. 连击倍数: 基础 100% + 数值殿每级 +30% + 永劫殿每级 +30%
   const rbComboMultLevel = rbLevels.comboMultiplier || 0;
   let comboMultiplier =
     1.0 +
     (comboMultUp.unlocked ? comboMultUp.level * MULTIPLIER_STEP : 0) +
     rbComboMultLevel * MULTIPLIER_STEP;
 
-  // 6. 暴击倍数: 默认 5% + 成就奖励 + 数值店每级 +30% + 永劫店每级 +30%
+  // 6. 暴击倍数: 默认 5% + 成就奖励 + 数值殿每级 +30% + 永劫殿每级 +30%
   const achievementCritBonus = getAchievementCritBonus(state);
   const rbCritMultLevel = rbLevels.critMultiplier || 0;
   let critMultiplier =
@@ -553,7 +543,7 @@ export function calculateGameAttributes(state: GameState) {
     (critMultUp.unlocked ? critMultUp.level * MULTIPLIER_STEP : 0) +
     rbCritMultLevel * MULTIPLIER_STEP;
 
-  // 7. 暴击概率: 基础暴击率 + 数值店每级 +1% + 永劫店每级 +1%，上限 100%
+  // 7. 暴击概率: 基础暴击率 + 数值殿每级 +1% + 永劫殿每级 +1%，上限 100%
   const rbCritChanceLevel = rbLevels.critChance || 0;
   let critChance = Math.min(
     1.0,

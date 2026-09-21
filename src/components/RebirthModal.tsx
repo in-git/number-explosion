@@ -68,7 +68,7 @@ export const RebirthModal: React.FC<RebirthModalProps> = ({
             <br />
             每 100 万数值折算 1 点永劫值（向下取整）
             <br />
-            基础属性只可在永劫商店中购买提升
+            基础属性只可在永劫商殿中购买提升
           </div>
         </div>
 

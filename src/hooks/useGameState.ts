@@ -57,7 +57,7 @@ const MAX_BATCH_CLICKS = 100;
 const PLAY_TIME_TICK_MS = 5_000;
 
 /**
- * 游戏核心状态与全部玩法逻辑（数值、点击、升级、商店、永劫、坍缩）
+ * 游戏核心状态与全部玩法逻辑（数值、点击、升级、商殿、永劫、坍缩）
  */
 export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   const [state, setState] = useState<GameState>(loadGameState);
@@ -249,7 +249,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    */
   const checkAchievements = useCallback(
     (progress?: { totalClicks?: number; playTimeMs?: number }) => {
-      // 成就系统未开启（数值店解锁前）不结算成就
+      // 成就系统未开启（数值殿解锁前）不结算成就
       if (!stateRef.current.achievementsUnlocked) return;
       const cur = stateRef.current;
       const totalClicks = progress?.totalClicks ?? cur.totalClickCount ?? 0;
@@ -390,7 +390,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [commitValue]
   );
 
-  /** 数值店：花费 50 万数值开启成就系统 */
+  /** 数值殿：花费 50 万数值开启成就系统 */
   const handleUnlockAchievements = useCallback(() => {
     const cost = BigNum.fromNumber(ACHIEVEMENTS_UNLOCK_COST);
     const currentVal = bigNumRef.current;
@@ -400,7 +400,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('成就开启', `消耗 ${cost.formatChinese(0)} 数值 · 成就系统已开启`);
   }, [addToast, commitValue]);
 
-  /** 数值店：花费 200 万数值开启称号系统 */
+  /** 数值殿：花费 200 万数值开启称号系统 */
   const handleUnlockTitles = useCallback(() => {
     const cost = BigNum.fromNumber(TITLE_UNLOCK_COST);
     const currentVal = bigNumRef.current;
@@ -410,7 +410,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('称号开启', `消耗 ${cost.formatChinese(0)} 数值 · 称号系统已开启`);
   }, [addToast, commitValue]);
 
-  /** 奇趣商店结算：点数类货币（永劫点 / 坍缩点 / 往生点） */
+  /** 奇趣商殿结算：点数类货币（永劫点 / 坍缩点 / 往生点） */
   const handleGambleSettlePoints = useCallback(
     (currency: PointsCurrency, type: SettleType, amount: number) => {
       if (!Number.isFinite(amount) || amount <= 0) return;
@@ -449,7 +449,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       if (currentState.upgrades.autoClickUnlock.unlocked && delta > 0) {
         const autoFreq = currentState.upgrades.autoFrequency;
-        // 数值店等级 + 永劫店独立等级，两店效果累加（与 calculateGameAttributes 同一公式）
+        // 数值殿等级 + 永劫殿独立等级，两殿效果累加（与 calculateGameAttributes 同一公式）
         const autoFreqLevel = autoFreq.unlocked ? autoFreq.level : 0;
         const rbAutoFreqLevel = currentState.rebirthMergedLevels?.autoFrequency || 0;
         const intervalMs = getCombinedAutoIntervalMs(autoFreqLevel, rbAutoFreqLevel);
@@ -503,7 +503,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     return () => cancelAnimationFrame(animId);
   }, [addFloatingText, checkUnlockTriggers, commitValue]);
 
-  /** 奇趣商店结算 */
+  /** 奇趣商殿结算 */
   const handleGambleSettle = useCallback(
     (type: SettleType, amount: BigNum) => {
       if (amount.m === 0) return;
@@ -521,7 +521,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast, commitValue]
   );
 
-  /** 坍缩商店：消耗 1 点坍缩点数，为指定功法 +50 级上限（由永劫商店迁移而来） */
+  /** 坍缩商殿：消耗 1 点坍缩点数，为指定功法 +50 级上限（由永劫商殿迁移而来） */
   const handleBuyLevelCap = useCallback(
     (id: UpgradeId) => {
       setState((prev) => {
@@ -546,13 +546,13 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 永劫商店：消耗永劫点数升级（所有属性均与数值店独立，效果在计算时与数值店累加） */
+  /** 永劫商殿：消耗永劫点数升级（所有属性均与数值殿独立，效果在计算时与数值殿累加） */
   const handleBuyRebirthMergedUpgrade = useCallback(
     (id: UpgradeId) => {
       const prev = stateRef.current;
       const label = UPGRADE_METADATA[id]?.name ?? id;
 
-      // 「基础数值」独立升级：等级存于 rebirthBaseValueLevel，与数值店互不影响，效果与数值店加成累加
+      // 「基础数值」独立升级：等级存于 rebirthBaseValueLevel，与数值殿互不影响，效果与数值殿加成累加
       if (id === 'baseValue') {
         const bvLevel = prev.rebirthBaseValueLevel || 0;
         const bvCost = getRebirthBaseValueCost(bvLevel);
@@ -570,9 +570,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         return;
       }
 
-      // 其余属性：与数值店完全独立，等级仅存于 rebirthMergedLevels，计算时与数值店效果累加
+      // 其余属性：与数值殿完全独立，等级仅存于 rebirthMergedLevels，计算时与数值殿效果累加
       const level = prev.rebirthMergedLevels?.[id] || 0;
-      // 自动点击频率：永劫店独立 20 级满级，满级后不可再购
+      // 自动点击频率：永劫殿独立 20 级满级，满级后不可再购
       if (id === 'autoFrequency' && level >= AUTO_FREQ_MAX_LEVEL) return;
       const cost = getRebirthMergedUpgradeCost(id, level).toNumber();
       if (prev.rebirthPoints < cost) return;
@@ -592,7 +592,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 永劫商店：消耗 5 点永劫值解锁坍缩 */
+  /** 永劫商殿：消耗 5 点永劫值解锁坍缩 */
   const handleUnlockCollapse = useCallback(() => {
     setState((prev) => {
       if (prev.collapseUnlocked || prev.rebirthPoints < COLLAPSE_COST) return prev;
@@ -605,7 +605,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     addToast('坍缩觉醒', `消耗 ${COLLAPSE_COST} 点永劫值 · 太虚坍缩已开启`);
   }, [addToast]);
 
-  /** 坍缩商店：消耗按等差数列递增（差值 1）的坍缩点数，提升数值上限 */
+  /** 坍缩商殿：消耗按等差数列递增（差值 1）的坍缩点数，提升数值上限 */
   const handleBuyValueCap = useCallback(() => {
     const prev = stateRef.current;
     const nextLevel = (prev.valueCapLevel || 0) + 1;
@@ -623,7 +623,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     );
   }, [addToast]);
 
-  /** 坍缩商店：购买「永劫点数获取」，消耗按 2^n 递增的坍缩点数 */
+  /** 坍缩商殿：购买「永劫点数获取」，消耗按 2^n 递增的坍缩点数 */
   const handleBuyRebirthPointLevel = useCallback(() => {
     const prev = stateRef.current;
     const level = prev.rebirthPointLevel || 0;
@@ -696,7 +696,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 永劫商店：消耗 1 点永劫点数购买「功法无需解锁」特权（永久生效） */
+  /** 永劫商殿：消耗 1 点永劫点数购买「功法无需解锁」特权（永久生效） */
   const handleBuyAutoUnlock = useCallback(() => {
     let done = false;
     console.log('[功法通明] 尝试购买', {
@@ -743,7 +743,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
 
 
-  /** 坍缩商店：消耗 20 点坍缩点数解锁「往生店」（一次性，永久生效，默认不显示） */
+  /** 坍缩商殿：消耗 20 点坍缩点数解锁「往生殿」（一次性，永久生效，默认不显示） */
   const handleUnlockAfterlifeShop = useCallback(() => {
     let done = false;
     setState((prev) => {
@@ -765,7 +765,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
-  /** 往生店：消耗 10 点坍缩点兑换 1 点往生点（在往生店内操作） */
+  /** 往生殿：消耗 10 点坍缩点兑换 1 点往生点（在往生殿内操作） */
   const handleExchangeAfterlifePoint = useCallback(() => {
     let done = false;
     setState((prev) => {
@@ -782,7 +782,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
-  /** 往生殿：消耗斐波那契递增的往生点，提升指定属性在数值店的升级消耗折扣 */
+  /** 往生殿：消耗斐波那契递增的往生点，提升指定属性在数值殿的升级消耗折扣 */
   const handleBuyAfterlifeUpgrade = useCallback(
     (id: UpgradeId) => {
       let done = false;
@@ -803,14 +803,14 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       if (done) {
         addToast(
           '往生加护',
-          `往生殿 ${UPGRADE_METADATA[id].name} Lv.${newLevel} · 数值店升级消耗折扣 +${getAfterlifeDiscountPercent(newLevel).toFixed(1)}%`
+          `往生殿 ${UPGRADE_METADATA[id].name} Lv.${newLevel} · 数值殿升级消耗折扣 +${getAfterlifeDiscountPercent(newLevel).toFixed(1)}%`
         );
       }
     },
     [addToast]
   );
 
-  /** 永劫商店：消耗 1 点永劫点数解锁排行 */
+  /** 永劫商殿：消耗 1 点永劫点数解锁排行 */
   const handleUnlockRanking = useCallback(() => {
     let done = false;
     console.log('[解锁排行] 尝试购买', {
@@ -842,7 +842,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
-  /** 坍缩商店：消耗永劫点数兑换坍缩点数（前 50 次 3 点，之后按 50+斐波拉契 递增） */
+  /** 坍缩商殿：消耗永劫点数兑换坍缩点数（恒定 3:1） */
   const handleExchangeRebirthToCollapse = useCallback(() => {
     const prev = stateRef.current;
     const times = prev.rebirthToCollapseCount || 0;
@@ -884,7 +884,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthCount: prev.rebirthCount + 1,
       rebirthPoints: prev.rebirthPoints + gain,
       // 已购「功法无需解锁」特权：重生后仍保持解锁态，可直接升级
-      // 数值店等级全部清零；永劫店等级（rebirthMergedLevels / rebirthBaseValueLevel）为永久道基，不受影响
+      // 数值殿等级全部清零；永劫殿等级（rebirthMergedLevels / rebirthBaseValueLevel）为永久道基，不受影响
       upgrades: resetUpgradeLevels(prev.upgrades, prev.upgradesAutoUnlocked),
     }));
 

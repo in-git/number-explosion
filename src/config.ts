@@ -23,12 +23,12 @@ export const SERVER_TIME_SYNC_INTERVAL_MS = 60 * 1000;
 /** 永劫门槛：数值达 100万 */
 export const REBIRTH_THRESHOLD = new BigNum(1, 6);
 
-/** 数值店：开启成就系统的花费（数值，默认关闭） */
+/** 数值殿：开启成就系统的花费（数值，默认关闭） */
 export const ACHIEVEMENTS_UNLOCK_COST = 500_000;
-/** 数值店：开启称号系统的花费（数值，默认关闭） */
+/** 数值殿：开启称号系统的花费（数值，默认关闭） */
 export const TITLE_UNLOCK_COST = 2_000_000;
 
-/** 功法顺序（解锁播报 / 升级列表 / 商店 共用）：先概率类，后倍数类 */
+/** 功法顺序（解锁播报 / 升级列表 / 商殿 共用）：先概率类，后倍数类 */
 export const UPGRADE_ORDER: UpgradeId[] = [
   'baseValue',
   'autoClickUnlock',
@@ -212,7 +212,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
 ];
 
 /**
- * 坍缩商店出售等级上限的功法
+ * 坍缩商殿出售等级上限的功法
  * - 自动点击不可升级，故不在列
  * - 概率类（连击概率 / 暴击概率）不可在此购买等级上限，故不在列
  */
@@ -223,9 +223,9 @@ export const REBIRTH_SHOP_ORDER: UpgradeId[] = [
 ];
 
 /**
- * 永劫店升级条目及其展示名。
- * 所有属性均与数值店完全独立：等级存于 rebirthMergedLevels / rebirthBaseValueLevel，
- * 永久保留（重生/坍缩不清零），计算时效果与数值店累加。
+ * 永劫殿升级条目及其展示名。
+ * 所有属性均与数值殿完全独立：等级存于 rebirthMergedLevels / rebirthBaseValueLevel，
+ * 永久保留（重生/坍缩不清零），计算时效果与数值殿累加。
  */
 export const REBIRTH_MERGED_UPGRADES: { id: UpgradeId; label: string }[] = [
   { id: 'baseValue', label: '基础数值' },
@@ -281,7 +281,7 @@ export const RANKS: RankDef[] = [
   {
     id: 'wealth',
     name: '富豪排行',
-    desc: '万物店累计购置总额',
+    desc: '万物殿累计购置总额',
     scale: 'log',
     tiers: [1e3, 1e5, 1e7, 1e9, 1e12, 1e15, 1e18, 1e21, 1e24, 1e28],
     titles: TIER_TITLES,
@@ -319,9 +319,9 @@ export const RANKS: RankDef[] = [
 export const RANKING_UNLOCK_COST = 1;
 /** 「功法无需解锁」特权消耗的永劫点数 */
 export const AUTO_UNLOCK_COST = 1;
-/** 「往生店」特权消耗的坍缩点数（于坍缩店一次性解锁） */
+/** 「往生殿」特权消耗的坍缩点数（于坍缩殿一次性解锁） */
 export const AFTERLIFE_SHOP_UNLOCK_COST = 20;
-/** 往生点兑换：每 10 点坍缩点数可兑换 1 点往生点数（于往生店内兑换） */
+/** 往生点兑换：每 10 点坍缩点数可兑换 1 点往生点数（于往生殿内兑换） */
 export const AFTERLIFE_POINT_EXCHANGE_COST = 10;
 
 /** 排行昵称默认值（必填，用户可自行修改） */
@@ -357,13 +357,13 @@ export const INITIAL_STATE: GameState = {
   rankingUnlocked: false,
   /** 功法无需解锁特权：默认关闭 */
   upgradesAutoUnlocked: false,
-  /** 往生殿特权：默认关闭（于坍缩店消耗 20 点坍缩点数解锁） */
+  /** 往生殿特权：默认关闭（于坍缩殿消耗 20 点坍缩点数解锁） */
   afterlifeShopUnlocked: false,
-  /** 成就系统：默认关闭（数值店花费 50 万解锁） */
+  /** 成就系统：默认关闭（数值殿花费 50 万解锁） */
   achievementsUnlocked: false,
-  /** 称号系统：默认关闭（数值店花费 200 万解锁） */
+  /** 称号系统：默认关闭（数值殿花费 200 万解锁） */
   titleUnlocked: false,
-  /** 永劫店累计购买的等级（永久道基，默认全为 0） */
+  /** 永劫殿累计购买的等级（永久道基，默认全为 0） */
   rebirthMergedLevels: {
     baseValue: 0,
     autoClickUnlock: 0,
@@ -373,7 +373,7 @@ export const INITIAL_STATE: GameState = {
     comboMultiplier: 0,
     critChance: 0,
   },
-  /** 永劫店「基础数值」的独立升级等级（永久，默认 0） */
+  /** 永劫殿「基础数值」的独立升级等级（永久，默认 0） */
   rebirthBaseValueLevel: 0,
   /** 往生殿：各属性已购升级等级，默认全为 0 */
   afterlifeUpgradeLevels: {

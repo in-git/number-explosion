@@ -20,9 +20,9 @@ import { UpgradeButton } from './UpgradeButton';
 
 interface RebirthShopProps {
   state: GameState;
-  /** 消耗永劫点数升级（所有属性均与数值店独立，等级永久保留，效果累加） */
+  /** 消耗永劫点数升级（所有属性均与数值殿独立，等级永久保留，效果累加） */
   onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
-  /** 消耗 5 点永劫值解锁坍缩（仅完整商店） */
+  /** 消耗 5 点永劫值解锁坍缩（仅完整商殿） */
   onUnlockCollapse?: () => void;
   /** 消耗 1 点永劫点数解锁排行 */
   onUnlockRanking?: () => void;
@@ -53,7 +53,7 @@ const pctText = (ratio: number): string => {
   return `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}%`;
 };
 
-/** 每项描述：当前值 → 升级后值（永劫店独立效果，与数值店格式一致；已封顶时提示已至上限） */
+/** 每项描述：当前值 → 升级后值（永劫殿独立效果，与数值殿格式一致；已封顶时提示已至上限） */
 const effectText = (
   id: UpgradeId,
   level: number,
@@ -118,15 +118,15 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         <div className="text-[10px] font-serif text-[#8a7a63]">长按升级</div>
       </div>
 
-      {/* 升级：所有属性均与数值店独立，等级永久保留，计算时效果与数值店累加 */}
+      {/* 升级：所有属性均与数值殿独立，等级永久保留，计算时效果与数值殿累加 */}
       <div className="flex flex-col gap-1.5">
         {REBIRTH_MERGED_UPGRADES.map(({ id, label }) => {
-          // 「基础数值」存于 rebirthBaseValueLevel，其余存于 rebirthMergedLevels（均与数值店独立）
+          // 「基础数值」存于 rebirthBaseValueLevel，其余存于 rebirthMergedLevels（均与数值殿独立）
           const level =
             id === 'baseValue'
               ? state.rebirthBaseValueLevel || 0
               : state.rebirthMergedLevels?.[id] || 0;
-          // 自动点击频率：永劫店独立 20 级满级
+          // 自动点击频率：永劫殿独立 20 级满级
           const freqMaxed = id === 'autoFrequency' && level >= AUTO_FREQ_MAX_LEVEL;
           const cost = freqMaxed
             ? null

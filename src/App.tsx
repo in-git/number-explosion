@@ -23,7 +23,7 @@ export default function App() {
       <AppBackground />
       <AppHeader />
 
-      {/* 布局顺序: 1 数值 → 2 属性 → 3 各商店入口 */}
+      {/* 布局顺序: 1 数值 → 2 属性 → 3 各商殿入口 */}
       <main className="relative z-10 flex-1 flex flex-col items-center">
         <CoreNumberDisplay
           currentValue={game.currentBigNum}

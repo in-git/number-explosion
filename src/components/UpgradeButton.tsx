@@ -10,10 +10,10 @@ interface UpgradeButtonProps {
   id?: string;
   /** 不可购买 / 不可升级 / 已满级 */
   disabled?: boolean;
-  /** 单击回调（一次性购买，如永劫店/解锁） */
+  /** 单击回调（一次性购买，如永劫殿/解锁） */
   onClick?: () => void;
   /**
-   * 按压回调（可重复购买，如数值店/永劫店升级）：按下立即触发一次，长按可持续连发，
+   * 按压回调（可重复购买，如数值殿/永劫殿升级）：按下立即触发一次，长按可持续连发，
    * 与 onClick 互斥——传入 onPress 时忽略 onClick
    */
   onPress?: () => void;

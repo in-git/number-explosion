@@ -20,7 +20,7 @@ interface ShopEntriesProps {
   canRebirth: boolean;
   onOpenUpgradeShop: () => void;
   onOpenRebirthShop: () => void;
-  /** 打开往生店（需先在坍缩店解锁） */
+  /** 打开往生殿（需先在坍缩殿解锁） */
   onOpenAfterlifeShop: () => void;
   onOpenFunShop: () => void;
   onOpenCollapseShop: () => void;
@@ -34,10 +34,10 @@ interface ShopEntriesProps {
   onOpenSettingsModal: () => void;
 }
 
-/** 商店卡片：同一排铺满，列宽自适应，内部为上下结构（图标在上、文字在下） */
+/** 商殿卡片：同一排铺满，列宽自适应，内部为上下结构（图标在上、文字在下） */
 const SHOP_CARD =
   'flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-xl border-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)] transition-all text-center';
-/** 商店网格：固定一排三个，超出换行 */
+/** 商殿网格：固定一排三个，超出换行 */
 const SHOP_GRID = 'grid gap-2 grid-cols-3';
 const SHOP_TITLE =
   'text-[11px] sm:text-sm font-serif font-bold tracking-[0.1em] sm:tracking-[0.2em] text-[#ded7cb] leading-tight';
@@ -61,31 +61,31 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
   onOpenAchievementsModal,
   onOpenSettingsModal,
 }) => {
-  // 永劫商店：永劫之道开启后才出现；坍缩商店：解锁坍缩后即出现（无需先坍缩一次）
+  // 永劫商殿：永劫之道开启后才出现；坍缩商殿：解锁坍缩后即出现（无需先坍缩一次）
   const rebirthShopUnlocked = state.rebirthUnlocked || state.rebirthPoints > 0;
   const collapseShopUnlocked = state.collapseUnlocked || state.collapsePoints > 0;
   // 排行：消耗 1 点永劫点数解锁后显示
   const rankingUnlocked = !!state.rankingUnlocked;
-  // 永劫门槛：数值必须 ≥ 100 万（坍缩入口已移至坍缩商店，不再复用此按钮）
+  // 永劫门槛：数值必须 ≥ 100 万（坍缩入口已移至坍缩商殿，不再复用此按钮）
   const canOpenRebirth = canRebirth;
   // 称号：按历世最高数值自动达成
   const title = getTitle(state);
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-2 flex flex-col gap-2">
-      {/* 商店：同一排网格 */}
+      {/* 商殿：同一排网格 */}
       <div className={SHOP_GRID}>
-        {/* 升级商店 */}
+        {/* 升级商殿 */}
         <button
           id="btn-open-upgrade-shop"
           onClick={onOpenUpgradeShop}
           className={`${SHOP_CARD} bg-[#1a1816] border-[#332e27] hover:border-[#5b5142] active:translate-y-0.5 cursor-pointer`}
         >
           <Store size={18} className="text-[#8c8273] flex-shrink-0" />
-          <div className={SHOP_TITLE}>数 值 店</div>
+          <div className={SHOP_TITLE}>数 值 殿</div>
         </button>
 
-        {/* 永劫商店：解锁后才显示 */}
+        {/* 永劫商殿：解锁后才显示 */}
         {rebirthShopUnlocked && (
           <button
             id="btn-open-rebirth-shop"
@@ -93,21 +93,21 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             className={`${SHOP_CARD} bg-[#1a1816] border-[#3a3226] hover:border-[#6b5a3f] active:translate-y-0.5 cursor-pointer`}
           >
             <RefreshCw size={18} className="text-[#8c8273] flex-shrink-0" />
-            <div className={SHOP_TITLE}>永 劫 店</div>
+            <div className={SHOP_TITLE}>永 劫 殿</div>
           </button>
         )}
 
-        {/* 奇趣商店 */}
+        {/* 奇趣商殿 */}
         <button
           id="btn-open-fun-shop"
           onClick={onOpenFunShop}
           className={`${SHOP_CARD} bg-[#1a1816] border-[#332e27] hover:border-[#5b5142] active:translate-y-0.5 cursor-pointer`}
         >
           <Dices size={18} className="text-[#8c8273] flex-shrink-0" />
-          <div className={SHOP_TITLE}>奇 趣 店</div>
+          <div className={SHOP_TITLE}>奇 趣 殿</div>
         </button>
 
-        {/* 坍缩商店：解锁后才显示 */}
+        {/* 坍缩商殿：解锁后才显示 */}
         {collapseShopUnlocked && (
           <button
             id="btn-open-collapse-shop"
@@ -115,11 +115,11 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             className={`${SHOP_CARD} bg-[#161d2b] border-[#2e4a6e] hover:border-[#3f7fd0] active:translate-y-0.5 cursor-pointer`}
           >
             <Orbit size={18} className="text-[#5b9bd8] flex-shrink-0" />
-            <div className={SHOP_TITLE}>坍 缩 店</div>
+            <div className={SHOP_TITLE}>坍 缩 殿</div>
           </button>
         )}
 
-        {/* 往生店：于坍缩店解锁后才显示 */}
+        {/* 往生殿：于坍缩殿解锁后才显示 */}
         {state.afterlifeShopUnlocked && (
           <button
             id="btn-open-afterlife"
@@ -174,7 +174,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
           </button>
         )}
 
-        {/* 称号 + 成就：同一排（需在数值店分别开启对应系统后显示） */}
+        {/* 称号 + 成就：同一排（需在数值殿分别开启对应系统后显示） */}
         {(state.titleUnlocked || state.achievementsUnlocked) && (
           <div className="flex gap-2">
             {state.titleUnlocked && (

@@ -118,7 +118,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
     if (state.clickCount < UPGRADE_METADATA[id].requiredClicks && !state.upgrades[id].unlocked) {
       return false;
     }
-    // 概率 / 频率类：永劫店该属性已达效果上限时，数值店再升也无效果，不再显示该升级项
+    // 概率 / 频率类：永劫殿该属性已达效果上限时，数值殿再升也无效果，不再显示该升级项
     if (isRebirthEffectCapped(id, state.rebirthMergedLevels?.[id] || 0)) {
       return false;
     }
@@ -179,7 +179,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
       id === 'baseValue'
         ? { ...rawDesc, currentDesc: `上限 Lv.${maxLevel} · ${rawDesc.currentDesc}` }
         : rawDesc;
-    // 往生殿折扣：按当前属性等级降低该属性的数值店升级消耗
+    // 往生殿折扣：按当前属性等级降低该属性的数值殿升级消耗
     const currentCost = applyAfterlifeDiscount(
       getUpgradeCost(id, upgradeState.level, maxLevel),
       state.afterlifeUpgradeLevels?.[id] || 0,
@@ -231,7 +231,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
         </button>
       </div>
 
-      {/* 长按提示 / 往生店折扣提示 */}
+      {/* 长按提示 / 往生殿折扣提示 */}
       <div className="text-[10px] font-serif text-[#8a7a63] text-center -mt-0.5">
         {'长按升级'}
         {Object.values(state.afterlifeUpgradeLevels || {}).some((v) => v > 0) && (
@@ -241,7 +241,7 @@ export const UpgradesList: React.FC<UpgradesListProps> = ({
 
       {shownRows.length === 0 ? (
         <div className="text-[11px] text-[#7d7364] font-serif text-center py-4">
-          —— 诸法皆已臻圆满，可于永劫商店提升等级上限 ——
+          —— 诸法皆已臻圆满，可于永劫商殿提升等级上限 ——
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">

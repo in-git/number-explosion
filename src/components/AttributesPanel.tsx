@@ -3,7 +3,6 @@ import { ChevronDown } from 'lucide-react';
 import { GameState } from '../types';
 import { BigNum } from '../utils/bigNumber';
 import {
-  BASE_VALUE_INITIAL,
   calculateGameAttributes,
   getValueCap,
   getBaseValueBonus,
@@ -56,13 +55,9 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
   const title = getTitle(state);
 
   // Format auto-click string
-  let autoClickDisplay = '0 /s';
+  let autoClickDisplay = '0次/s';
   if (state.upgrades.autoClickUnlock.unlocked) {
-    if (attrs.autoClicksPerMs > 0) {
-      autoClickDisplay = `${attrs.autoClicksPerMs.toFixed(1)} 次/ms`;
-    } else {
-      autoClickDisplay = `${attrs.autoClicksPerSec.toFixed(1)} /s`;
-    }
+    autoClickDisplay = `${attrs.autoClicksPerSec.toFixed(1)}次/s`;
   }
 
 
@@ -70,9 +65,9 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-base-upgrade',
       label: '数值升级',
-      value: baseValueUp.unlocked
-        ? `Lv.${baseValueUp.level} (+${getBaseValueBonus(baseValueUp.level).formatChinese(1)})`
-        : `${BASE_VALUE_INITIAL}`,
+      value: (baseValueUp.unlocked ? getBaseValueBonus(baseValueUp.level) : new BigNum(0, 0))
+        .add(getRebirthBaseValueBonus(rebirthBvLevel))
+        .formatChinese(1),
       detail: `当前单次基础: ${attrs.baseValue.formatChinese(1)}${
         rebirthBvLevel > 0 ? ` · 永劫 +${getRebirthBaseValueBonus(rebirthBvLevel).formatChinese(1)}` : ''
       }`,
@@ -82,7 +77,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
       id: 'attr-value-cap',
       label: '数值上限',
       value: getValueCap(state.valueCapLevel || 0, state.rebirthCount || 0).formatChinese(2),
-      detail: '坍缩店提升上限 · 每次永劫 +100万 · 达到上限后数值不再增长',
+      detail: '坍缩殿提升上限 · 每次永劫 +100万 · 达到上限后数值不再增长',
     },
     {
       id: 'attr-highest-value',
@@ -170,23 +165,11 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
   return (
     <div className="w-full max-w-md mx-auto px-4 py-1.5">
       <div className="bg-[#1a1816] border border-[#332e27] rounded-xl px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-        {/* 称号：面板顶部，随历世最高数值自动达成（开启称号系统后显示） */}
-        {state.titleUnlocked && (
-          <div className="flex items-center justify-between pb-1.5 mb-0.5 border-b border-[#262220]">
-            <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">称 号</span>
-            <span
-              className="font-serif font-bold text-sm tracking-wider"
-              style={{ color: title.color }}
-            >
-              {title.name}
-            </span>
-          </div>
-        )}
-
+     
         {/* Subtle Section Header with expand toggle */}
         <div
          onClick={() => setIsExpanded((v) => !v)}
-          className={`flex items-center justify-between pb-1.5 ${
+          className={`flex items-center justify-between  ${
             isExpanded ? 'mb-1' : ''
           }`}
         >
@@ -208,9 +191,9 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     
         </div>
 
-        {/* 资源区：置顶常显，为 0 的不显示；全部为空时整块（含下划线）不渲染 */}
+        {/* 资源区：置顶常显，为 0 的不显示；全部为空时整块不渲染 */}
         {(attrs.rebirthPoints > 0 || attrs.collapsePoints > 0 || state.afterlifePoints > 0) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5 border-b border-[#262220]">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5">
           {attrs.rebirthPoints > 0 && (
             <div className="flex items-center gap-1.5">
               <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">永劫点数</span>
@@ -219,14 +202,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
               </span>
             </div>
           )}
-          {attrs.collapsePoints > 0 && (
-            <div className="flex items-center gap-1.5">
-              <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">坍缩</span>
-              <span className="font-mono text-xs sm:text-sm font-bold text-[#5b9bd8] tracking-tight">
-                {attrs.collapsePoints} 重
-              </span>
-            </div>
-          )}
+        
           {state.afterlifePoints > 0 && (
             <div className="flex items-center gap-1.5">
               <span className="font-serif text-[11px] sm:text-xs text-[#948a7a]">往生点</span>

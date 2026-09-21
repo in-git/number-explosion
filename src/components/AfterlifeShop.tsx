@@ -23,7 +23,7 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
   onExchangeAfterlifePoint,
   onBuyAfterlifeUpgrade,
 }) => {
-  // 仅列出数值店中「可升级（有消耗）」的属性；autoClickUnlock 为解锁项、无升级消耗，故不列入
+  // 仅列出数值殿中「可升级（有消耗）」的属性；autoClickUnlock 为解锁项、无升级消耗，故不列入
   const order = UPGRADE_ORDER.filter((id) => id !== 'autoClickUnlock');
   const canExchange = state.collapsePoints >= 10;
 
@@ -96,7 +96,7 @@ export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
                   </span>
                 </div>
                 <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
-                  降低 <span className="text-[#8c8273]">[数值店]</span> 升级消耗{' '}
+                  降低 <span className="text-[#8c8273]">[数值殿]</span> 升级消耗{' '}
                   <span className="text-[#d897fa] font-mono font-bold">
                     -{current.toFixed(1)}% → -{next.toFixed(1)}%
                   </span>
