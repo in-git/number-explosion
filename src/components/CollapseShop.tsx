@@ -1,5 +1,6 @@
 import React from 'react';
-import { GameState, UpgradeId } from '../types';
+import { UpgradeId } from '../types';
+import { useGameActions, useGameData } from '../context/GameContext';
 import {
   UPGRADE_METADATA,
   LEVEL_CAP_PER_POINT,
@@ -18,33 +19,16 @@ import {
 } from '../config';
 import { UpgradeButton } from './UpgradeButton';
 
-interface CollapseShopProps {
-  state: GameState;
-  onBuyValueCap: () => void;
-  /** 购买「永劫爆炸」：消耗按 2^n 递增的坍缩点数，每级使永劫时每 100 万数值额外 +0.2 点 */
-  onBuyRebirthPointLevel: () => void;
-  /** 消耗 1 点坍缩点数，为指定功法 +50 级上限（由永劫商殿迁移而来） */
-  onBuyLevelCap: (id: UpgradeId) => void;
-  /** 消耗永劫点数兑换坍缩点数（恒定 3:1）：amount 为兑换次数，'all' = 全部可兑换 */
-  onExchangeRebirthToCollapse: (amount: number | 'all') => void;
+export const CollapseShop: React.FC = () => {
+  const { state } = useGameData();
+  const {
+    handleBuyValueCap: onBuyValueCap,
+    handleBuyRebirthPointLevel: onBuyRebirthPointLevel,
+    handleBuyLevelCap: onBuyLevelCap,
+    handleExchangeRebirthToCollapse: onExchangeRebirthToCollapse,
+    handleUnlockAfterlifeShop: onUnlockAfterlifeShop,
+  } = useGameActions();
 
-  /** 消耗 20 点坍缩点数解锁往生殿 */
-  onUnlockAfterlifeShop: () => void;
-  /** 本次坍缩可凝练的重数 */
-  collapseGain: number;
-  /** 打开坍缩确认弹窗 */
-  onOpenCollapse: () => void;
-}
-
-export const CollapseShop: React.FC<CollapseShopProps> = ({
-  state,
-  onBuyValueCap,
-  onBuyRebirthPointLevel,
-  onBuyLevelCap,
-  onExchangeRebirthToCollapse,
-  onUnlockAfterlifeShop,
-
-}) => {
   const level = state.valueCapLevel || 0;
   const rebirths = state.rebirthCount || 0;
   const currentCap = getValueCap(level, rebirths);

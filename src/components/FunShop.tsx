@@ -11,25 +11,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { BigNum } from '../utils/bigNumber';
+import { GambleCurrency, PointsCurrency, SettleType } from '../types';
+import { useGameActions, useGameData, useModals } from '../context/GameContext';
 
-export type SettleType = 'gain' | 'loss';
-
-/** 可梭哈的货币：数值 / 永劫点 / 坍缩点 / 往生点 */
-export type GambleCurrency = 'value' | 'rebirth' | 'collapse' | 'afterlife';
-export type PointsCurrency = Exclude<GambleCurrency, 'value'>;
-
-interface FunShopProps {
-  currentValue: BigNum;
-  rebirthPoints: number;
-  collapsePoints: number;
-  afterlifePoints: number;
-  /** 数值结算：type='gain' 净赚 amount；type='loss' 没收 amount */
-  onSettle: (type: SettleType, amount: BigNum) => void;
-  /** 点数类货币结算：同上，金额为整数点数 */
-  onSettlePoints: (currency: PointsCurrency, type: SettleType, amount: number) => void;
-  /** 收手离场：关闭模态框 */
-  onClose: () => void;
-}
+// 结算相关类型定义于 types.ts，此处转出以保持既有引用路径不变
+export type { GambleCurrency, PointsCurrency, SettleType };
 
 // 石头0 / 剪刀1 / 布2：石头胜剪刀，剪刀胜布，布胜石头
 const RPS = ['石头', '剪刀', '布'];
@@ -82,15 +68,18 @@ const CURRENCY_LABELS: Record<PointsCurrency, string> = {
   afterlife: '往生点',
 };
 
-export const FunShop: React.FC<FunShopProps> = ({
-  currentValue,
-  rebirthPoints,
-  collapsePoints,
-  afterlifePoints,
-  onSettle,
-  onSettlePoints,
-  onClose,
-}) => {
+export const FunShop: React.FC = () => {
+  const { state, currentBigNum: currentValue } = useGameData();
+  const { handleGambleSettle: onSettle, handleGambleSettlePoints: onSettlePoints } =
+    useGameActions();
+  const modals = useModals();
+  // 收手离场：关闭奇趣商殿
+  const onClose = modals.funShop.close;
+
+  const rebirthPoints = state.rebirthPoints || 0;
+  const collapsePoints = state.collapsePoints || 0;
+  const afterlifePoints = state.afterlifePoints || 0;
+
   /** bet: 选择梭哈的货币；game: 天意指定的玩法 */
   const [stage, setStage] = useState<'bet' | 'game'>('bet');
   const [currency, setCurrency] = useState<GambleCurrency | null>(null);

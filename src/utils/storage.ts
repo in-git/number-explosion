@@ -147,7 +147,7 @@ export function loadGameState(): GameState {
       rebirthPointLevel: Number.isFinite(parsed.rebirthPointLevel)
         ? Math.max(0, Math.floor(parsed.rebirthPointLevel))
         : 0,
-      // 渡劫丹：默认 0
+      // 持有的渡劫丹：默认 0
       tribulationPills: Number.isFinite(parsed.tribulationPills)
         ? Math.max(0, Math.floor(parsed.tribulationPills))
         : 0,

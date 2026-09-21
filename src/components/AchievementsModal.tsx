@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
-import { GameState } from '../types';
 import { BigNum } from '../utils/bigNumber';
 import { ACHIEVEMENTS } from '../config';
 import { formatDuration } from '../utils/serverTime';
 import { ModalShell } from './ModalShell';
-
-interface AchievementsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  state: GameState;
-}
+import { useGameData, useModals } from '../context/GameContext';
 
 type Filter = 'all' | 'done' | 'todo';
 
@@ -22,11 +16,12 @@ const FILTERS: { key: Filter; label: string }[] = [
 const fmt = (n: number) => n.toLocaleString('zh-CN');
 
 /** 成就面板：网格一排 3 个，支持按完成状态筛选 */
-export const AchievementsModal: React.FC<AchievementsModalProps> = ({
-  isOpen,
-  onClose,
-  state,
-}) => {
+export const AchievementsModal: React.FC = () => {
+  const { state } = useGameData();
+  const modals = useModals();
+  const isOpen = modals.achievements.isOpen;
+  const onClose = modals.achievements.close;
+
   const [filter, setFilter] = useState<Filter>('all');
 
   const unlocked = new Set(state.unlockedAchievements || []);

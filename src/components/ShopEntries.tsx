@@ -11,30 +11,9 @@ import {
   Store,
   Trophy,
 } from 'lucide-react';
-import { GameState } from '../types';
 import { REBIRTH_THRESHOLD } from '../config';
 import { getTitle } from '../utils/title';
-
-interface ShopEntriesProps {
-  state: GameState;
-  canRebirth: boolean;
-  onOpenUpgradeShop: () => void;
-  onOpenRebirthShop: () => void;
-  /** 打开往生殿（需先在坍缩殿解锁） */
-  onOpenAfterlifeShop: () => void;
-  onOpenFunShop: () => void;
-  onOpenCollapseShop: () => void;
-  /** 排行入口：永劫后解锁 */
-  onOpenRanking: () => void;
-  /** 永劫入口：弹窗内可继续转入坍缩 */
-  onOpenRebirthModal: () => void;
-  /** 成就面板入口（累计点击成就） */
-  onOpenAchievementsModal: () => void;
-  /** 称号详情入口（当前称号 + 最近的几个修仙等级） */
-  onOpenTitleModal: () => void;
-  /** 设置面板入口 */
-  onOpenSettingsModal: () => void;
-}
+import { useGameData, useModals } from '../context/GameContext';
 
 /** 商殿卡片：同一排铺满，列宽自适应，内部为上下结构（图标在上、文字在下）；高度写死 */
 const SHOP_CARD =
@@ -56,20 +35,10 @@ const TRIPLE_CARD =
 const TRIPLE_TITLE =
   'text-[11px] sm:text-sm font-serif font-bold tracking-[0.08em] sm:tracking-[0.16em] text-[#ded7cb] whitespace-nowrap';
 
-export const ShopEntries: React.FC<ShopEntriesProps> = ({
-  state,
-  canRebirth,
-  onOpenUpgradeShop,
-  onOpenRebirthShop,
-  onOpenAfterlifeShop,
-  onOpenFunShop,
-  onOpenCollapseShop,
-  onOpenRanking,
-  onOpenRebirthModal,
-  onOpenAchievementsModal,
-  onOpenTitleModal,
-  onOpenSettingsModal,
-}) => {
+export const ShopEntries: React.FC = () => {
+  const { state, canRebirth } = useGameData();
+  const modals = useModals();
+
   // 永劫商殿：永劫之道开启后才出现；坍缩商殿：解锁坍缩后即出现（无需先坍缩一次）
   const rebirthShopUnlocked = state.rebirthUnlocked || state.rebirthPoints > 0;
   const collapseShopUnlocked = state.collapseUnlocked || state.collapsePoints > 0;
@@ -87,7 +56,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         {/* 升级商殿 */}
         <button
           id="btn-open-upgrade-shop"
-          onClick={onOpenUpgradeShop}
+          onClick={modals.upgradeShop.open}
           className={`${SHOP_CARD} bg-[#1a1816] border-[#332e27] hover:border-[#5b5142] active:translate-y-0.5 cursor-pointer`}
         >
           <Store size={18} className="text-[#8c8273] flex-shrink-0" />
@@ -98,7 +67,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         {rebirthShopUnlocked && (
           <button
             id="btn-open-rebirth-shop"
-            onClick={onOpenRebirthShop}
+            onClick={modals.rebirthShop.open}
             className={`${SHOP_CARD} bg-[#1a1816] border-[#3a3226] hover:border-[#6b5a3f] active:translate-y-0.5 cursor-pointer`}
           >
             <RefreshCw size={18} className="text-[#8c8273] flex-shrink-0" />
@@ -109,7 +78,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         {/* 奇趣商殿 */}
         <button
           id="btn-open-fun-shop"
-          onClick={onOpenFunShop}
+          onClick={modals.funShop.open}
           className={`${SHOP_CARD} bg-[#1a1816] border-[#332e27] hover:border-[#5b5142] active:translate-y-0.5 cursor-pointer`}
         >
           <Dices size={18} className="text-[#8c8273] flex-shrink-0" />
@@ -120,7 +89,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         {collapseShopUnlocked && (
           <button
             id="btn-open-collapse-shop"
-            onClick={onOpenCollapseShop}
+            onClick={modals.collapseShop.open}
             className={`${SHOP_CARD} bg-[#161d2b] border-[#2e4a6e] hover:border-[#3f7fd0] active:translate-y-0.5 cursor-pointer`}
           >
             <Orbit size={18} className="text-[#5b9bd8] flex-shrink-0" />
@@ -132,7 +101,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         {state.afterlifeShopUnlocked && (
           <button
             id="btn-open-afterlife"
-            onClick={onOpenAfterlifeShop}
+            onClick={modals.afterlifeShop.open}
             className={`${SHOP_CARD} bg-[#1b1622] border-[#4a2e5e] hover:border-[#8938b8] active:translate-y-0.5 cursor-pointer`}
           >
             <Sparkles size={18} className="text-[#d897fa] flex-shrink-0" />
@@ -147,7 +116,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         {!state.tribulationSuccess && (
           <button
             id="btn-open-rebirth"
-            onClick={onOpenRebirthModal}
+            onClick={modals.rebirth.open}
             disabled={!canOpenRebirth}
             className={`relative ${LIST_CARD} ${
               canOpenRebirth
@@ -177,7 +146,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             {state.titleUnlocked && (
               <button
                 id="home-title"
-                onClick={onOpenTitleModal}
+                onClick={modals.title.open}
                 className={`${TRIPLE_CARD} flex-1 bg-[#1a1715] border-[#2b2721] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
               >
                 <div className={TRIPLE_TITLE}>称 号</div>
@@ -192,7 +161,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             {rankingUnlocked && (
               <button
                 id="btn-open-ranking"
-                onClick={onOpenRanking}
+                onClick={modals.ranking.open}
                 className={`${TRIPLE_CARD} flex-1 bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
               >
                 <div className={TRIPLE_TITLE}>排 行</div>
@@ -202,7 +171,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
             {state.achievementsUnlocked && (
               <button
                 id="btn-open-achievements"
-                onClick={onOpenAchievementsModal}
+                onClick={modals.achievements.open}
                 className={`${TRIPLE_CARD} flex-1 bg-[#1a1715] border-[#4a3a24] hover:border-[#8a653f] active:translate-y-0.5 cursor-pointer`}
               >
                 <div className={TRIPLE_TITLE}>成 就</div>
@@ -215,7 +184,7 @@ export const ShopEntries: React.FC<ShopEntriesProps> = ({
         {/* 设置（数值设定 / 重修道途） */}
         <button
           id="btn-open-settings"
-          onClick={onOpenSettingsModal}
+          onClick={modals.settings.open}
           className={`${LIST_CARD} bg-[#161a1f] border-[#2c3440] hover:border-[#4a8db8] active:translate-y-0.5 cursor-pointer`}
         >
           <div className={LIST_TITLE}>设 置</div>

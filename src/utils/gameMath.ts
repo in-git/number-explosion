@@ -269,26 +269,62 @@ export const COLLAPSE_COST = 5;
 
 /** 渡劫：于往生殿「天雷峰」每次渡劫消耗的往生点（恒定 1 万） */
 export const TRIBULATION_COST = 10000;
-/** 渡劫基础成功率（未服用渡劫丹时，默认 0：全靠渡劫丹堆积） */
-export const TRIBULATION_BASE_CHANCE = 0;
-/** 每颗渡劫丹提升的成功率 */
-export const TRIBULATION_PILL_BONUS = 0.1;
 /** 每颗渡劫丹所需的往生点 */
 export const TRIBULATION_PILL_COST = 300;
-/** 渡劫次数上限（含失败的尝试） */
+/** 渡劫次数上限（= 成功的渡劫次数上限） */
 export const TRIBULATION_MAX_COUNT = 9;
+/** 一次渡劫需要承受的雷劫道数 */
+export const TRIBULATION_STRIKE_COUNT = 9;
+/** 每道雷劫之间的间隔（ms） */
+export const TRIBULATION_STRIKE_INTERVAL_MS = 3000;
+/** 无渡劫丹时，单道雷劫的通过率 */
+export const TRIBULATION_STRIKE_CHANCE = 0.5;
 
-/** 渡劫（渡劫点 +1）所需的往生点：恒定 1 万 */
+/** 渡劫（渡劫次数 +1）所需的往生点：恒定 1 万 */
 export function getTribulationCost(_currentLevel: number): number {
   return TRIBULATION_COST;
 }
 
 /**
- * 当前渡劫成功率 = 基础成功率（默认 0）+ 渡劫丹数 × 10%，上限 100%
+ * 单道雷劫的通过率：持有渡劫丹则必定通过（100%），否则 50%
  */
-export function getTribulationSuccessRate(pills: number): number {
-  const n = Number.isFinite(pills) && pills > 0 ? Math.floor(pills) : 0;
-  return Math.min(1, TRIBULATION_BASE_CHANCE + n * TRIBULATION_PILL_BONUS);
+export function getTribulationStrikeChance(hasPill: boolean): number {
+  return hasPill ? 1 : TRIBULATION_STRIKE_CHANCE;
+}
+
+/** 一次渡劫的结算过程 */
+export interface TribulationOutcome {
+  /** 每道雷劫是否通过（失败即终止，长度 ≤ 9） */
+  strikes: boolean[];
+  /** 9 道雷劫是否全部通过 */
+  success: boolean;
+  /** 本次消耗的渡劫丹数量（每道雷劫可消耗 1 颗保过） */
+  pillsUsed: number;
+}
+
+/**
+ * 结算一次渡劫：连续降下 9 道雷劫，每道 3 秒一道（由展示层按节奏揭示）。
+ * - 单道通过率：持有渡劫丹 → 100%（并消耗 1 颗）；否则 50%
+ * - 任一道未通过 → 本次渡劫失败，直接终止（不再降后续雷劫）
+ */
+export function resolveTribulation(pillStock: number): TribulationOutcome {
+  const stock = Number.isFinite(pillStock) && pillStock > 0 ? Math.floor(pillStock) : 0;
+  const strikes: boolean[] = [];
+  let pillsUsed = 0;
+  let success = true;
+
+  for (let i = 0; i < TRIBULATION_STRIKE_COUNT; i++) {
+    const hasPill = pillsUsed < stock;
+    const passed = Math.random() < getTribulationStrikeChance(hasPill);
+    if (hasPill) pillsUsed += 1;
+    strikes.push(passed);
+    if (!passed) {
+      success = false;
+      break;
+    }
+  }
+
+  return { strikes, success, pillsUsed };
 }
 
 /**

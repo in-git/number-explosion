@@ -1,32 +1,29 @@
 import React from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { REBIRTH_THRESHOLD } from '../config';
-import { getRebirthPointsFromValue } from '../utils/gameMath';
+import { getExtraRebirthPoints, getRebirthPointsCap, getRebirthPointsFromValue } from '../utils/gameMath';
+import { useGameActions, useGameData, useModals } from '../context/GameContext';
 
-interface RebirthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  currentValue: BigNum;
-  currentRebirthCount: number;
+export const RebirthModal: React.FC = () => {
+  const { state, currentBigNum: currentValue } = useGameData();
+  const { confirmRebirth } = useGameActions();
+  const modals = useModals();
+
+  const isOpen = modals.rebirth.isOpen;
+  const onClose = modals.rebirth.close;
+  const onConfirm = () => {
+    confirmRebirth();
+    modals.rebirth.close();
+  };
+
   /** 「永劫爆炸」加成：每 100 万数值额外 +0.2 × 等级 */
-  rebirthPointBonus: number;
+  const rebirthPointBonus = getExtraRebirthPoints(state.rebirthPointLevel || 0, currentValue);
   /** 当前已持有的永劫点数（用于计算获取上限） */
-  currentRebirthPoints: number;
+  const currentRebirthPoints = state.rebirthPoints || 0;
   /** 当前永劫点获取上限（由往生殿「永劫点上限」等级决定） */
-  rebirthPointsCap: number;
-}
+  const rebirthPointsCap = getRebirthPointsCap(state.rebirthCapLevel || 0);
+  const currentRebirthCount = state.rebirthCount;
 
-export const RebirthModal: React.FC<RebirthModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  currentValue,
-  currentRebirthCount,
-  rebirthPointBonus,
-  currentRebirthPoints,
-  rebirthPointsCap,
-}) => {
   if (!isOpen) return null;
 
   // 所得永劫点数 = 数值 ÷ 100 万 + 「永劫爆炸」加成

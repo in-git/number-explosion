@@ -3,6 +3,15 @@ export interface BigNumData {
   e: number; // exponent (base 10)
 }
 
+/** 奇趣殿结算方向：gain = 净赚，loss = 没收 */
+export type SettleType = 'gain' | 'loss';
+
+/** 可梭哈的货币：数值 / 永劫点 / 坍缩点 / 往生点 */
+export type GambleCurrency = 'value' | 'rebirth' | 'collapse' | 'afterlife';
+
+/** 点数类货币（不含数值） */
+export type PointsCurrency = Exclude<GambleCurrency, 'value'>;
+
 export type UpgradeId =
   | 'baseValue'        // 数值升级
   | 'autoClickUnlock'  // 自动点击
@@ -144,7 +153,10 @@ export interface GameState {
    * 每级使永劫时「每 100 万数值」额外 +0.2 点永劫点数
    */
   rebirthPointLevel: number;
-  /** 已服用的渡劫丹数量：每颗 +10% 渡劫成功率（往生殿购买，300 往生点/颗） */
+  /**
+   * 持有的渡劫丹数量（往生殿购买，300 往生点/颗）。
+   * 渡劫时每道雷劫可消耗 1 颗：持丹的那一道必定通过（100%），否则该道仅 50%
+   */
   tribulationPills: number;
   /** 是否已渡劫成功：未成功前「渡劫次方」不参与收益计算，避免数值崩塌 */
   tribulationSuccess: boolean;

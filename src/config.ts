@@ -401,7 +401,7 @@ export const INITIAL_STATE: GameState = {
 
   valueCapLevel: 0,
   rebirthPointLevel: 0,
-  /** 已服用的渡劫丹数量：默认 0 */
+  /** 持有的渡劫丹数量：默认 0 */
   tribulationPills: 0,
   /** 是否已渡劫成功：默认否（未成功前次方不参与计算） */
   tribulationSuccess: false,

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Unlock } from 'lucide-react';
-import { GameState, UpgradeId } from '../types';
+import { UpgradeId } from '../types';
 import { BigNum } from '../utils/bigNumber';
+import { useGameActions, useGameData } from '../context/GameContext';
 import {
   UPGRADE_METADATA,
   getUpgradeCost,
@@ -18,21 +19,6 @@ import {
 } from '../utils/gameMath';
 import { UPGRADE_ORDER, ACHIEVEMENTS_UNLOCK_COST, TITLE_UNLOCK_COST } from '../config';
 import { UpgradeButton } from './UpgradeButton';
-
-interface UpgradesListProps {
-  state: GameState;
-  currentValue: BigNum;
-  onUnlock: (id: UpgradeId, cost: BigNum) => void;
-  onUpgrade: (id: UpgradeId, cost: BigNum) => void;
-  /** 一键升级：按「概率 → 数值 → 倍数」优先级尽力升满，返回本次是否发生了升级 */
-  onUpgradeAll: () => boolean;
-  /** 成就系统是否已开启 */
-  achievementsUnlocked: boolean;
-  /** 称号系统是否已开启 */
-  titleUnlocked: boolean;
-  onUnlockAchievements: () => void;
-  onUnlockTitles: () => void;
-}
 
 interface UpgradeDesc {
   currentDesc: string;
@@ -101,17 +87,19 @@ function getUpgradeDesc(id: UpgradeId, level: number): UpgradeDesc {
   };
 }
 
-export const UpgradesList: React.FC<UpgradesListProps> = ({
-  state,
-  currentValue,
-  onUnlock,
-  onUpgrade,
-  onUpgradeAll,
-  achievementsUnlocked,
-  titleUnlocked,
-  onUnlockAchievements,
-  onUnlockTitles,
-}) => {
+export const UpgradesList: React.FC = () => {
+  const { state, currentBigNum: currentValue } = useGameData();
+  const {
+    handleUnlockUpgrade: onUnlock,
+    handleUpgradeLevel: onUpgrade,
+    handleUpgradeAll: onUpgradeAll,
+    handleUnlockAchievements: onUnlockAchievements,
+    handleUnlockTitles: onUnlockTitles,
+  } = useGameActions();
+  // 成就 / 称号系统是否已开启
+  const achievementsUnlocked = state.achievementsUnlocked;
+  const titleUnlocked = state.titleUnlocked;
+
   // 隐藏不可继续升级（已满级）的功法
   const [hideMaxed, setHideMaxed] = useState(false);
 

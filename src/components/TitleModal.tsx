@@ -1,11 +1,7 @@
 import React from 'react';
-import { GameState } from '../types';
 import { BigNum } from '../utils/bigNumber';
 import { getNearbyTitleRanks, getTitle } from '../utils/title';
-
-interface TitleModalProps {
-  state: GameState;
-}
+import { useGameData } from '../context/GameContext';
 
 /** 已达成 / 当前 / 未达成 三种时间线节点样式 */
 const nodeClass = (current: boolean, achieved: boolean): string => {
@@ -19,7 +15,8 @@ const nodeClass = (current: boolean, achieved: boolean): string => {
 };
 
 /** 称号时间线：自凡人起逐档向上，并标出自己所在的位置 */
-export const TitleModal: React.FC<TitleModalProps> = ({ state }) => {
+export const TitleModal: React.FC = () => {
+  const { state } = useGameData();
   const title = getTitle(state);
   const ranks = getNearbyTitleRanks(state);
   const highestValue = BigNum.fromData(state.highestValue);

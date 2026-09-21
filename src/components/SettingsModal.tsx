@@ -1,21 +1,6 @@
 import React, { useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-
-interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSetValue: (val: BigNum) => void;
-  onSetRebirthPoints: (n: number) => void;
-  onSetCollapsePoints: (n: number) => void;
-  /** 重置往生殿升级等级（不返还已消耗的往生点） */
-  onResetAfterlifeUpgrades: () => void;
-  /** 重置坍缩殿升级等级（不返还已消耗的坍缩点） */
-  onResetCollapseUpgrades: () => void;
-  /** 重置永劫殿升级等级（不返还已消耗的永劫点数） */
-  onResetRebirthUpgrades: () => void;
-  onResetProgress: () => void;
-  currentValue: BigNum;
-}
+import { useGameActions, useGameData, useModals } from '../context/GameContext';
 
 /** 点数默认值 */
 const DEFAULT_POINTS = '100';
@@ -37,18 +22,21 @@ const PRESETS: { label: string; value: number }[] = [
   { label: '1亿', value: 100000000 },
 ];
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
-  onClose,
-  onSetValue,
-  onSetRebirthPoints,
-  onSetCollapsePoints,
-  onResetAfterlifeUpgrades,
-  onResetCollapseUpgrades,
-  onResetRebirthUpgrades,
-  onResetProgress,
-  currentValue,
-}) => {
+export const SettingsModal: React.FC = () => {
+  const { currentBigNum: currentValue } = useGameData();
+  const {
+    debugSetValue: onSetValue,
+    debugSetRebirthPoints: onSetRebirthPoints,
+    debugSetCollapsePoints: onSetCollapsePoints,
+    resetAfterlifeUpgrades: onResetAfterlifeUpgrades,
+    resetCollapseUpgrades: onResetCollapseUpgrades,
+    resetRebirthUpgrades: onResetRebirthUpgrades,
+    resetProgress: onResetProgress,
+  } = useGameActions();
+  const modals = useModals();
+  const isOpen = modals.settings.isOpen;
+  const onClose = modals.settings.close;
+
   const [input, setInput] = useState('');
   const [rebirthInput, setRebirthInput] = useState(DEFAULT_POINTS);
   const [collapseInput, setCollapseInput] = useState(DEFAULT_POINTS);

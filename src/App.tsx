@@ -7,16 +7,28 @@ import { ShopEntries } from './components/ShopEntries';
 import { GameModals } from './components/GameModals';
 import { OfflineGainModal } from './components/OfflineGainModal';
 import { ToastContainer } from './components/ToastContainer';
-import { useToasts } from './hooks/useToasts';
-import { useFloatingTexts } from './hooks/useFloatingTexts';
-import { useGameModals } from './hooks/useGameModals';
-import { useGameState } from './hooks/useGameState';
+import {
+  GameProvider,
+  useFloatingTextsApi,
+  useGameActions,
+  useGameData,
+  useToastsApi,
+} from './context/GameContext';
 
 export default function App() {
-  const { toasts, addToast, dismissToast } = useToasts();
-  const { floatingTexts, addFloatingText } = useFloatingTexts();
-  const modals = useGameModals();
-  const game = useGameState({ addToast, addFloatingText });
+  return (
+    <GameProvider>
+      <GameShell />
+    </GameProvider>
+  );
+}
+
+/** 需要读取全局状态的界面层，放在 GameProvider 内部 */
+function GameShell() {
+  const { toasts, dismissToast } = useToastsApi();
+  const { floatingTexts } = useFloatingTextsApi();
+  const { state, currentBigNum, offlineReport } = useGameData();
+  const { handleUserClick, dismissOfflineReport } = useGameActions();
 
   return (
     <div className="relative min-h-screen bg-[#141210] text-[#e3ded4] font-serif flex flex-col">
@@ -26,73 +38,20 @@ export default function App() {
       {/* 布局顺序: 1 数值 → 2 属性 → 3 各商殿入口 */}
       <main className="relative z-10 flex-1 flex flex-col items-center">
         <CoreNumberDisplay
-          currentValue={game.currentBigNum}
+          currentValue={currentBigNum}
           floatingTexts={floatingTexts}
-          onClick={game.handleUserClick}
+          onClick={handleUserClick}
         />
 
-        <AttributesPanel state={game.state} />
+        <AttributesPanel state={state} />
 
-        <ShopEntries
-          state={game.state}
-          canRebirth={game.canRebirth}
-          onOpenUpgradeShop={modals.upgradeShop.open}
-          onOpenRebirthShop={modals.rebirthShop.open}
-          onOpenAfterlifeShop={modals.afterlifeShop.open}
-          onOpenFunShop={modals.funShop.open}
-          onOpenCollapseShop={modals.collapseShop.open}
-          onOpenRanking={modals.ranking.open}
-          onOpenRebirthModal={modals.rebirth.open}
-          onOpenAchievementsModal={modals.achievements.open}
-          onOpenTitleModal={modals.title.open}
-          onOpenSettingsModal={modals.settings.open}
-        />
+        <ShopEntries />
       </main>
 
-      <GameModals
-        modals={modals}
-        state={game.state}
-        currentValue={game.currentBigNum}
-        collapseGain={game.collapseGain}
-        onUnlockUpgrade={game.handleUnlockUpgrade}
-        onUpgradeLevel={game.handleUpgradeLevel}
-        onUpgradeAll={game.handleUpgradeAll}
-        onUnlockAchievements={game.handleUnlockAchievements}
-        onUnlockTitles={game.handleUnlockTitles}
-        onBuyLevelCap={game.handleBuyLevelCap}
-        onBuyRebirthMergedUpgrade={game.handleBuyRebirthMergedUpgrade}
-        onUnlockCollapse={game.handleUnlockCollapse}
-        onUnlockTribulation={game.handleUnlockTribulation}
-        onTribulation={game.handleTribulation}
-        onBuyTribulationPill={game.handleBuyTribulationPill}
-        onUnlockAfterlifeShop={game.handleUnlockAfterlifeShop}
-        onUnlockRanking={game.handleUnlockRanking}
-        onBuyAutoUnlock={game.handleBuyAutoUnlock}
-        onExchangeAfterlifePoint={game.handleExchangeAfterlifePoint}
-        onBuyAfterlifeUpgrade={game.handleBuyAfterlifeUpgrade}
-        onBuyRebirthCapUpgrade={game.handleBuyRebirthCapUpgrade}
-        onUnlockOneKeyUpgrade={game.handleUnlockOneKeyUpgrade}
-        onLogin={game.handleLogin}
-        onRegionSelected={game.handleSelectRegion}
-        onLogout={game.handleLogout}
-        onBuyValueCap={game.handleBuyValueCap}
-        onBuyRebirthPointLevel={game.handleBuyRebirthPointLevel}
-        onExchangeRebirthToCollapse={game.handleExchangeRebirthToCollapse}
-        onGambleSettle={game.handleGambleSettle}
-        onGambleSettlePoints={game.handleGambleSettlePoints}
-        onConfirmRebirth={game.confirmRebirth}
-        onConfirmCollapse={game.confirmCollapse}
-        onSetDebugValue={game.debugSetValue}
-        onSetRebirthPoints={game.debugSetRebirthPoints}
-        onSetCollapsePoints={game.debugSetCollapsePoints}
-        onResetAfterlifeUpgrades={game.resetAfterlifeUpgrades}
-        onResetCollapseUpgrades={game.resetCollapseUpgrades}
-        onResetRebirthUpgrades={game.resetRebirthUpgrades}
-        onResetProgress={game.resetProgress}
-      />
+      <GameModals />
 
       {/* 挂机收益弹窗：离线 / 切后台回来后展示本次挂机收益 */}
-      <OfflineGainModal report={game.offlineReport} onClose={game.dismissOfflineReport} />
+      <OfflineGainModal report={offlineReport} onClose={dismissOfflineReport} />
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>

@@ -1,6 +1,7 @@
 import React from 'react';
-import { GameState, UpgradeId } from '../types';
+import { UpgradeId } from '../types';
 import { BigNum } from '../utils/bigNumber';
+import { useGameActions, useGameData, useModals } from '../context/GameContext';
 import {
   UPGRADE_ORDER,
   AFTERLIFE_POINT_EXCHANGE_COST,
@@ -19,31 +20,23 @@ import {
 import { UpgradeButton } from './UpgradeButton';
 import { PressableRow } from './PressableRow';
 
-interface AfterlifeShopProps {
-  state: GameState;
-  /** 消耗坍缩点兑换往生点（恒定 10:1）：amount 为兑换次数，'all' = 全部可兑换 */
-  onExchangeAfterlifePoint: (amount: number | 'all') => void;
-  /** 购买指定属性的下一级往生强化（消耗往生点，按斐波那契数列递增，放大永劫殿该属性的累计加成） */
-  onBuyAfterlifeUpgrade: (id: UpgradeId) => void;
-  /** 提升「永劫点上限」：每级 +100，消耗往生点 1,2,3,4,5… */
-  onBuyRebirthCapUpgrade: () => void;
-  /** 消耗 10 往生点解锁「一键升级」（解锁后数值殿才显示一键升级按钮） */
-  onUnlockOneKeyUpgrade: () => void;
-  /** 消耗 100 往生点解锁「渡劫」（解锁后才显示天雷峰入口） */
-  onUnlockTribulation: () => void;
-  /** 打开「天雷峰」渡劫模态框 */
-  onOpenTribulation: () => void;
-}
+export const AfterlifeShop: React.FC = () => {
+  const { state } = useGameData();
+  const {
+    handleExchangeAfterlifePoint: onExchangeAfterlifePoint,
+    handleBuyAfterlifeUpgrade: onBuyAfterlifeUpgrade,
+    handleBuyRebirthCapUpgrade: onBuyRebirthCapUpgrade,
+    handleUnlockOneKeyUpgrade: onUnlockOneKeyUpgrade,
+    handleUnlockTribulation: onUnlockTribulation,
+  } = useGameActions();
+  const modals = useModals();
 
-export const AfterlifeShop: React.FC<AfterlifeShopProps> = ({
-  state,
-  onExchangeAfterlifePoint,
-  onBuyAfterlifeUpgrade,
-  onBuyRebirthCapUpgrade,
-  onUnlockOneKeyUpgrade,
-  onUnlockTribulation,
-  onOpenTribulation,
-}) => {
+  /** 打开「天雷峰」：关闭往生殿，打开渡劫弹窗 */
+  const onOpenTribulation = () => {
+    modals.afterlifeShop.close();
+    modals.tribulation.open();
+  };
+
   // 仅列出永劫殿中「可升级（有消耗）」的属性；autoClickUnlock 为解锁项、无升级消耗，故不列入
   // 往生殿不提供「频率 / 概率」类升级：自动点击频率、连击概率、暴击概率
   const order = UPGRADE_ORDER.filter(

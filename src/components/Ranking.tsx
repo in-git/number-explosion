@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { BigNumData, GameState, UserAccountData } from '../types';
+import { BigNumData, GameState } from '../types';
+import { useGameActions, useGameData } from '../context/GameContext';
 import { AuthPanel } from './AuthPanel';
 import { calculateGameAttributes } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
@@ -16,18 +17,6 @@ import {
 import { fetchRegions } from '../utils/authApi';
 import { leaderboardSocket } from '../utils/leaderboardSocket';
 import { canAscendRank } from '../utils/title';
-
-interface RankingProps {
-  state: GameState;
-  /** 注册/登录成功 */
-  onLogin: (account: UserAccountData) => void;
-  /** 入驻大区成功 */
-  onRegionSelected: (regionId: string, regionName: string) => void;
-  /** 退出登录 */
-  onLogout: () => void;
-  /** 登顶条件不满足时的提示回调 */
-  onNotify?: (title: string, content: string) => void;
-}
 
 /** tabbar：数值排行 / 富豪排行 在前，其后时长、重生、连点 */
 const BOARD_TABS: { id: LeaderboardId; label: string }[] = [
@@ -92,13 +81,14 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
 );
 
 /** 排行榜：数据全部来自后端接口（GET /api/leaderboard） */
-export const Ranking: React.FC<RankingProps> = ({
-  state,
-  onLogin,
-  onRegionSelected,
-  onLogout,
-  onNotify,
-}) => {
+export const Ranking: React.FC = () => {
+  const { state } = useGameData();
+  const {
+    handleLogin: onLogin,
+    handleLogout: onLogout,
+    handleSelectRegion: onRegionSelected,
+  } = useGameActions();
+
   const [board, setBoard] = useState<LeaderboardId>('value');
   const [showAuth, setShowAuth] = useState(false);
   const [data, setData] = useState<LeaderboardResponse | null>(null);
@@ -321,10 +311,8 @@ export const Ranking: React.FC<RankingProps> = ({
               onLogout();
               return;
             }
-            if (!canAscendRank(state)) {
-              onNotify?.('登顶未成', '道行不足 · 需达「炼气」境（最高数值 1 亿）方可登顶');
-              return;
-            }
+            // 道行不足：下方已有门槛提示，此处不再重复提示
+            if (!canAscendRank(state)) return;
             setShowAuth(true);
           }}
           className={`w-full py-3 rounded-xl border-2 text-sm font-serif font-bold tracking-[0.2em] text-[#f5ebd7] shadow-[0_6px_18px_rgba(0,0,0,0.7)] cursor-pointer active:translate-y-0.5 transition-all ${

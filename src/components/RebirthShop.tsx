@@ -1,5 +1,6 @@
 import React from 'react';
-import { GameState, UpgradeId } from '../types';
+import { UpgradeId } from '../types';
+import { useGameActions, useGameData } from '../context/GameContext';
 import { REBIRTH_MERGED_UPGRADES, AUTO_UNLOCK_COST, RANKING_UNLOCK_COST } from '../config';
 import {
   COLLAPSE_COST,
@@ -19,22 +20,6 @@ import {
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
 import { UpgradeButton } from './UpgradeButton';
-
-interface RebirthShopProps {
-  state: GameState;
-  /** 消耗永劫点数升级（所有属性均与数值殿独立，等级永久保留，效果累加） */
-  onBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
-  /** 消耗 5 点永劫值解锁坍缩（仅完整商殿） */
-  onUnlockCollapse?: () => void;
-  /** 消耗 1 点永劫点数解锁排行 */
-  onUnlockRanking?: () => void;
-  /** 消耗 1 点永劫点数购买「功法无需解锁」特权 */
-  onBuyAutoUnlock?: () => void;
-  /** 一指永劫（重生，仅主视图卡片） */
-  onRebirth?: () => void;
-  /** 回转（放弃本世，仅主视图卡片） */
-  onReset?: () => void;
-}
 
 /** 有上限属性的封顶提示（无上限项返回空，如基础数值 / 倍数） */
 const capText = (id: UpgradeId): string => {
@@ -100,15 +85,12 @@ const effectText = (
   }
 };
 
-export const RebirthShop: React.FC<RebirthShopProps> = ({
-  state,
-  onBuyRebirthMergedUpgrade,
-  onUnlockCollapse,
-  onUnlockRanking,
-  onBuyAutoUnlock,
-  onRebirth,
-  onReset,
-}) => {
+export const RebirthShop: React.FC = () => {
+  const { state } = useGameData();
+  const { handleBuyRebirthMergedUpgrade, handleUnlockCollapse, handleUnlockRanking, handleBuyAutoUnlock } =
+    useGameActions();
+
+  // 各条目的展示由解锁状态决定（未解锁的解锁项常驻，解锁后隐藏）
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
   const canUnlockRanking = state.rebirthPoints >= RANKING_UNLOCK_COST;
   const canBuyAutoUnlock = state.rebirthPoints >= AUTO_UNLOCK_COST;
@@ -184,7 +166,7 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
                 disabled={!canBuy}
                 onPress={() => {
                   if (!canBuy || cost === null) return;
-                  onBuyRebirthMergedUpgrade(id);
+                  handleBuyRebirthMergedUpgrade(id);
                 }}
               >
                 {freqMaxed ? '圆满' : `${cost!.formatChinese(0)} 点`}
@@ -195,12 +177,12 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
       </div>
 
       {/* 功法通明（已购后隐藏） */}
-      {onBuyAutoUnlock && !state.upgradesAutoUnlocked && (
+      {!state.upgradesAutoUnlocked && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
             id="shop-item-unlock-autounlock"
             onClick={() => {
-              if (canBuyAutoUnlock) onBuyAutoUnlock();
+              if (canBuyAutoUnlock) handleBuyAutoUnlock();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
               canBuyAutoUnlock ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
@@ -221,12 +203,12 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
       )}
 
       {/* 解锁排行（已解锁后隐藏） */}
-      {onUnlockRanking && !state.rankingUnlocked && (
+      {!state.rankingUnlocked && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
             id="shop-item-unlock-ranking"
             onClick={() => {
-              if (canUnlockRanking) onUnlockRanking();
+              if (canUnlockRanking) handleUnlockRanking();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
               canUnlockRanking ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
@@ -247,12 +229,12 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
       )}
 
       {/* 解锁坍缩 */}
-      {onUnlockCollapse && !state.collapseUnlocked && (
+      {!state.collapseUnlocked && (
         <div className="pt-1.5 border-t border-[#2d2822]">
           <div
             id="shop-item-unlock-collapse"
             onClick={() => {
-              if (canUnlockCollapse) onUnlockCollapse();
+              if (canUnlockCollapse) handleUnlockCollapse();
             }}
             className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
               canUnlockCollapse ? 'cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]' : 'opacity-50'
@@ -272,27 +254,6 @@ export const RebirthShop: React.FC<RebirthShopProps> = ({
         </div>
       )}
 
-      {/* 永劫 / 回转 */}
-      {onRebirth && (
-        <div className="pt-1.5 border-t border-[#2d2822] flex gap-2">
-          <div
-            id="shop-btn-rebirth"
-            onClick={onRebirth}
-            className="flex-1 text-center font-serif font-bold text-xs sm:text-sm text-[#ded7cb] p-2 rounded-lg bg-[#211f1c] border border-[#383229] cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]"
-          >
-            一指永劫（重生）
-          </div>
-          {onReset && (
-            <div
-              id="shop-btn-reset"
-              onClick={onReset}
-              className="flex-1 text-center font-serif font-bold text-xs sm:text-sm text-[#ded7cb] p-2 rounded-lg bg-[#211f1c] border border-[#383229] cursor-pointer hover:bg-[#2a2620] hover:border-[#5b5142]"
-            >
-              回转（放弃本世）
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };

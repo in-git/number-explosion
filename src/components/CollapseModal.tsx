@@ -2,24 +2,23 @@ import React from 'react';
 import { Orbit, X } from 'lucide-react';
 import { BigNum } from '../utils/bigNumber';
 import { COLLAPSE_COST } from '../utils/gameMath';
+import { useGameActions, useGameData, useModals } from '../context/GameContext';
 
-interface CollapseModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  currentRebirthPoints: number;
-  currentCollapsePoints: number;
-  collapseGain: number;
-}
+export const CollapseModal: React.FC = () => {
+  const { state, collapseGain } = useGameData();
+  const { confirmCollapse } = useGameActions();
+  const modals = useModals();
 
-export const CollapseModal: React.FC<CollapseModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  currentRebirthPoints,
-  currentCollapsePoints,
-  collapseGain,
-}) => {
+  const isOpen = modals.collapse.isOpen;
+  const onClose = modals.collapse.close;
+  const onConfirm = () => {
+    confirmCollapse();
+    modals.collapse.close();
+  };
+
+  const currentRebirthPoints = state.rebirthPoints;
+  const currentCollapsePoints = state.collapsePoints;
+
   if (!isOpen) return null;
 
   return (
