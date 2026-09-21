@@ -210,10 +210,11 @@ export const UpgradesList: React.FC = () => {
   const orderedRows = [...rows.filter((r) => !r.isMaxed), ...rows.filter((r) => r.isMaxed)];
   const shownRows = hideMaxed ? orderedRows.filter((r) => !r.isMaxed) : orderedRows;
 
-  // 数值重置丹（作用于「数值升级」）：渡劫成功后可用，须持丹且该项当前已有等级
-  const baseValueUp = state.upgrades.baseValue;
-  const canUseValueReset =
-    (state.valueResetPills || 0) > 0 && baseValueUp.unlocked && baseValueUp.level > 0;
+  // 数值重置丹（一次性重置全部功法）：渡劫成功后可用，须持丹且至少一项功法已有等级
+  const hasResettableLevel = (Object.keys(state.upgrades) as UpgradeId[]).some(
+    (id) => state.upgrades[id].unlocked && state.upgrades[id].level > 0
+  );
+  const canUseValueReset = (state.valueResetPills || 0) > 0 && hasResettableLevel;
 
   return (
     <div className="flex flex-col gap-2">
@@ -248,12 +249,13 @@ export const UpgradesList: React.FC = () => {
       <div className="flex items-center justify-between gap-2 text-[10px] font-serif text-[#8a7a63] -mt-0.5">
         <span className="flex-shrink-0">长按升级</span>
         <div className="flex items-center gap-1.5 min-w-0">
-          {/* 数值重置丹：消耗 1 颗，使「数值升级」的消耗从初始曲线重算，已有效果全部保留 */}
+          {/* 数值重置丹：消耗 1 颗，一次性重置全部功法——消耗从初始曲线重算，已有效果全部保留 */}
           {state.tribulationSuccess && (
             <button
               id="btn-use-value-reset"
-              onClick={() => onUseValueResetPill('baseValue')}
+              onClick={() => onUseValueResetPill()}
               disabled={!canUseValueReset}
+              title="消耗 1 颗：全部功法等级清零，升级消耗重算，已有效果全部保留"
               className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 ${
                 canUseValueReset
                   ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'

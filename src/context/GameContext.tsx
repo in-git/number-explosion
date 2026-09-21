@@ -49,7 +49,7 @@ export interface GameActions {
   handleBuyTribulationPill: () => void;
   handleCraftValueResetPill: () => void;
   handleCraftRebirthResetPill: () => void;
-  handleUseValueResetPill: (id: UpgradeId) => void;
+  handleUseValueResetPill: () => void;
   handleUseRebirthResetPill: () => void;
   handleBuyValueCap: () => void;
   handleExchangeRebirthToCollapse: (amount: number | 'all') => void;

@@ -29,6 +29,9 @@ import {
   isUpgradeMaxed,
   getRebirthPointsCap,
   getRebirthCapUpgradeCost,
+  getAutoRebirthPoints,
+  getAutoRebirthIntervalMs,
+  TRIBULATION_POINT_INTERVAL_MS,
   TRIBULATION_COST,
   TRIBULATION_PILL_COST,
   TRIBULATION_MAX_COUNT,
@@ -442,9 +445,8 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
     commitValue(value);
     setState((p) => ({ ...p, upgrades: nextUpgrades }));
-    addToast('一键升级', `共提升 ${bought} 级`);
     return true;
-  }, [addToast, commitValue]);
+  }, [commitValue]);
 
   /** 数值殿：花费 50 万数值开启成就系统 */
   const handleUnlockAchievements = useCallback(() => {
@@ -601,11 +603,38 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     };
 
     const timer = window.setInterval(() => {
-      if (!stateRef.current.tribulationSuccess) return;
+      const prev = stateRef.current;
+      if (!prev.tribulationSuccess) return;
+
       const valueNext = advance('value');
       const rebirthNext = advance('rebirth');
-      if (!valueNext && !rebirthNext) return;
-      setState((p) => ({ ...p, ...valueNext, ...rebirthNext }));
+
+      const next: Partial<GameState> = {
+        ...(valueNext || {}),
+        ...(rebirthNext || {}),
+      };
+
+      // 渡劫点：每 TRIBULATION_POINT_INTERVAL_MS 产出 1 点（余下时间结转到下一颗）
+      const tpMs = Math.max(0, prev.tribulationPointProgressMs || 0) + RESET_PILL_TICK_MS;
+      const tpGain = Math.floor(tpMs / TRIBULATION_POINT_INTERVAL_MS);
+      next.tribulationPoints = (prev.tribulationPoints || 0) + tpGain;
+      next.tribulationPointProgressMs = tpMs - tpGain * TRIBULATION_POINT_INTERVAL_MS;
+
+      // 自动永劫结算：间隔 30s 起、每产出一次 +5s、180s 封顶；仅加算点数，不清除任何数据
+      const arInterval = getAutoRebirthIntervalMs(prev.autoRebirthCount || 0);
+      const arMs = Math.max(0, prev.autoRebirthProgressMs || 0) + RESET_PILL_TICK_MS;
+      if (arMs >= arInterval) {
+        // 静默入账：仅加算点数，不弹提示
+        next.rebirthPoints =
+          (prev.rebirthPoints || 0) + getAutoRebirthPoints(bigNumRef.current, prev);
+        next.autoRebirthProgressMs = arMs - arInterval;
+        // 结算次数 +1：下一次的间隔随之 +5s（至 180s 封顶）
+        next.autoRebirthCount = (prev.autoRebirthCount || 0) + 1;
+      } else {
+        next.autoRebirthProgressMs = arMs;
+      }
+
+      setState((p) => ({ ...p, ...next }));
     }, RESET_PILL_TICK_MS);
 
     return () => window.clearInterval(timer);
@@ -628,41 +657,70 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   }, []);
 
   /**
-   * 数值殿：使用一颗「数值重置丹」。
-   * 该项功法的升级消耗从初始曲线重新计算（等级清零），但已获得的效果全部保留：
-   * 清零的等级记入 valueResetLevels，效果仍按「当前等级 + 保留等级」累计。
+   * 数值殿：使用一颗「数值重置丹」，一次性重置全部功法。
+   * 各功法的升级消耗从初始曲线重新计算（等级清零），但已获得的效果全部保留：
+   * 清零的等级各自记入 valueResetLevels，效果仍按「当前等级 + 保留等级」累计。
    */
-  const handleUseValueResetPill = useCallback((id: UpgradeId) => {
+  const handleUseValueResetPill = useCallback(() => {
     setState((prev) => {
       const pills = Math.max(0, prev.valueResetPills || 0);
-      const up = prev.upgrades?.[id];
-      // 须持有丹药，且该项当前有等级可重置（无等级时消耗无意义）
-      if (pills < 1 || !up || !up.unlocked || up.level <= 0) return prev;
-      const kept = prev.valueResetLevels || INITIAL_STATE.valueResetLevels;
-      return {
-        ...prev,
-        valueResetPills: pills - 1,
-        upgrades: { ...prev.upgrades, [id]: { ...up, level: 0 } },
-        valueResetLevels: { ...kept, [id]: (kept[id] || 0) + up.level },
-      };
+      // 须持有丹药，且至少有一项功法当前有等级可重置（全为 0 时消耗无意义）
+      if (pills < 1) return prev;
+      const kept = { ...(prev.valueResetLevels || INITIAL_STATE.valueResetLevels) };
+      const upgrades = { ...prev.upgrades };
+      let touched = false;
+      (Object.keys(upgrades) as UpgradeId[]).forEach((id) => {
+        const up = upgrades[id];
+        if (!up || !up.unlocked || up.level <= 0) return;
+        kept[id] = (kept[id] || 0) + up.level;
+        upgrades[id] = { ...up, level: 0 };
+        touched = true;
+      });
+      if (!touched) return prev;
+      return { ...prev, valueResetPills: pills - 1, upgrades, valueResetLevels: kept };
     });
   }, []);
 
   /**
-   * 永劫殿：使用一颗「永劫重置丹」。
-   * 「基础数值」的升级消耗从初始曲线重算（等级清零），已获得的效果全部保留：
-   * 清零的等级记入 rebirthResetLevel（永劫殿等级为永久道基，转世不清零）。
+   * 永劫殿：使用一颗「永劫重置丹」，一次性重置全部属性。
+   * 各属性的升级消耗从初始曲线重算（等级清零），已获得的效果全部保留：
+   * 清零的等级按属性记入 rebirthResetLevels（永劫殿等级为永久道基，转世不清零）。
    */
   const handleUseRebirthResetPill = useCallback(() => {
     setState((prev) => {
       const pills = Math.max(0, prev.rebirthResetPills || 0);
-      const level = prev.rebirthBaseValueLevel || 0;
-      if (pills < 1 || level <= 0) return prev;
+      // 须持有丹药，且至少有一项属性当前有等级可重置
+      if (pills < 1) return prev;
+      const kept = { ...(prev.rebirthResetLevels || INITIAL_STATE.rebirthResetLevels) };
+      const merged = { ...(prev.rebirthMergedLevels || INITIAL_STATE.rebirthMergedLevels) };
+      let touched = false;
+
+      // 「基础数值」：等级存于 rebirthBaseValueLevel，账本统一记在 'baseValue' 键下
+      const baseLevel = Math.max(0, prev.rebirthBaseValueLevel || 0);
+      let rebirthBaseValueLevel = baseLevel;
+      if (baseLevel > 0) {
+        kept.baseValue = (kept.baseValue || 0) + baseLevel;
+        rebirthBaseValueLevel = 0;
+        touched = true;
+      }
+
+      // 其余属性：连击倍数 / 暴击倍数 等，等级存于 rebirthMergedLevels
+      (Object.keys(merged) as UpgradeId[]).forEach((id) => {
+        if (id === 'baseValue') return;
+        const level = Math.max(0, merged[id] || 0);
+        if (level <= 0) return;
+        kept[id] = (kept[id] || 0) + level;
+        merged[id] = 0;
+        touched = true;
+      });
+
+      if (!touched) return prev;
       return {
         ...prev,
         rebirthResetPills: pills - 1,
-        rebirthBaseValueLevel: 0,
-        rebirthResetLevel: (prev.rebirthResetLevel || 0) + level,
+        rebirthBaseValueLevel,
+        rebirthMergedLevels: merged,
+        rebirthResetLevels: kept,
       };
     });
   }, []);
@@ -702,13 +760,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
           },
         };
       });
-      addToast(
-        '境界突破',
-        `${UPGRADE_METADATA[id].name} 等级上限 +${LEVEL_CAP_PER_POINT}（消耗 1 点坍缩点数）`
-      );
-    },
-    [addToast]
-  );
+    }, []);
 
   /** 永劫商殿：消耗永劫点数升级（所有属性均与数值殿独立，效果在计算时与数值殿累加） */
   const handleBuyRebirthMergedUpgrade = useCallback(
@@ -727,10 +779,6 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
           rebirthPoints: p.rebirthPoints - bvCostNum,
           rebirthBaseValueLevel: (p.rebirthBaseValueLevel || 0) + 1,
         }));
-        addToast(
-          '道基淬炼',
-          `基础数值 +${getRebirthBaseValueGain(bvLevel + 1, prev.afterlifeUpgradeLevels?.baseValue || 0).formatChinese(1)}（Lv.${bvLevel + 1}）· 消耗 ${bvCost.formatChinese(0)} 点永劫点数`
-        );
         return;
       }
 
@@ -751,13 +799,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
           [id]: (p.rebirthMergedLevels?.[id] || 0) + 1,
         },
       }));
-      addToast(
-        '道基淬炼',
-        `永劫「${label}」提升 1 级（Lv.${level + 1}）· 消耗 ${cost.formatChinese(0)} 点永劫点数`
-      );
-    },
-    [addToast]
-  );
+    }, []);
 
   /** 永劫商殿：消耗 5 点永劫值解锁坍缩 */
   const handleUnlockCollapse = useCallback(() => {
@@ -862,11 +904,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       collapsePoints: Math.max(0, p.collapsePoints - costNum),
       valueCapLevel: nextLevel,
     }));
-    addToast(
-      '天道扩容',
-      `数值上限 +${getValueCapStep(nextLevel).formatChinese(2)} → ${getValueCap(nextLevel, prev.rebirthCount || 0).formatChinese(2)} · 消耗 ${cost.formatChinese(0)} 点坍缩点数`
-    );
-  }, [addToast]);
+  }, []);
 
   /** 坍缩商殿：购买「永劫点数获取」，消耗按 2^n 递增的坍缩点数 */
   const handleBuyRebirthPointLevel = useCallback(() => {
@@ -883,12 +921,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       collapsePoints: Math.max(0, p.collapsePoints - costNum),
       rebirthPointLevel: level + 1,
     }));
-
-    addToast(
-      '天命加身',
-      `永劫时每 100 万数值额外 +0.2 点永劫点数（当前每百万 +${getRebirthPointBonusPerMillion(level + 1)}）· 消耗 ${cost.formatChinese(0)} 点坍缩点数`
-    );
-  }, [addToast]);
+  }, []);
 
   /** 排行·登顶：注册/登录成功，记录账号（须达「炼气」境） */
   const handleLogin = useCallback(
@@ -1052,15 +1085,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
           afterlifeUpgradeLevels: { ...levels, [id]: newLevel },
         };
       });
-      if (done) {
-        addToast(
-          '往生加护',
-          `往生殿 ${UPGRADE_METADATA[id].name} Lv.${newLevel} · 永劫殿强化倍数 ×${getAfterlifeUpgradeMultiplier(id, newLevel)}`
-        );
-      }
-    },
-    [addToast]
-  );
+    }, []);
 
   /** 往生殿：消耗往生点提升「永劫点上限」（每级 +100，消耗 1,2,3,4,5…） */
   const handleBuyRebirthCapUpgrade = useCallback(() => {
@@ -1078,10 +1103,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         rebirthCapLevel: newLevel,
       };
     });
-    if (done) {
-      addToast('永劫上限', `永劫点单次获取上限提升至 ${getRebirthPointsCap(newLevel)} 点`);
-    }
-  }, [addToast]);
+  }, []);
 
   /** 往生殿：消耗 10 点往生点解锁「一键升级」（解锁后数值殿才显示一键升级按钮） */
   const handleUnlockOneKeyUpgrade = useCallback(() => {

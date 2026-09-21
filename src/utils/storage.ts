@@ -193,6 +193,19 @@ export function loadGameState(): GameState {
         ? Math.max(0, parsed.rebirthResetProgressMs)
         : 0,
       rebirthResetCrafting: !!parsed.rebirthResetCrafting,
+      // 渡劫殿：渡劫点存量 / 产出进度 / 自动永劫结算进度（默认 0）
+      tribulationPoints: Number.isFinite(parsed.tribulationPoints)
+        ? Math.max(0, Math.floor(parsed.tribulationPoints))
+        : 0,
+      tribulationPointProgressMs: Number.isFinite(parsed.tribulationPointProgressMs)
+        ? Math.max(0, parsed.tribulationPointProgressMs)
+        : 0,
+      autoRebirthProgressMs: Number.isFinite(parsed.autoRebirthProgressMs)
+        ? Math.max(0, parsed.autoRebirthProgressMs)
+        : 0,
+      autoRebirthCount: Number.isFinite(parsed.autoRebirthCount)
+        ? Math.max(0, Math.floor(parsed.autoRebirthCount))
+        : 0,
       rebirthToCollapseCount: Number.isFinite(parsed.rebirthToCollapseCount)
         ? Math.max(0, Math.floor(parsed.rebirthToCollapseCount))
         : 0,
@@ -206,9 +219,17 @@ export function loadGameState(): GameState {
         },
         {} as Record<UpgradeId, number>
       ),
-      rebirthResetLevel: Number.isFinite(parsed.rebirthResetLevel)
-        ? Math.max(0, Math.floor(parsed.rebirthResetLevel))
-        : 0,
+      // 永劫重置丹账本：按功法记录（旧存档的单字段 rebirthResetLevel 迁移到 baseValue）
+      rebirthResetLevels: (Object.keys(INITIAL_STATE.rebirthResetLevels) as UpgradeId[]).reduce(
+        (acc, id) => {
+          const saved =
+            parsed.rebirthResetLevels?.[id] ??
+            (id === 'baseValue' ? parsed.rebirthResetLevel : undefined);
+          acc[id] = Number.isFinite(saved) && saved > 0 ? Math.max(0, Math.floor(saved)) : 0;
+          return acc;
+        },
+        {} as Record<UpgradeId, number>
+      ),
       // 旧存档迁移：无明确来源记录时，将当前等级保留为永劫殿独立等级（永久道基）
       rebirthMergedLevels: (Object.keys(INITIAL_STATE.rebirthMergedLevels) as UpgradeId[]).reduce(
         (acc, id) => {

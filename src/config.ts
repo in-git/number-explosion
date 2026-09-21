@@ -419,6 +419,11 @@ export const INITIAL_STATE: GameState = {
   rebirthResetCraftCount: 0,
   rebirthResetProgressMs: 0,
   rebirthResetCrafting: false,
+  /** 渡劫殿：渡劫点存量与产出进度；自动永劫结算的累计时间（默认 0） */
+  tribulationPoints: 0,
+  tribulationPointProgressMs: 0,
+  autoRebirthProgressMs: 0,
+  autoRebirthCount: 0,
   /** 数值重置丹账本（被重置掉的等级，效果保留）：默认全为 0 */
   valueResetLevels: {
     baseValue: 0,
@@ -429,8 +434,16 @@ export const INITIAL_STATE: GameState = {
     comboMultiplier: 0,
     critChance: 0,
   },
-  /** 永劫重置丹账本（永劫殿基础数值被重置掉的等级） */
-  rebirthResetLevel: 0,
+  /** 永劫重置丹账本（按功法记录永劫殿被重置掉的等级，效果保留） */
+  rebirthResetLevels: {
+    baseValue: 0,
+    autoClickUnlock: 0,
+    autoFrequency: 0,
+    comboChance: 0,
+    critMultiplier: 0,
+    comboMultiplier: 0,
+    critChance: 0,
+  },
   /** 永劫点数兑换坍缩点数的累计次数 */
   rebirthToCollapseCount: 0,
   notifiedUnlocks: [],

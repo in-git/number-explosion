@@ -95,9 +95,13 @@ export const RebirthShop: React.FC = () => {
     handleUseRebirthResetPill: onUseRebirthResetPill,
   } = useGameActions();
 
-  // 永劫重置丹（作用于「数值升级」）：渡劫成功后可用，须持丹且该等级 > 0
-  const canUseRebirthReset =
-    (state.rebirthResetPills || 0) > 0 && (state.rebirthBaseValueLevel || 0) > 0;
+  // 永劫重置丹（一次性重置全部属性）：渡劫成功后可用，须持丹且至少一项属性已有等级
+  const hasResettableLevel =
+    (state.rebirthBaseValueLevel || 0) > 0 ||
+    REBIRTH_MERGED_UPGRADES.some(
+      ({ id }) => id !== 'baseValue' && (state.rebirthMergedLevels?.[id] || 0) > 0
+    );
+  const canUseRebirthReset = (state.rebirthResetPills || 0) > 0 && hasResettableLevel;
 
   // 各条目的展示由解锁状态决定（未解锁的解锁项常驻，解锁后隐藏）
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
@@ -119,7 +123,7 @@ export const RebirthShop: React.FC = () => {
         </div>
       </div>
 
-      {/* 永劫重置丹：独立一行，位于「数值升级」之上（消耗 1 颗，使「数值升级」的消耗从初始曲线重算，已有效果全部保留） */}
+      {/* 永劫重置丹：独立一行，位于「数值升级」之上（消耗 1 颗，一次性重置全部属性——消耗从初始曲线重算，已有效果全部保留） */}
       {state.tribulationSuccess && (
         <div
           id="rebirth-reset-pill-row"
@@ -129,11 +133,12 @@ export const RebirthShop: React.FC = () => {
         >
           <div className="flex-1 min-w-0">
             <span className="text-[10px] font-serif text-[#998e7e]">
-              「数值升级」消耗从初始曲线重算 · 已有效果全部保留
+              全部属性等级清零 · 消耗从初始曲线重算 · 已有效果全部保留
             </span>
           </div>
           <button
             id="btn-use-rebirth-reset"
+            title="消耗 1 颗：全部属性等级清零，升级消耗重算，已有效果全部保留"
             onClick={onUseRebirthResetPill}
             disabled={!canUseRebirthReset}
             className={`px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 ${

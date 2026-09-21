@@ -61,6 +61,7 @@ export function resetToInitialState(state: GameState): GameState {
     rebirthMergedLevels: { ...INITIAL_STATE.rebirthMergedLevels },
     afterlifeUpgradeLevels: { ...INITIAL_STATE.afterlifeUpgradeLevels },
     valueResetLevels: { ...INITIAL_STATE.valueResetLevels },
+    rebirthResetLevels: { ...INITIAL_STATE.rebirthResetLevels },
     unlockedAchievements: [...INITIAL_STATE.unlockedAchievements],
     ...pickArchive(state),
   };

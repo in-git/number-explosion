@@ -178,7 +178,7 @@ export function getBaseValueUpgradeBonus(state: GameState): BigNum {
   const afterlifeLevel = state.afterlifeUpgradeLevels?.baseValue || 0;
   // 永劫殿「基础数值」：当前等级 + 永劫重置丹保留的等级（等级为永久道基，转世不清零）
   const rebirthLevel =
-    (state.rebirthBaseValueLevel || 0) + getRebirthResetKeptLevel(state);
+    (state.rebirthBaseValueLevel || 0) + getRebirthResetKeptLevel(state, 'baseValue');
   return getBaseValueBonus(shopLevel).add(
     getRebirthBaseValueBonus(rebirthLevel, afterlifeLevel)
   );
@@ -194,11 +194,19 @@ export function getValueResetKeptLevel(state: GameState, id: UpgradeId): number 
 }
 
 /**
- * 永劫重置丹账本：永劫殿「基础数值」被重置掉的等级（效果照旧计入）。
+ * 永劫重置丹账本：该属性在永劫殿被重置掉的等级（效果照旧计入）。
  */
-export function getRebirthResetKeptLevel(state: GameState): number {
-  const lv = state.rebirthResetLevel;
+export function getRebirthResetKeptLevel(state: GameState, id: UpgradeId): number {
+  const lv = state.rebirthResetLevels?.[id];
   return Number.isFinite(lv) && lv > 0 ? Math.floor(lv) : 0;
+}
+
+/**
+ * 永劫殿某属性的「有效等级」 = 当前等级 + 永劫重置丹保留的等级。
+ * 效果按有效等级计算（用丹后效果不丢），升级消耗与等级上限仍按当前等级计算。
+ */
+export function getEffectiveRebirthLevel(state: GameState, id: UpgradeId): number {
+  return (state.rebirthMergedLevels?.[id] || 0) + getRebirthResetKeptLevel(state, id);
 }
 
 /**
@@ -322,6 +330,25 @@ export const TRIBULATION_STRIKE_CHANCE = 0.5;
 export const RESET_PILL_BASE_MS = 10_000;
 /** 渡劫殿：炼制进度推进节拍（ms），同时也是进度条的数据刷新间隔 */
 export const RESET_PILL_TICK_MS = 1_000;
+/** 渡劫殿：产出 1 点「渡劫点」的间隔（ms） */
+export const TRIBULATION_POINT_INTERVAL_MS = 60_000;
+/** 渡劫殿：自动结算「永劫点」的起始间隔（ms） */
+export const AUTO_REBIRTH_BASE_INTERVAL_MS = 30_000;
+/** 渡劫殿：每结算一次「永劫点」，下一次的间隔增量（ms） */
+export const AUTO_REBIRTH_INTERVAL_STEP_MS = 5_000;
+/** 渡劫殿：自动结算「永劫点」的间隔上限（ms）——最多三分钟产出一次 */
+export const AUTO_REBIRTH_INTERVAL_MAX_MS = 180_000;
+
+/**
+ * 渡劫殿：自动结算「永劫点」的间隔。
+ * 起始 30s，每产出一次 +5s，180s（3 分钟）封顶。
+ * @param settledTimes 已自动结算的次数
+ */
+export function getAutoRebirthIntervalMs(settledTimes: number): number {
+  const n = Number.isFinite(settledTimes) && settledTimes > 0 ? Math.floor(settledTimes) : 0;
+  const ms = AUTO_REBIRTH_BASE_INTERVAL_MS + n * AUTO_REBIRTH_INTERVAL_STEP_MS;
+  return Math.min(ms, AUTO_REBIRTH_INTERVAL_MAX_MS);
+}
 
 /**
  * 渡劫殿：第 n 炉重置丹的炼制耗时（n = 已炼成的炉数，从 0 起）。
@@ -676,6 +703,19 @@ export function getRebirthPointsCap(level: number): number {
   );
 }
 
+/**
+ * 渡劫殿「自动永劫结算」本次可得的永劫点数：
+ * 复用永劫结算公式（数值 ÷ 100 万 + 永劫爆炸加成，再按永劫点上限封顶），
+ * 但只加算点数，不清除任何数据（数值 / 等级 / 点击量一律保留）。
+ */
+export function getAutoRebirthPoints(value: BigNum, state: GameState): number {
+  const gain =
+    getRebirthPointsFromValue(value) +
+    getExtraRebirthPoints(state.rebirthPointLevel || 0, value);
+  const cap = getRebirthPointsCap(state.rebirthCapLevel || 0);
+  return Math.max(0, Math.min(gain, cap));
+}
+
 
 
 export function getUpgradeCost(
@@ -765,7 +805,7 @@ export function calculateGameAttributes(state: GameState) {
   const valueMultiplier = state.baseValueMultiplier;
 
   // 永劫殿各属性的独立等级（永久道基），与数值殿分开计级，效果在下方逐项累加
-  const rbLevels = state.rebirthMergedLevels || ({} as Record<UpgradeId, number>);
+  // 含永劫重置丹保留的等级：用丹后消耗从初始曲线重算，但效果照旧计入
 
   // 3. 自动点击频率：数值殿与永劫殿独立计级、互不影响，效果累加（须已解锁自动点击）
   let autoClicksPerSec = 0;
@@ -774,13 +814,13 @@ export function calculateGameAttributes(state: GameState) {
 
   if (autoClickUp.unlocked) {
     const autoFreqLevel = autoFreqUp.unlocked ? autoFreqUp.level : 0;
-    const rbAutoFreqLevel = rbLevels.autoFrequency || 0;
+    const rbAutoFreqLevel = getEffectiveRebirthLevel(state, 'autoFrequency');
     autoIntervalMs = getCombinedAutoIntervalMs(autoFreqLevel, rbAutoFreqLevel);
     autoClicksPerSec = AUTO_FREQ_INTERVAL_BASE / autoIntervalMs;
   }
 
   // 4. 连击概率: 数值殿每级 +5% + 永劫殿每级 +5%，上限 100%
-  const rbComboChanceLevel = rbLevels.comboChance || 0;
+  const rbComboChanceLevel = getEffectiveRebirthLevel(state, 'comboChance');
   let comboChance = Math.min(
     1.0,
     (comboChanceUp.unlocked ? comboChanceUp.level * COMBO_CHANCE_STEP : 0) +
@@ -788,7 +828,7 @@ export function calculateGameAttributes(state: GameState) {
   );
 
   // 5. 连击倍数: 基础 100% + 数值殿每级 +30% + 永劫殿每级 +30% × 往生殿强化倍数
-  const rbComboMultLevel = rbLevels.comboMultiplier || 0;
+  const rbComboMultLevel = getEffectiveRebirthLevel(state, 'comboMultiplier');
   const afterlifeComboMult = getAfterlifeUpgradeMultiplier(
     'comboMultiplier',
     state.afterlifeUpgradeLevels?.comboMultiplier || 0
@@ -800,7 +840,7 @@ export function calculateGameAttributes(state: GameState) {
 
   // 6. 暴击倍数: 默认 5% + 成就奖励 + 数值殿每级 +30% + 永劫殿每级 +30% × 往生殿强化倍数
   const achievementCritBonus = getAchievementCritBonus(state);
-  const rbCritMultLevel = rbLevels.critMultiplier || 0;
+  const rbCritMultLevel = getEffectiveRebirthLevel(state, 'critMultiplier');
   const afterlifeCritMult = getAfterlifeUpgradeMultiplier(
     'critMultiplier',
     state.afterlifeUpgradeLevels?.critMultiplier || 0
@@ -812,7 +852,7 @@ export function calculateGameAttributes(state: GameState) {
     rbCritMultLevel * MULTIPLIER_STEP * afterlifeCritMult;
 
   // 7. 暴击概率: 基础暴击率 + 数值殿每级 +1% + 永劫殿每级 +1%，上限 100%
-  const rbCritChanceLevel = rbLevels.critChance || 0;
+  const rbCritChanceLevel = getEffectiveRebirthLevel(state, 'critChance');
   let critChance = Math.min(
     1.0,
     state.baseCritRate +

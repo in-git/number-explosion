@@ -1,12 +1,78 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useGameActions, useGameData } from '../context/GameContext';
-import { getResetPillDurationMs } from '../utils/gameMath';
+import {
+  getResetPillDurationMs,
+  getAutoRebirthPoints,
+  getAutoRebirthIntervalMs,
+  TRIBULATION_POINT_INTERVAL_MS,
+} from '../utils/gameMath';
 import { UpgradeButton } from './UpgradeButton';
 
 /** 毫秒 → 秒文案：整数不带小数，否则保留 1 位 */
 const sec = (ms: number): string => {
   const s = ms / 1000;
   return Number.isInteger(s) ? `${s}s` : `${s.toFixed(1)}s`;
+};
+
+/**
+ * 周期产出卡：左侧名称、右侧剩余秒数，下方进度条与说明。
+ * 进度以存档进度为基准按真实时间插值（存档每 1s 结算一次），避免跳动。
+ */
+const CycleCard: React.FC<{
+  name: string;
+  /** 主数字（大字展示，如持有量 / 本次所得） */
+  value: string;
+  /** 次要说明（一行短标签，如 +1/10s） */
+  hint: string;
+  intervalMs: number;
+  progressMs: number;
+}> = ({ name, value, hint, intervalMs, progressMs }) => {
+  const [displayMs, setDisplayMs] = useState(Math.min(intervalMs, progressMs));
+  const baseRef = useRef({ progress: Math.min(intervalMs, progressMs), at: performance.now() });
+  const progressRef = useRef(progressMs);
+  progressRef.current = progressMs;
+
+  useEffect(() => {
+    const p = Math.min(intervalMs, progressMs);
+    baseRef.current = { progress: p, at: performance.now() };
+    setDisplayMs(p);
+  }, [progressMs, intervalMs]);
+
+  useEffect(() => {
+    const start = Math.min(intervalMs, progressRef.current);
+    baseRef.current = { progress: start, at: performance.now() };
+    setDisplayMs(start);
+    let raf = 0;
+    const tick = () => {
+      const { progress: base, at } = baseRef.current;
+      const next = Math.min(intervalMs, base + (performance.now() - at));
+      setDisplayMs((prev) => (prev === next ? prev : next));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [intervalMs]);
+
+  const ratio = intervalMs > 0 ? Math.min(1, displayMs / intervalMs) : 0;
+  const remainSec = Math.ceil(Math.max(0, intervalMs - displayMs) / 1000);
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-[#383229] bg-[#1c1a17] px-2.5 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="whitespace-nowrap font-serif text-xs font-bold text-[#ded7cb]">
+          {name}
+        </span>
+        <span className="font-mono text-xs font-bold leading-none">{value}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded bg-[#2f2b25]">
+        <div className="h-full rounded bg-[#e8c46a]" style={{ width: `${ratio * 100}%` }} />
+      </div>
+      <div className="flex items-center justify-between font-mono text-[10px] text-[#8a7a63]">
+        <span>{hint}</span>
+        <span>{remainSec}s</span>
+      </div>
+    </div>
+  );
 };
 
 interface PillItemProps {
@@ -102,12 +168,7 @@ const PillItem: React.FC<PillItemProps> = ({
       <div className="h-1.5 w-full overflow-hidden rounded bg-[#2f2b25]">
         <div className={`h-full rounded ${barColor}`} style={{ width: `${ratio * 100}%` }} />
       </div>
-
-      {/* 炼制信息：置于卡片最下方 */}
-      <div className={`font-mono text-[10px] ${infoColor}`}>
-        {pills} 颗 · 第 {craftCount + 1} 炉 {sec(duration)}
-        {crafting ? ` · 剩余 ${remainSec}s` : ''}
-      </div>
+  
     </div>
   );
 };
@@ -118,14 +179,34 @@ const PillItem: React.FC<PillItemProps> = ({
  * 每炼成一炉，下一炉耗时 +10s：10s、20s、30s、40s…
  */
 export const TribulationHall: React.FC = () => {
-  const { state } = useGameData();
+  const { state, currentBigNum: currentValue } = useGameData();
   const {
     handleCraftValueResetPill: onCraftValue,
     handleCraftRebirthResetPill: onCraftRebirth,
   } = useGameActions();
 
+  // 渡劫点：每 10s 产出 1 点；自动永劫结算周期：30s 起，每产出一次 +5s，180s 封顶
+  const tribulationPoints = Math.max(0, state.tribulationPoints || 0);
+  const nextRebirthPoints = getAutoRebirthPoints(currentValue, state);
+  const autoRebirthIntervalMs = getAutoRebirthIntervalMs(state.autoRebirthCount || 0);
+
   return (
     <div className="flex flex-col gap-2">
+      <CycleCard
+        name="渡 劫 点"
+        value={`${tribulationPoints}`}
+        hint={`+1 / ${sec(TRIBULATION_POINT_INTERVAL_MS)}`}
+        intervalMs={TRIBULATION_POINT_INTERVAL_MS}
+        progressMs={Math.max(0, state.tribulationPointProgressMs || 0)}
+      />
+      <CycleCard
+        name="永 劫 点"
+        value={`+${nextRebirthPoints}`}
+        hint={`周期 ${sec(autoRebirthIntervalMs)}`}
+        intervalMs={autoRebirthIntervalMs}
+        progressMs={Math.max(0, state.autoRebirthProgressMs || 0)}
+      />
+
       <PillItem
         id="btn-craft-value-reset"
         name="数 值 重 置 丹"
