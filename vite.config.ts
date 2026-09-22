@@ -27,23 +27,35 @@ function serverTimeEndpoint(): Plugin {
   };
 }
 
+/** 开发期后端地址（后端默认 8731），可用 API_TARGET 覆盖 */
+const API_TARGET = process.env.API_TARGET ?? 'http://localhost:8731';
+
 export default defineConfig(() => {
   return {
+    // 前后端不分离：产物与接口同源，用相对路径 base，挂到任意子路径都能跑
+    base: './',
     plugins: [react(), tailwindcss(), serverTimeEndpoint()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },/*  */
     },
-    port: 5723,
+    build: {
+      // 产物目录（server 会从这里托管静态资源）；可用 --outDir 覆盖
+      outDir: 'dist',
+      assetsDir: 'assets',
+      sourcemap: false,
+      chunkSizeWarningLimit: 1500,
+    },
+    // 生产同源，无需代理；代理只在 dev / preview 阶段生效
     server: {
+      port: 5723,
+      host: '0.0.0.0',
       // 统一代理：/api 全部转发后端；/api/time 例外，由本地中间件直接返回
       proxy: {
         '/api': {
-          target: 'http://localhost:8731',
+          target: API_TARGET,
           changeOrigin: true,
-          // 支持 WebSocket 长连接（榜单推送）
-          ws: true,
           // 返回路径 = 不代理（交给 vite 本地中间件）；undefined = 正常代理
           bypass: (req) => (req.url?.startsWith('/api/time') ? req.url : undefined),
         },
@@ -53,6 +65,17 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+    },
+    preview: {
+      port: 5723,
+      // preview 阶段同样代理到后端，便于本地验收生产产物
+      proxy: {
+        '/api': {
+          target: API_TARGET,
+          changeOrigin: true,
+          bypass: (req) => (req.url?.startsWith('/api/time') ? req.url : undefined),
+        },
+      },
     },
   };
 });

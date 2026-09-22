@@ -7,7 +7,6 @@ import {
   queryLeaderboard,
   updateUserStats,
 } from '../services/leaderboard.js';
-import { broadcastBoards } from '../ws.js';
 import { EnvelopeError, openEnvelope } from '../utils/seal.js';
 
 export const leaderboardRouter: Router = Router();
@@ -34,8 +33,6 @@ leaderboardRouter.post('/score', (req, res) => {
   if (!userId) return res.status(401).json({ error: '令牌无效' });
 
   updateUserStats(patchFromPayload({ ...(payload as Partial<UserSyncPayload>), userId }));
-  // 数据变更后推送给 WebSocket 订阅者
-  broadcastBoards();
 
   res.json({ ok: true });
 });
@@ -62,7 +59,6 @@ userRouter.post('/region', (req, res) => {
   if (!region) return res.status(400).json({ error: '大区不存在' });
 
   updateUserStats(patchFromPayload({ ...body, userId }));
-  broadcastBoards();
 
   res.json({ ok: true });
 });

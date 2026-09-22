@@ -1,6 +1,5 @@
 import { BigNum } from './bigNumber';
 import { BigNumData } from '../types';
-import { leaderboardSocket } from './leaderboardSocket';
 import { sealEnvelope } from './crypto';
 
 /** 榜单类型：数值 / 时长 / 重生次数 / 累计点击 */
@@ -72,32 +71,24 @@ export const SELF_USER_ID = 'self';
 const API_BASE = '/api';
 
 /**
- * 拉取榜单：优先走 WebSocket 长连接订阅（服务端推送，避免轮询），
- * 长连接不可用时回退 HTTP：GET /api/leaderboard?board=xxx&userId=xxx
+ * 拉取榜单：GET /api/leaderboard?board=xxx&userId=xxx（公开只读）
+ * 服务端据 userId 额外标出本人名次；不带 userId 也不影响读取榜单。
  */
 export async function fetchLeaderboard(
   board: LeaderboardId,
-  self: Omit<LeaderboardEntry, 'rank'>,
-  onUpdate?: (data: LeaderboardResponse) => void
+  userId: string
 ): Promise<LeaderboardResponse> {
-  try {
-    return await leaderboardSocket.subscribe(board, self.userId, onUpdate);
-  } catch {
-    // 回退 HTTP
-  }
-
   const res = await fetch(
-    `${API_BASE}/leaderboard?board=${board}&userId=${encodeURIComponent(self.userId)}`,
+    `${API_BASE}/leaderboard?board=${board}&userId=${encodeURIComponent(userId)}`,
     { cache: 'no-store' }
   );
   if (!res.ok) throw new Error(`榜单拉取失败: ${res.status}`);
   return (await res.json()) as LeaderboardResponse;
 }
 
-/** 上报本人成绩：优先走长连接，否则 POST /api/leaderboard/score（均加密签名） */
+/** 上报本人成绩：POST /api/leaderboard/score（加密签名，token 校验归属） */
 export async function submitScore(report: ScoreReport): Promise<void> {
   const env = await sealEnvelope(report, report.token);
-  if (leaderboardSocket.reportEnvelope(env)) return;
 
   const res = await fetch(`${API_BASE}/leaderboard/score`, {
     method: 'POST',

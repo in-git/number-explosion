@@ -186,9 +186,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [state, currentBigNum, canRebirth, collapseGain, offlineReport, isFirstEntry]
   );
 
-  // 首次进入：弹出渡劫警示（3 秒后方可关闭），仅需触发一次
+  // 首次进入：弹出渡劫警示（3 秒后方可关闭），仅触发一次。
+  // 用 ref 兜底幂等：即便 deps 变化导致 effect 重跑，也不会把玩家关掉的弹窗再次弹开。
+  const firstEntryShownRef = useRef(false);
   useEffect(() => {
-    if (isFirstEntry) modals.firstEntry.open();
+    if (!isFirstEntry || firstEntryShownRef.current) return;
+    firstEntryShownRef.current = true;
+    modals.firstEntry.open();
   }, [isFirstEntry, modals]);
 
   // 通关提示：仅在「未通关 → 通关」这一刻弹一次；读档即已通关时不重复打扰

@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
-import { BigNumData, GameState } from '../types';
+import { BigNumData } from '../types';
 import { useGameActions, useGameData } from '../context/GameContext';
 import { AuthPanel } from './AuthPanel';
-import { calculateGameAttributes } from '../utils/gameMath';
 import { formatDuration } from '../utils/serverTime';
 import {
   LeaderboardEntry,
@@ -15,7 +14,6 @@ import {
   submitScore,
 } from '../utils/leaderboardApi';
 import { useDefaultRegion } from '../hooks/useDefaultRegion';
-import { leaderboardSocket } from '../utils/leaderboardSocket';
 import { canAscendRank } from '../utils/title';
 
 /** tabbar：数值排行 在前，其后时长、重生、连点 */
@@ -25,6 +23,9 @@ const BOARD_TABS: { id: LeaderboardId; label: string }[] = [
   { id: 'rebirth', label: '重生排行' },
   { id: 'clicks', label: '连点排行' },
 ];
+
+/** 榜单刷新间隔（ms）：数据变更不再推送，改为打开排行期间静默轮询 */
+const REFRESH_INTERVAL_MS = 10_000;
 
 /** 前三名序号配色：金 / 银 / 铜 */
 const rankColor = (rank: number) =>
@@ -42,14 +43,6 @@ function formatScore(board: LeaderboardId, value: BigNumData): string {
   if (board === 'value') return n.formatChinese(2);
   if (board === 'playTime') return formatDuration(n.toNumber());
   return `${Math.floor(n.toNumber()).toLocaleString('zh-CN')} 次`;
-}
-
-/** 本人成绩 */
-function selfScore(board: LeaderboardId, state: GameState): BigNumData {
-  if (board === 'value') return state.highestValue;
-  if (board === 'playTime') return BigNum.fromNumber(state.playTimeMs || 0).toData();
-  if (board === 'clicks') return BigNum.fromNumber(state.totalClickCount || 0).toData();
-  return BigNum.fromNumber(state.rebirthCount || 0).toData();
 }
 
 /** 档案条目 */
@@ -102,46 +95,12 @@ export const Ranking: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<LeaderboardEntry | null>(null);
+  /** 上报成功后自增：仅作为「立即重新拉取一次」的信号 */
+  const [refreshTick, setRefreshTick] = useState(0);
   // 进入排行即确定默认大区（最新大区），与个人中心共用同一 Hook
   const defaultRegion = useDefaultRegion();
 
-  const attrs = calculateGameAttributes(state);
-  const myScore = selfScore(board, state);
-
-  const selfEntry = useMemo<Omit<LeaderboardEntry, 'rank'>>(
-    () => ({
-      userId: state.account?.userId ?? SELF_USER_ID,
-      userName: state.account?.nickname || state.account?.userName || '我',
-      value: myScore,
-      profile: {
-        userId: state.account?.userId ?? SELF_USER_ID,
-        userName: state.account?.nickname || state.account?.userName || '我',
-        critChance: attrs.critChance,
-        critMultiplier: attrs.critMultiplier,
-        comboChance: attrs.comboChance,
-        comboMultiplier: attrs.comboMultiplier,
-        rebirthCount: state.rebirthCount || 0,
-        collapsePoints: state.collapsePoints || 0,
-        playTimeMs: state.playTimeMs || 0,
-        gameCleared: state.gameCleared,
-      },
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      attrs.critChance,
-      attrs.critMultiplier,
-      attrs.comboChance,
-      attrs.comboMultiplier,
-      state.rebirthCount,
-      state.collapsePoints,
-      state.playTimeMs,
-      state.gameCleared,
-      state.highestValue.m,
-      state.highestValue.e,
-    ]
-  );
-
-  // 点入排行：已登录则上传一次个人数据
+  // 点入排行：已登录则上传一次个人数据，成功后立刻刷新一次（不必等下轮轮询）
   useEffect(() => {
     const account = state.account;
     if (!account) return;
@@ -154,59 +113,67 @@ export const Ranking: React.FC = () => {
       highestValue: state.highestValue,
       gameCleared: state.gameCleared,
       token: account.token,
-    }).catch(() => {
-      /* 上报失败不影响浏览榜单 */
-    });
+    })
+      .then(() => setRefreshTick((n) => n + 1))
+      .catch(() => {
+        /* 上报失败不影响浏览榜单 */
+      });
     // 仅在进入排行时上报一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 离开排行（弹窗关闭即卸载）：彻底断开长连接并停掉重连定时器，
-  // 否则 current 仍在，后台会一直按指数退避重连
-  useEffect(() => () => leaderboardSocket.unsubscribe(), []);
-
-  /** 订阅身份：登录 / 退出后 userId 变化，需要重新订阅 */
+  /** 身份：登录 / 退出后 userId 变化，需要重新拉取（服务端据此标出本人名次） */
   const selfUserId = state.account?.userId ?? SELF_USER_ID;
 
   /**
-   * 订阅榜单：仅在「切换榜单」或「登录身份变化」时重新订阅。
+   * 拉取榜单：仅在「切换榜单」「登录身份变化」或「刚上报完成」时重建。
    * 注意：绝不能依赖自身成绩——自动点击会让最高数值每帧变化，
    * 那样本效果会每帧重跑，既造成请求风暴，也会因 then 里的 setSelected(null)
    * 把刚刚展开的手风琴详情立刻收起。
-   * 服务端数据变更由 WebSocket 推送（listener）实时刷新，无需重订阅。
+   * 服务端数据变更不再有推送，改为打开排行期间每 REFRESH_INTERVAL_MS 静默轮询：
+   * 轮询只替换数据、不动 selected，故展开的详情不会被收起。
    */
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
-    // 订阅长连接：服务端数据变更时自动推送，无需轮询
-    const listener = (res: LeaderboardResponse) => {
-      if (!cancelled && res.board === board) setData(res);
+    /** 首次加载 / 上报后刷新：带 loading 与错误提示，并收起已展开的详情 */
+    const load = () => {
+      setLoading(true);
+      setError(null);
+      fetchLeaderboard(board, selfUserId)
+        .then((res) => {
+          if (cancelled) return;
+          setData(res);
+          setSelected(null);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setError('天榜未通 · 暂无法取得榜单');
+          setData(null);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
     };
 
-    fetchLeaderboard(board, selfEntry, listener)
-      .then((res) => {
-        if (cancelled) return;
-        setData(res);
-        setSelected(null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setError('天榜未通 · 暂无法取得榜单');
-        setData(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    /** 轮询刷新：失败静默，保留上一次数据，避免报错闪烁 */
+    const refresh = () => {
+      fetchLeaderboard(board, selfUserId)
+        .then((res) => {
+          if (!cancelled) setData(res);
+        })
+        .catch(() => {
+          /* 静默失败，下一轮再试 */
+        });
+    };
 
+    load();
+    const timer = window.setInterval(refresh, REFRESH_INTERVAL_MS);
     return () => {
       cancelled = true;
-      leaderboardSocket.off(listener);
+      window.clearInterval(timer);
     };
-    // 仅随「榜单 / 登录身份」重订阅；listener 每次重建并由 off 清理，不作依赖
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board, selfUserId]);
+  }, [board, selfUserId, refreshTick]);
 
   // 登录注册 / 选择大区流程
   if (showAuth) {

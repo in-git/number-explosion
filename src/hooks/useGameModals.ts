@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useDisclosure, Disclosure } from './useDisclosure';
 
 export interface GameModalsState {
@@ -42,25 +43,69 @@ export interface GameModalsState {
 }
 
 export function useGameModals(): GameModalsState {
-  return {
-    upgradeShop: useDisclosure(),
-    rebirthShop: useDisclosure(),
-    collapseShop: useDisclosure(),
-    afterlifeShop: useDisclosure(),
-    ranking: useDisclosure(),
-    funShop: useDisclosure(),
-    rebirth: useDisclosure(),
-    collapse: useDisclosure(),
-    achievements: useDisclosure(),
-    tribulation: useDisclosure(),
-    tribulationHall: useDisclosure(),
-    title: useDisclosure(),
-    settings: useDisclosure(),
-    userCenter: useDisclosure(),
-    help: useDisclosure(),
-    editData: useDisclosure(),
-    resetConfirm: useDisclosure(),
-    firstEntry: useDisclosure(),
-    cleared: useDisclosure(),
-  };
+  const upgradeShop = useDisclosure();
+  const rebirthShop = useDisclosure();
+  const collapseShop = useDisclosure();
+  const afterlifeShop = useDisclosure();
+  const ranking = useDisclosure();
+  const funShop = useDisclosure();
+  const rebirth = useDisclosure();
+  const collapse = useDisclosure();
+  const achievements = useDisclosure();
+  const tribulation = useDisclosure();
+  const tribulationHall = useDisclosure();
+  const title = useDisclosure();
+  const settings = useDisclosure();
+  const userCenter = useDisclosure();
+  const help = useDisclosure();
+  const editData = useDisclosure();
+  const resetConfirm = useDisclosure();
+  const firstEntry = useDisclosure();
+  const cleared = useDisclosure();
+
+  // 引用稳定：返回新对象会让 ModalsContext 的所有消费方（含依赖 modals 的 effect）每帧重跑
+  return useMemo(
+    () => ({
+      upgradeShop,
+      rebirthShop,
+      collapseShop,
+      afterlifeShop,
+      ranking,
+      funShop,
+      rebirth,
+      collapse,
+      achievements,
+      tribulation,
+      tribulationHall,
+      title,
+      settings,
+      userCenter,
+      help,
+      editData,
+      resetConfirm,
+      firstEntry,
+      cleared,
+    }),
+    [
+      upgradeShop,
+      rebirthShop,
+      collapseShop,
+      afterlifeShop,
+      ranking,
+      funShop,
+      rebirth,
+      collapse,
+      achievements,
+      tribulation,
+      tribulationHall,
+      title,
+      settings,
+      userCenter,
+      help,
+      editData,
+      resetConfirm,
+      firstEntry,
+      cleared,
+    ]
+  );
 }
