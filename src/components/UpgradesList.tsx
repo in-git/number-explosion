@@ -233,6 +233,8 @@ export const UpgradesList: React.FC = () => {
       maxLevel,
       desc,
       currentCost,
+      // 本次实扣的数值：1 模式为单次消耗，连购模式为这批升级的总和（bulk 仅在连购模式下非空）
+      payCost: bulk ? bulk.cost : currentCost,
       bulkLevels,
       isMaxed: isUpgradeMaxed(id, upgradeState, rebirthLevel),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
@@ -335,7 +337,7 @@ export const UpgradesList: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-1.5">
           {shownRows.map((row) => {
-            const { id, meta, upgradeState, maxLevel, desc, currentCost, isMaxed } = row;
+            const { id, meta, upgradeState, maxLevel, desc, currentCost, payCost, isMaxed } = row;
 
             // If not unlocked yet:
             if (!upgradeState.unlocked) {
@@ -415,6 +417,7 @@ export const UpgradesList: React.FC = () => {
                   id={`btn-upgrade-${id}`}
                   mode={amountMode}
                   bulkLevels={row.bulkLevels}
+                  cost={payCost}
                   maxed={isMaxed || !currentCost}
                   singleDisabled={!row.canAffordSingle}
                   onSingle={() => {

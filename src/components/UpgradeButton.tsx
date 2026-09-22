@@ -21,10 +21,16 @@ interface UpgradeButtonProps {
   className?: string;
   /** 色调：gold 金色（默认，升级/购买）；green 绿色（解锁）；gray 灰色（常态操作） */
   tone?: 'gold' | 'green' | 'gray';
+  /** 淡淡的虚线边框：升级类按钮用，给纯文本按钮一点「可点」的边界感 */
+  dashedBorder?: boolean;
 }
 
 const BASE =
-  'inline-flex items-center justify-end text-right min-w-[100px] px-2.5 py-1.5 rounded-none text-[11px] sm:text-xs font-serif font-bold tracking-wide whitespace-nowrap flex-shrink-0 bg-transparent border-0 transition-colors';
+  'inline-flex items-center min-w-[120px] px-2.5 py-1.5 rounded-none text-[10px] font-serif font-bold tracking-wide whitespace-nowrap flex-shrink-0 bg-transparent transition-colors';
+// 虚线边框：可用态略亮、禁用态更暗，均取贴近底色与文字之间的低对比度棕灰色
+const DASHED_BORDER = 'border border-dashed';
+const DASHED_BORDER_ACTIVE = 'border-[#544a39]';
+const DASHED_BORDER_DISABLED = 'border-[#3a342b]';
 // 金黄色文本：可用态明亮金，禁用态暗金（仍可区分，但统一为金色调）
 const ACTIVE =
   'text-[#e8c46a] underline decoration-1 underline-offset-4 cursor-pointer hover:text-[#f5dd9a]';
@@ -46,6 +52,7 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
   ariaLabel,
   className = '',
   tone = 'gold',
+  dashedBorder = false,
 }) => {
   // 长按连发模式（onPress）：始终持有最新回调，保证连发时使用最新消耗
   const pressRef = React.useRef(onPress);
@@ -69,6 +76,13 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
       : tone === 'gray'
         ? ACTIVE_GRAY
         : ACTIVE;
+
+  // 不传 dashedBorder 时保持原本的无边框文本态（解锁按钮等不受影响）
+  const borderClass = dashedBorder
+    ? `${DASHED_BORDER} ${disabled ? DASHED_BORDER_DISABLED : DASHED_BORDER_ACTIVE}`
+    : 'border-0';
+  // 有框时框内居中；无框的纯文本按钮仍靠右对齐行尾
+  const alignClass = dashedBorder ? 'justify-center text-center' : 'justify-end text-right';
 
   const start = () => {
     if (disabled) return;
@@ -94,7 +108,7 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
         onPointerCancel={stop}
         // 移动端长按弹出菜单 / 文本选择会中断连发，予以阻止
         onContextMenu={(e) => e.preventDefault()}
-        className={`${BASE} select-none touch-none ${toneClass} ${className}`}
+        className={`${BASE} ${borderClass} ${alignClass} select-none touch-none ${toneClass} ${className}`}
       >
         {children}
       </button>
@@ -108,7 +122,7 @@ export const UpgradeButton: React.FC<UpgradeButtonProps> = ({
       disabled={disabled}
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`${BASE} ${toneClass} ${className}`}
+      className={`${BASE} ${borderClass} ${alignClass} ${toneClass} ${className}`}
     >
       {children}
     </button>

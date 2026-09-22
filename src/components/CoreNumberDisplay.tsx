@@ -85,7 +85,7 @@ export const CoreNumberDisplay: React.FC<CoreNumberDisplayProps> = ({
         <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-[#6d614f]" />
 
         {/* Central numeric display area（固定高度，避免数值长度变化导致主页抖动） */}
-        <div className="relative z-10 flex h-[190px] sm:h-[230px] md:h-[250px] flex-col items-center justify-center px-4 text-center">
+        <div className="relative z-10 flex h-[215px] sm:h-[260px] md:h-[300px] flex-col items-center justify-center px-4 text-center">
           <div className="text-xs sm:text-sm tracking-[0.25em] text-[#8c8273] font-serif mb-2 flex items-center gap-2">
             <span className="w-6 h-[1px] bg-[#4a4235]" />
             <span>太 虚 衍 化 · 本 源 数 值</span>
@@ -95,7 +95,7 @@ export const CoreNumberDisplay: React.FC<CoreNumberDisplayProps> = ({
           {/* Giant Number Display in Chinese large unit notation */}
           <div
             id="giant-number-text"
-            className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[#f2ede4] font-serif transition-transform duration-75 break-words drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
+            className="text-6xl sm:text-7xl md:text-8xl font-bold tracking-tight text-[#f2ede4] font-serif transition-transform duration-75 break-words drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
             style={{
               fontFamily: "'Noto Serif SC', 'Songti SC', SimSun, serif",
               textShadow: '0 2px 8px rgba(0,0,0,0.95), 0 0 1px rgba(255,255,255,0.2)',

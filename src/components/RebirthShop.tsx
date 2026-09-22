@@ -301,6 +301,7 @@ export const RebirthShop: React.FC = () => {
                 id={`btn-rebirth-merged-${id}`}
                 mode={amountMode}
                 bulkLevels={bulk?.levels ?? 0}
+                cost={bulk ? bulk.cost : cost}
                 maxed={cost === null}
                 singleDisabled={!canBuy}
                 onSingle={() => handleBuyRebirthMergedUpgrade(id)}
@@ -331,7 +332,11 @@ export const RebirthShop: React.FC = () => {
               </div>
               <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">功法无需解锁 · 可直接升级，重生后保留</div>
             </div>
-            <UpgradeButton id="btn-shop-unlock-autounlock" disabled={!canBuyAutoUnlock}>
+            <UpgradeButton
+              id="btn-shop-unlock-autounlock"
+              disabled={!canBuyAutoUnlock}
+              dashedBorder
+            >
               {AUTO_UNLOCK_COST} 点
             </UpgradeButton>
           </div>
@@ -357,7 +362,11 @@ export const RebirthShop: React.FC = () => {
               </div>
               <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">开启天榜 · 查看数值 / 时长 / 重生 / 连点排行</div>
             </div>
-            <UpgradeButton id="btn-shop-unlock-ranking" disabled={!canUnlockRanking}>
+            <UpgradeButton
+              id="btn-shop-unlock-ranking"
+              disabled={!canUnlockRanking}
+              dashedBorder
+            >
               {RANKING_UNLOCK_COST} 点
             </UpgradeButton>
           </div>
@@ -383,7 +392,11 @@ export const RebirthShop: React.FC = () => {
               </div>
               <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">觉醒太虚坍缩秘境 · 解锁后方可献祭永劫值进行坍缩</div>
             </div>
-            <UpgradeButton id="btn-shop-unlock-collapse" disabled={!canUnlockCollapse}>
+            <UpgradeButton
+              id="btn-shop-unlock-collapse"
+              disabled={!canUnlockCollapse}
+              dashedBorder
+            >
               {COLLAPSE_COST} 点
             </UpgradeButton>
           </div>

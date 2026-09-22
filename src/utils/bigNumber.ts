@@ -256,8 +256,11 @@ export class BigNum {
 
     // Below 10,000 (10^4)
     if (this.e < 4) {
-      const val = this.m * Math.pow(10, this.e);
-      if (val === 0 || !Number.isFinite(val)) return '0';
+      const raw = this.m * Math.pow(10, this.e);
+      if (raw === 0 || !Number.isFinite(raw)) return '0';
+      // 抹掉浮点尾差（如连加得到的 2310.0000000000005）：
+      // 否则整数会被判定为非整数，绕过千分位并显示成「2310.00」
+      const val = Math.round(raw * 1e6) / 1e6;
       if (Number.isInteger(val)) {
         return val.toLocaleString('zh-CN');
       }

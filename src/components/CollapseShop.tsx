@@ -166,6 +166,7 @@ export const CollapseShop: React.FC = () => {
           id="btn-exchange-collapse"
           mode={amountMode}
           bulkLevels={exchangeTimes}
+          cost={exchangeStep * exchangeTimes}
           singleDisabled={!canExchange}
           bulkDisabled={!canExchangeAll}
           onSingle={() => onExchangeRebirthToCollapse(1)}
@@ -195,6 +196,7 @@ export const CollapseShop: React.FC = () => {
           id="btn-buy-rebirth-point"
           mode={amountMode}
           bulkLevels={rpBulk?.levels ?? 0}
+          cost={rpBulk ? rpBulk.cost : rpCost}
           singleDisabled={!canBuyRp}
           onSingle={onBuyRebirthPointLevel}
           onBulk={(levels) => onBuyRebirthPointLevelMax(levels)}
@@ -223,6 +225,7 @@ export const CollapseShop: React.FC = () => {
           id="btn-buy-value-cap"
           mode={amountMode}
           bulkLevels={valueCapBulk?.levels ?? 0}
+          cost={valueCapBulk ? valueCapBulk.cost : valueCapCost}
           singleDisabled={!canBuy}
           onSingle={onBuyValueCap}
           onBulk={(levels) => onBuyValueCapMax(levels)}
@@ -261,6 +264,8 @@ export const CollapseShop: React.FC = () => {
                 id={`btn-shop-cap-${id}`}
                 mode={amountMode}
                 bulkLevels={levelCapBulk?.levels ?? 0}
+                // 等级上限每次固定 1 点坍缩点
+                cost={levelCapBulk ? levelCapBulk.cost : 1}
                 singleDisabled={!canBuyLevelCap}
                 onSingle={() => onBuyLevelCap(id)}
                 onBulk={(levels) => onBuyLevelCapMax(id, levels)}
@@ -299,7 +304,11 @@ export const CollapseShop: React.FC = () => {
               </div>
             </div>
 
-            <UpgradeButton id="btn-shop-unlock-afterlife" disabled={!canUnlockAfterlifeShop}>
+            <UpgradeButton
+              id="btn-shop-unlock-afterlife"
+              disabled={!canUnlockAfterlifeShop}
+              dashedBorder
+            >
               {AFTERLIFE_SHOP_UNLOCK_COST} 点
             </UpgradeButton>
           </div>

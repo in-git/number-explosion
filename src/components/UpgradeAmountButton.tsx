@@ -9,6 +9,12 @@ interface UpgradeAmountButtonProps {
   mode: UpgradeAmountMode;
   /** 连购模式（一半 / max）下本次会购买的数量 */
   bulkLevels: number;
+  /**
+   * 本次实际扣除的值（连购时为这批的总和）：
+   * 传了就在次数后以括号追加（如「3次·(1.4万)」），null / 0 则不展示。
+   * 数值殿传 BigNum；各点数殿（永劫点 / 坍缩点 / 往生点）直接传 number 亦可
+   */
+  cost?: BigNum | number | null;
   /** 已满级：显示 max 并禁用 */
   maxed?: boolean;
   /** 「1」模式下的可用性（沿用各殿原有的单次购买判断） */
@@ -33,6 +39,7 @@ export const UpgradeAmountButton: React.FC<UpgradeAmountButtonProps> = ({
   id,
   mode,
   bulkLevels,
+  cost = null,
   maxed = false,
   singleDisabled = false,
   bulkDisabled,
@@ -41,11 +48,20 @@ export const UpgradeAmountButton: React.FC<UpgradeAmountButtonProps> = ({
   longPress = true,
   ariaLabel,
 }) => {
-  if (maxed) return <UpgradeButton disabled>max</UpgradeButton>;
+  if (maxed) {
+    return (
+      <UpgradeButton disabled dashedBorder>
+        max
+      </UpgradeButton>
+    );
+  }
 
   const isBulk = mode !== '1';
   const disabled = isBulk ? (bulkDisabled ?? bulkLevels <= 0) : singleDisabled;
   const label = isBulk ? `${BigNum.fromNumber(bulkLevels).formatChinese(0)}次` : '1次';
+  // 买不动（0 次）时不展示花费，避免出现「0次·(0)」这种噪声
+  const costNum = typeof cost === 'number' ? BigNum.fromNumber(cost) : cost;
+  const costText = costNum && costNum.gt(0) ? costNum.formatChinese(2) : null;
 
   const trigger = () => {
     if (disabled) return;
@@ -53,13 +69,32 @@ export const UpgradeAmountButton: React.FC<UpgradeAmountButtonProps> = ({
     else onSingle();
   };
 
-  return longPress ? (
-    <UpgradeButton id={id} disabled={disabled} onPress={trigger} ariaLabel={ariaLabel}>
+  const content = (
+    <>
       {label}
+      {costText && <span className="opacity-75">·({costText})</span>}
+    </>
+  );
+
+  return longPress ? (
+    <UpgradeButton
+      id={id}
+      disabled={disabled}
+      onPress={trigger}
+      ariaLabel={ariaLabel}
+      dashedBorder
+    >
+      {content}
     </UpgradeButton>
   ) : (
-    <UpgradeButton id={id} disabled={disabled} onClick={trigger} ariaLabel={ariaLabel}>
-      {label}
+    <UpgradeButton
+      id={id}
+      disabled={disabled}
+      onClick={trigger}
+      ariaLabel={ariaLabel}
+      dashedBorder
+    >
+      {content}
     </UpgradeButton>
   );
 };

@@ -154,6 +154,7 @@ export const AfterlifeShop: React.FC = () => {
           id="btn-afterlife-exchange"
           mode={amountMode}
           bulkLevels={exchangeTimes}
+          cost={exchangeStep * exchangeTimes}
           singleDisabled={!canExchange}
           bulkDisabled={!canExchangeAll}
           onSingle={() => onExchangeAfterlifePoint(1)}
@@ -216,6 +217,7 @@ export const AfterlifeShop: React.FC = () => {
                 id={`btn-afterlife-${id}`}
                 mode={amountMode}
                 bulkLevels={bulk?.levels ?? 0}
+                cost={bulk ? bulk.cost : cost}
                 singleDisabled={!canBuy}
                 onSingle={() => onBuyAfterlifeUpgrade(id)}
                 onBulk={(levels) => onBuyAfterlifeUpgradeMax(id, levels)}
@@ -258,6 +260,7 @@ export const AfterlifeShop: React.FC = () => {
           id="btn-afterlife-rebirth-cap"
           mode={amountMode}
           bulkLevels={capBulk?.levels ?? 0}
+          cost={capBulk ? capBulk.cost : rebirthCapCost}
           singleDisabled={!canBuyRebirthCap}
           onSingle={onBuyRebirthCapUpgrade}
           onBulk={(levels) => onBuyRebirthCapUpgradeMax(levels)}
@@ -292,6 +295,7 @@ export const AfterlifeShop: React.FC = () => {
             id="btn-afterlife-unlock-tribulation"
             disabled={!canUnlockTribulation}
             onClick={onUnlockTribulation}
+            dashedBorder
           >
             {BigNum.fromNumber(TRIBULATION_UNLOCK_COST).formatChinese(0)} 点
           </UpgradeButton>
@@ -312,7 +316,7 @@ export const AfterlifeShop: React.FC = () => {
             </div>
           </div>
 
-          <UpgradeButton id="btn-afterlife-tribulation" onClick={onOpenTribulation}>
+          <UpgradeButton id="btn-afterlife-tribulation" onClick={onOpenTribulation} dashedBorder>
             渡劫
           </UpgradeButton>
         </div>
@@ -343,6 +347,7 @@ export const AfterlifeShop: React.FC = () => {
             id="btn-afterlife-unlock-one-key"
             disabled={!canUnlockOneKey}
             onClick={onUnlockOneKeyUpgrade}
+            dashedBorder
           >
             {BigNum.fromNumber(ONE_KEY_UPGRADE_UNLOCK_COST).formatChinese(0)} 点
           </UpgradeButton>
