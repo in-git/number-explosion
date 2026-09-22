@@ -43,12 +43,31 @@ export function broadcastBoards(): void {
   });
 }
 
+/** 单连接消息节流：窗口内超过上限即判为异常并断开（防止狂刷订阅 / 上报把 SQL 查询打爆） */
+const WS_WINDOW_MS = 10_000;
+const WS_MAX_MESSAGES = 40;
+
 /** 挂载 WebSocket（路径 /api/ws） */
 export function attachWebSocket(server: Server): void {
   wss = new WebSocketServer({ server, path: '/api/ws' });
 
   wss.on('connection', (ws) => {
+    // 单连接消息计数（固定窗口）
+    let windowStart = Date.now();
+    let received = 0;
+
     ws.on('message', (raw) => {
+      const now = Date.now();
+      if (now - windowStart >= WS_WINDOW_MS) {
+        windowStart = now;
+        received = 0;
+      }
+      if (++received > WS_MAX_MESSAGES) {
+        send(ws, { type: 'error', message: '消息过于频繁' });
+        ws.close(1008, 'rate limit');
+        return;
+      }
+
       let msg: { type?: string; board?: unknown; userId?: unknown; payload?: unknown };
       try {
         msg = JSON.parse(String(raw));

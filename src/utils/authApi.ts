@@ -55,6 +55,21 @@ export interface SaveSyncPayload {
 /** 后端接口基址（由 vite 代理转发到后端服务） */
 const API_BASE = '/api';
 
+/**
+ * 非 2xx 时优先抛服务端返回的 error 文案（如「尝试过于频繁，请稍后再试」），
+ * 拿不到再退回「{前缀}: {状态码}」，保证限流等提示能被玩家看懂。
+ */
+async function throwHttpError(res: Response, prefix: string): Promise<never> {
+  let message = '';
+  try {
+    const data = (await res.json()) as { error?: unknown };
+    if (typeof data?.error === 'string') message = data.error;
+  } catch {
+    // 响应体不是 JSON：忽略，退回状态码文案
+  }
+  throw new Error(message || `${prefix}: ${res.status}`);
+}
+
 /** 随机字符串：仅字母与数字，不含特殊符号 */
 const ALPHANUM = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function randomStr(len: number): string {
@@ -81,7 +96,7 @@ export async function register(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userName, password, nickname }),
   });
-  if (!res.ok) throw new Error(`注册失败: ${res.status}`);
+  if (!res.ok) return throwHttpError(res, '注册失败');
   return (await res.json()) as UserAccount;
 }
 
@@ -92,7 +107,7 @@ export async function login(userName: string, password: string): Promise<UserAcc
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userName, password }),
   });
-  if (!res.ok) throw new Error(`登录失败: ${res.status}`);
+  if (!res.ok) return throwHttpError(res, '登录失败');
   return (await res.json()) as UserAccount;
 }
 
@@ -112,7 +127,7 @@ export async function selectRegion(payload: UserSyncPayload, token: string): Pro
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ env }),
   });
-  if (!res.ok) throw new Error(`入驻失败: ${res.status}`);
+  if (!res.ok) return throwHttpError(res, '入驻失败');
   return (await res.json()) as { ok: boolean };
 }
 

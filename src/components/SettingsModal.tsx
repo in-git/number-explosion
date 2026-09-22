@@ -35,14 +35,14 @@ export const SettingsModal: React.FC = () => {
     {
       id: 'help',
       title: '帮 助',
-      desc: '玩法指引 · 新手建议（同 README）',
+      desc: '有部分剧透，介意勿入',
       Icon: BookOpen,
       onClick: modals.help.open,
     },
     {
       id: 'bilibili',
       title: 'B 站',
-      desc: '作者主页 · 动态与实况',
+      desc: '有问题可在B站私信',
       Icon: Tv,
       href: BILIBILI_URL,
     },
