@@ -31,8 +31,9 @@ const CARD_CLASS = 'rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2.
 const LABEL_CLASS = 'text-[11px] font-serif text-[#8fa6bd] mb-1.5';
 
 /**
- * 修改数据：集中了全部「改数据」入口（数值 / 点数 / 重置）。
+ * 修改数据：集中了「改数据」入口（数值 / 点数 / 各殿升级重置）。
  * 任何设置都不会关闭本面板，便于连续调整。
+ * 注：「重修道途」已移至设置主页，且走独立确认弹窗（不可恢复的操作不混在此处）。
  */
 export const EditDataModal: React.FC = () => {
   const { state, currentBigNum: currentValue } = useGameData();
@@ -43,7 +44,6 @@ export const EditDataModal: React.FC = () => {
     resetAfterlifeUpgrades: onResetAfterlifeUpgrades,
     resetCollapseUpgrades: onResetCollapseUpgrades,
     resetRebirthUpgrades: onResetRebirthUpgrades,
-    resetProgress: onResetProgress,
   } = useGameActions();
   const modals = useModals();
 
@@ -93,12 +93,6 @@ export const EditDataModal: React.FC = () => {
       onApply: applyCollapse,
     },
   ];
-
-  const handleReset = () => {
-    if (window.confirm('是否重置所有修炼进度归零？')) {
-      onResetProgress();
-    }
-  };
 
   /** 单项重置：二次确认后执行（不关闭面板，便于连续重置多项） */
   const handleUpgradeReset = (label: string, action: () => void) => {
@@ -216,20 +210,6 @@ export const EditDataModal: React.FC = () => {
           </div>
         </div>
 
-        {/* 重修道途 */}
-        <div className="rounded-lg border border-[#5a2f2f] bg-[#211818] px-2.5 py-2.5">
-          <div className="text-[11px] font-serif text-[#bd8f8f] mb-1.5">重修道途</div>
-          <div className="text-[11px] font-mono text-[#cbbfa9] leading-relaxed mb-2">
-            清空存档与全部进度，不可恢复
-          </div>
-          <button
-            id="btn-settings-reset"
-            onClick={handleReset}
-            className="w-full px-3 py-2 rounded-lg bg-[#3d1f1f] border border-[#7a3a3a] hover:border-[#b25454] active:translate-y-0.5 text-xs font-serif text-[#e8c4c4] cursor-pointer transition-colors"
-          >
-            重修道途（重置进度）
-          </button>
-        </div>
       </div>
     </ModalShell>
   );

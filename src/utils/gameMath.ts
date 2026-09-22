@@ -56,6 +56,25 @@ export function getFibonacciBig(n: number): BigNum {
   return new BigNum(Math.pow(10, logVal - e), e);
 }
 
+/**
+ * 斐波那契 F(n) 的「数值版」：与 getFibonacci 同值，但不写共享缓存。
+ * 连购二分探测会问到很大的 count，若走 getFibonacci 会把缓存一路撑到 count 项（可达上亿），
+ * 故这里自行迭代，且一旦超出 double 表示范围（约 n > 1476）立即以 Infinity 结束。
+ */
+function fibonacciNumber(n: number): number {
+  const idx = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  if (idx <= 0) return 0;
+  let a = 0; // F(i-1)
+  let b = 1; // F(i)
+  for (let i = 1; i < idx; i++) {
+    const next = a + b;
+    if (!Number.isFinite(next)) return Infinity;
+    a = b;
+    b = next;
+  }
+  return b;
+}
+
 /** 点击的默认基础数值：未习炼「数值升级」时的单次基础值 */
 export const BASE_VALUE_INITIAL = 1;
 
@@ -451,19 +470,37 @@ export const VALUE_CAP_BASE = 1e6;
  * 溢出保护：斐波那契约 1470 级后即超出 Number 上限变成 Infinity，
  * 而 Infinity 经 BigNum 归一化会退化成 0 —— 那样「买了上限却不涨」。
  * 故一旦溢出就锁定在最后一个有限值，保证后续每级提升量恒为正。
+ *
+ * 该序列只与「级数」有关，故只推导一次并缓存：原先每次调用都从头重推，
+ * 高等级下（如 Lv.1e8）单次就要几十万次加法，会让每帧渲染卡死。
  */
-function getValueCapStepCoeff(level: number): number {
-  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  if (lv <= 0) return 0;
+const VALUE_CAP_COEFF: number[] = (() => {
   const seq = [0, 1, 2]; // 第 1、2、3 级系数
-  while (seq.length < lv) {
+  for (;;) {
     const len = seq.length;
     const next = seq[len - 1] + seq[len - 2];
     // 到顶即停，沿用最后一个有限值
     if (!Number.isFinite(next)) break;
     seq.push(next);
   }
-  return seq[Math.min(lv, seq.length) - 1];
+  return seq;
+})();
+
+/** 系数前缀和（Σ 系数[0..i]）——系数可达 1e308，用 Number 累加会溢出成 Infinity，故走 BigNum */
+const VALUE_CAP_COEFF_SUM: BigNum[] = (() => {
+  const out: BigNum[] = [];
+  let acc = new BigNum(0, 0);
+  for (const c of VALUE_CAP_COEFF) {
+    acc = acc.add(new BigNum(c, 0));
+    out.push(acc);
+  }
+  return out;
+})();
+
+function getValueCapStepCoeff(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return 0;
+  return VALUE_CAP_COEFF[Math.min(lv, VALUE_CAP_COEFF.length) - 1];
 }
 
 /**
@@ -489,16 +526,30 @@ export function getRebirthCapBonus(rebirthCount: number): BigNum {
 }
 
 /**
+ * 仅按等级累计的数值上限（不含永劫加成）：
+ * 100 万 + Σ(每级提升量) = 100万 + 等级 × 100万 + 5e5 × Σ(系数)
+ * 用系数前缀和闭式求解（O(1)）——逐级累加在高等级下会退化成上亿次循环而卡死渲染。
+ */
+function getValueCapByLevel(lv: number): BigNum {
+  if (lv <= 0) return new BigNum(VALUE_CAP_BASE, 0);
+  const len = VALUE_CAP_COEFF.length;
+  const lastCoeff = VALUE_CAP_COEFF[len - 1];
+  const coeffSum =
+    lv <= len
+      ? VALUE_CAP_COEFF_SUM[lv - 1]
+      : VALUE_CAP_COEFF_SUM[len - 1].add(new BigNum(lastCoeff, 0).mulScalar(lv - len));
+  return new BigNum(VALUE_CAP_BASE, 0)
+    .add(coeffSum.mulScalar(5e5))
+    .add(new BigNum(lv, 0).mulScalar(VALUE_CAP_BASE));
+}
+
+/**
  * 数值上限：默认 100 万 + 坍缩殿每级提升量（斐波那契式递增）+ 永劫加成（每次永劫 +100 万）
  * = 100万 + Σ(每级提升量) + 永劫次数 × 100万
  */
 export function getValueCap(level: number, rebirthCount: number = 0): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  let total = new BigNum(VALUE_CAP_BASE, 0);
-  for (let k = 1; k <= lv; k++) {
-    total = total.add(getValueCapStep(k));
-  }
-  return total.add(getRebirthCapBonus(rebirthCount));
+  return getValueCapByLevel(lv).add(getRebirthCapBonus(rebirthCount));
 }
 
 /**
@@ -687,12 +738,12 @@ export const REBIRTH_POINTS_CAP_STEP_GROWTH = 10;
  * 往生殿：「永劫点上限」特权
  * - 只限制「每次永劫所得」的点数上限；永劫点的持有量没有上限
  * - 每级提升量线性递增：100、110、120、130、140、150 …
- * - 每级消耗（往生点）为等差数列（差值 1）：1、2、3、4、5 …
+ * - 每级消耗（往生点）为斐波那契数列：1、1、2、3、5、8 …
  */
-/** 购买第 (currentLevel+1) 级所需往生点：等差数列，即 1, 2, 3, 4, 5 … */
+/** 购买第 (currentLevel+1) 级所需往生点：斐波那契数列，即 1, 1, 2, 3, 5 … */
 export function getRebirthCapUpgradeCost(currentLevel: number): number {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return lv + 1;
+  return fibonacciNumber(lv + 1);
 }
 
 /** 第 n 级的提升量（线性）：100、110、120、130 … */
@@ -806,14 +857,22 @@ export interface BulkRebirthUpgradeResult {
  * @param level 该属性当前等级
  * @param budget 当前可用永劫点数
  * @param maxLevels 本次最多可购买数（受渡劫点限制；无限制时传 Infinity）
+ * @param totalCostOf 可选的「累计消耗」闭式函数；给出后改走二分（线性涨价项在大预算下逐级扫描会卡死）
  */
 export function getBulkRebirthUpgradeResult(
   id: UpgradeId,
   level: number,
   budget: number,
-  maxLevels: number = Infinity
+  maxLevels: number = Infinity,
+  totalCostOf?: (count: number) => number
 ): BulkRebirthUpgradeResult {
   const start = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+
+  if (totalCostOf) {
+    const cap = Number.isFinite(maxLevels) ? Math.max(0, Math.floor(maxLevels)) : Infinity;
+    return searchMaxCount(budget, totalCostOf, cap);
+  }
+
   let cost = 0;
   let levels = 0;
 
@@ -834,34 +893,168 @@ export function getBulkRebirthUpgradeResult(
   return { levels, cost };
 }
 
+/** 等差数列前 count 项之和：首项 first、公差 step（count ≤ 0 时为 0） */
+export function arithmeticSeriesSum(first: number, step: number, count: number): number {
+  const n = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+  if (n <= 0) return 0;
+  return n * first + (step * n * (n - 1)) / 2;
+}
+
+/**
+ * 闭式连购求解：已知「购买 count 次的累计消耗」时，二分求预算内的最大次数。
+ * 逐级扫描在「线性涨价 + 巨额预算」下会退化成 O(√预算)（上千万次循环）而卡死页面，
+ * 故这类项一律改走二分，复杂度 O(log n)。结果与逐级贪心一致。
+ * @param budget 可用预算
+ * @param totalCostOf 累计消耗闭式函数（须随 count 单调递增）
+ * @param cap 次数上限（Infinity = 不限）
+ */
+function searchMaxCount(
+  budget: number,
+  totalCostOf: (count: number) => number,
+  cap: number
+): { levels: number; cost: number } {
+  const affordable = (count: number): boolean => {
+    if (count <= 0) return true;
+    const total = totalCostOf(count);
+    return Number.isFinite(total) && total <= budget;
+  };
+
+  // 求二分上界：上限有限时直接用上限；不限时按 2 倍指数扩张
+  let hi: number;
+  if (Number.isFinite(cap)) {
+    if (cap <= 0) return { levels: 0, cost: 0 };
+    hi = cap;
+  } else {
+    hi = 1;
+    while (affordable(hi) && hi < Number.MAX_SAFE_INTEGER) hi *= 2;
+  }
+
+  let lo = 0;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (affordable(mid)) lo = mid;
+    else hi = mid - 1;
+  }
+
+  return { levels: lo, cost: lo > 0 ? totalCostOf(lo) : 0 };
+}
+
 /**
  * 通用「连购」规划：在预算内按 costNum(当前等级) 逐次购买，
- * 返回实际可购买次数与总消耗。各商殿「升级量 MAX」的按钮展示与结算共用同一套算法，
+ * 返回实际可购买次数与总消耗。各商殿「升级量」的按钮展示与结算共用同一套算法，
  * 故按钮显示的次数即实际会购买的次数。
  * @param startLevel 起始等级（第 1 次购买按该等级计价）
  * @param budget 可用预算（点数）
  * @param costNum 该等级下一次购买的消耗（返回非有限值时视为不可再买）
+ * @param maxLevels 本次最多可购买次数（由升级量模式折算而来；不限时传 Infinity）
+ * @param totalCostOf 可选的「累计消耗」闭式函数；给出后改走二分，避免线性涨价项在大预算下卡死
  */
 export function planBulkBuy(
   startLevel: number,
   budget: number,
-  costNum: (level: number) => number
-): { times: number; spent: number } {
+  costNum: (level: number) => number,
+  maxLevels: number = Infinity,
+  totalCostOf?: (count: number) => number
+): { levels: number; cost: number } {
   const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
   const limit = Number.isFinite(budget) && budget > 0 ? Math.floor(budget) : 0;
+  // 次数上限：Infinity（不限）必须保留为 Infinity，否则会被当成 0 次导致「一键升级」直接返回 0
+  const cap = Number.isFinite(maxLevels) ? Math.max(0, Math.floor(maxLevels)) : Infinity;
 
-  let times = 0;
-  let spent = 0;
+  if (totalCostOf) return searchMaxCount(limit, totalCostOf, cap);
 
-  for (;;) {
-    const cost = costNum(start + times);
-    if (!Number.isFinite(cost) || cost <= 0) break;
-    if (limit < spent + cost) break;
-    spent += cost;
-    times += 1;
+  let levels = 0;
+  let cost = 0;
+
+  while (levels < cap) {
+    const step = costNum(start + levels);
+    if (!Number.isFinite(step) || step <= 0) break;
+    if (limit < cost + step) break;
+    cost += step;
+    levels += 1;
   }
 
-  return { times, spent };
+  return { levels, cost };
+}
+
+/**
+ * 数值上限：从 startLevel 起连买 count 级的累计消耗（闭式）。
+ * 第 k 次购买消耗 getValueCapCost(startLevel + k + 1) = startLevel + k + 1，即公差为 1 的等差数列。
+ */
+export function getValueCapBulkCost(startLevel: number, count: number): number {
+  const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
+  return arithmeticSeriesSum(start + 1, 1, count);
+}
+
+/**
+ * 往生殿「永劫点上限」：从 startLevel 起连买 count 级的累计消耗（闭式）。
+ * 消耗为斐波那契数列，故 Σ_{j=start+1}^{start+count} F_j = F(start+count+2) − F(start+2)。
+ */
+export function getRebirthCapBulkCost(startLevel: number, count: number): number {
+  const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
+  const n = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+  if (n <= 0) return 0;
+  return fibonacciNumber(start + n + 2) - fibonacciNumber(start + 2);
+}
+
+/**
+ * 永劫殿「基础数值」：从 startLevel 起连买 count 级的累计消耗（闭式）。
+ * 消耗序列为 1、1、3、5、7…（前两级各 1，此后每级 +2）。
+ */
+export function getRebirthBaseValueBulkCost(startLevel: number, count: number): number {
+  const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
+  const n = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+  if (n <= 0) return 0;
+  if (start === 0) return 1 + arithmeticSeriesSum(1, 2, n - 1);
+  if (start === 1) return arithmeticSeriesSum(1, 2, n);
+  return arithmeticSeriesSum(2 * start - 1, 2, n);
+}
+
+/** 永劫殿：从 startLevel 起连买 count 次的累计消耗（按属性选消耗曲线，闭式） */
+export function getRebirthBulkUpgradeCost(
+  id: UpgradeId,
+  startLevel: number,
+  count: number
+): number {
+  if (id === 'baseValue') return getRebirthBaseValueBulkCost(startLevel, count);
+  // 自动点击频率：消耗恒为 1（且 20 级即满级）
+  if (id === 'autoFrequency') {
+    return Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+  }
+  // 其余属性：等差递增（差值 1），第 k 次消耗 startLevel + k + 1
+  const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
+  return arithmeticSeriesSum(start + 1, 1, count);
+}
+
+/** 升级量模式：1 = 每次 1 次；一半 = 每次买到「买不动」的一半；max = 每次买到买不动 */
+export type UpgradeAmountMode = '1' | 'half' | 'max';
+
+/**
+ * 由升级量模式推出本次购买次数上限。
+ * - '1'    → 1 次
+ * - 'half' → 上限的一半（至少 1 次，避免出现 0 次）
+ * - 'max'  → 不限（由余额 / 等级上限 / 渡劫点等既有约束收敛）
+ */
+export function amountLimitOf(mode: UpgradeAmountMode, maxLevels: number): number {
+  if (mode === '1') return 1;
+  if (mode === 'max') return Infinity;
+  const max = Number.isFinite(maxLevels) && maxLevels > 0 ? Math.floor(maxLevels) : 0;
+  return Math.max(1, Math.ceil(max / 2));
+}
+
+/**
+ * 按升级量模式规划本次购买：先按「买不动」求解上限，再按模式折算实际次数与消耗。
+ * 各商殿的按钮展示与结算都走这里，保证显示即实扣。
+ * @param solve 传入次数上限 → 返回该上限下的 { levels, cost }（即各商殿的连购算法）
+ */
+export function planByAmountMode<R extends { levels: number }>(
+  mode: UpgradeAmountMode,
+  solve: (maxLevels: number) => R
+): R {
+  if (mode === '1') return solve(1);
+  const full = solve(Infinity);
+  const limit = amountLimitOf(mode, full.levels);
+  return limit >= full.levels ? full : solve(limit);
 }
 
 /**

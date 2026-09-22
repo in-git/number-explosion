@@ -194,7 +194,7 @@ export const ShopEntries: React.FC = () => {
           </div>
         )}
 
-        {/* 设置（数值设定 / 重修道途） */}
+        {/* 设置（账号 / 修改数据 / 重修道途） */}
         <button
           id="btn-open-settings"
           onClick={modals.settings.open}

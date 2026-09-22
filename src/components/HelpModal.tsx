@@ -134,7 +134,7 @@ export const HelpModal: React.FC = () => {
         ))}
 
         <div className="rounded-lg border border-[#3b3429] bg-[#211d18] px-3 py-2.5 text-[11px] font-serif leading-relaxed text-[#8f8574]">
-          若需调整数值或重修道途，请移步「设置 → 修改数据」。
+          若需调整数值或点数，请移步「设置 → 修改数据」；若需清空存档重来，请移步「设置 → 重修道途」。
         </div>
       </div>
     </ModalShell>

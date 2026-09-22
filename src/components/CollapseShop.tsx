@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { UpgradeId } from '../types';
 import { useGameActions, useGameData } from '../context/GameContext';
+import { useUpgradeAmountMode } from '../hooks/useUpgradeAmountMode';
+import { UpgradeAmountButton } from './UpgradeAmountButton';
+import { UpgradeAmountToggle } from './UpgradeAmountToggle';
 import {
   UPGRADE_METADATA,
   LEVEL_CAP_PER_POINT,
   getValueCap,
   getValueCapStep,
   getValueCapCost,
+  getValueCapBulkCost,
   getRebirthPointUpgradeCost,
   getRebirthPointBonusPerMillion,
   getRebirthToCollapseCost,
   planBulkBuy,
+  planByAmountMode,
   COLLAPSE_COST,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
@@ -33,11 +38,8 @@ export const CollapseShop: React.FC = () => {
     handleUnlockAfterlifeShop: onUnlockAfterlifeShop,
   } = useGameActions();
 
-  /**
-   * 升级量模式（与其他商殿一致）：false = 每次购买 1 次（默认）；true = 一次买到买不动。
-   * 下方每个购买按钮均按此模式结算。
-   */
-  const [maxMode, setMaxMode] = useState(false);
+  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个购买按钮按此结算 */
+  const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   const level = state.valueCapLevel || 0;
   const rebirths = state.rebirthCount || 0;
@@ -69,17 +71,51 @@ export const CollapseShop: React.FC = () => {
   // 往生殿：消耗坍缩点（非永劫点）解锁
   const canUnlockAfterlifeShop = state.collapsePoints >= AFTERLIFE_SHOP_UNLOCK_COST;
 
-  // MAX 模式下的可购买次数（仅该模式计算；与结算同源，故按钮显示即实际购买次数）
+  // 一半 · max：本次实际会购买的次数（与结算同源，故按钮显示即实际购买次数）
   const collapsePointsNow = Math.max(0, state.collapsePoints);
-  const rpMaxTimes = maxMode
-    ? planBulkBuy(rpLevel, collapsePointsNow, (lv) => getRebirthPointUpgradeCost(lv).toNumber())
-        .times
-    : 0;
-  const valueCapMaxTimes = maxMode
-    ? planBulkBuy(level, collapsePointsNow, (lv) => getValueCapCost(lv + 1).toNumber()).times
-    : 0;
-  // 功法等级上限每次固定 1 点，故可直接买光当前点数
-  const levelCapMaxTimes = maxMode ? Math.floor(collapsePointsNow) : 0;
+  const rpBulk =
+    amountMode === '1'
+      ? null
+      : planByAmountMode(amountMode, (maxLevels) =>
+          planBulkBuy(
+            rpLevel,
+            collapsePointsNow,
+            (lv) => getRebirthPointUpgradeCost(lv).toNumber(),
+            maxLevels
+          )
+        );
+  const valueCapBulk =
+    amountMode === '1'
+      ? null
+      : planByAmountMode(amountMode, (maxLevels) =>
+          planBulkBuy(
+            level,
+            collapsePointsNow,
+            (lv) => getValueCapCost(lv + 1).toNumber(),
+            maxLevels,
+            // 消耗线性递增（1、2、3…）：走闭式累计消耗 + 二分，
+            // 否则大预算下次数会上千万，逐级扫描直接卡死页面
+            (count) => getValueCapBulkCost(level, count)
+          )
+        );
+  // 功法等级上限每次固定 1 点，故买光点数后再按次数上限收敛即可
+  const levelCapBulk =
+    amountMode === '1'
+      ? null
+      : planByAmountMode(amountMode, (maxLevels) => {
+          const times = Math.min(
+            Math.floor(collapsePointsNow),
+            Number.isFinite(maxLevels) ? maxLevels : Infinity
+          );
+          return { levels: times, cost: times };
+        });
+  // 点化坍缩：本次兑换次数（1 / 一半 / 全部）
+  const exchangeTimes =
+    amountMode === '1'
+      ? 1
+      : amountMode === 'half'
+        ? Math.max(1, Math.ceil(exchangeAllCount / 2))
+        : exchangeAllCount;
 
   return (
     <div className="flex flex-col gap-2">
@@ -96,25 +132,14 @@ export const CollapseShop: React.FC = () => {
           </span>
         </div>
 
-        {/* 一键升级：升级量开关 —— 1 = 每次购买 1 次，max = 一次买到买不动；下方按钮随之联动 */}
+        {/* 一键升级：升级量开关（1 → 一半 → max 循环）；下方按钮随之联动 */}
         {state.oneKeyUpgradeUnlocked && (
-          <button
+          <UpgradeAmountToggle
             id="btn-collapse-upgrade-all"
-            onClick={() => setMaxMode((v) => !v)}
-            aria-pressed={maxMode}
-            title={
-              maxMode
-                ? '升级量 max：每次购买直接买到买不动 · 点击切回 1 次'
-                : '升级量 1：每次购买 1 次 · 点击切至 max'
-            }
-            className={`ml-auto px-2 py-0.5 text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
-              maxMode
-                ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
-                : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
-            }`}
-          >
-            {maxMode ? 'max' : '1'}
-          </button>
+            mode={amountMode}
+            onToggle={cycleAmount}
+            className="px-2 py-0.5 text-[10px]"
+          />
         )}
       </div>
 
@@ -137,14 +162,17 @@ export const CollapseShop: React.FC = () => {
           </div>
         </div>
 
-        <UpgradeButton
+        <UpgradeAmountButton
           id="btn-exchange-collapse"
-          disabled={maxMode ? !canExchangeAll : !canExchange}
-          onClick={() => onExchangeRebirthToCollapse(maxMode ? 'all' : 1)}
+          mode={amountMode}
+          bulkLevels={exchangeTimes}
+          singleDisabled={!canExchange}
+          bulkDisabled={!canExchangeAll}
+          onSingle={() => onExchangeRebirthToCollapse(1)}
+          onBulk={(times) => onExchangeRebirthToCollapse(amountMode === 'max' ? 'all' : times)}
+          longPress={false}
           ariaLabel="点化坍缩"
-        >
-          {maxMode ? `${BigNum.fromNumber(exchangeAllCount).formatChinese(0)}次` : '1次'}
-        </UpgradeButton>
+        />
       </div>
 
       {/* 永劫爆炸：永劫时每 100 万数值额外 +0.2 点/级，消耗 2^n 递增的坍缩点数；仅按右侧按钮触发 */}
@@ -163,20 +191,15 @@ export const CollapseShop: React.FC = () => {
           </div>
         </div>
 
-        <UpgradeButton
+        <UpgradeAmountButton
           id="btn-buy-rebirth-point"
-          disabled={maxMode ? rpMaxTimes <= 0 : !canBuyRp}
-          onPress={() => {
-            if (maxMode) {
-              onBuyRebirthPointLevelMax();
-              return;
-            }
-            if (!canBuyRp) return;
-            onBuyRebirthPointLevel();
-          }}
-        >
-          {maxMode ? `${BigNum.fromNumber(rpMaxTimes).formatChinese(0)}次` : '1次'}
-        </UpgradeButton>
+          mode={amountMode}
+          bulkLevels={rpBulk?.levels ?? 0}
+          singleDisabled={!canBuyRp}
+          onSingle={onBuyRebirthPointLevel}
+          onBulk={(levels) => onBuyRebirthPointLevelMax(levels)}
+          ariaLabel="永劫爆炸"
+        />
       </div>
 
       {/* 数值上限：消耗按斐波那契递增的坍缩点数，每级提升量亦按斐波那契式递增；仅按右侧按钮触发 */}
@@ -196,20 +219,15 @@ export const CollapseShop: React.FC = () => {
           </div>
         </div>
 
-        <UpgradeButton
+        <UpgradeAmountButton
           id="btn-buy-value-cap"
-          disabled={maxMode ? valueCapMaxTimes <= 0 : !canBuy}
-          onPress={() => {
-            if (maxMode) {
-              onBuyValueCapMax();
-              return;
-            }
-            if (!canBuy) return;
-            onBuyValueCap();
-          }}
-        >
-          {maxMode ? `${BigNum.fromNumber(valueCapMaxTimes).formatChinese(0)}次` : '1次'}
-        </UpgradeButton>
+          mode={amountMode}
+          bulkLevels={valueCapBulk?.levels ?? 0}
+          singleDisabled={!canBuy}
+          onSingle={onBuyValueCap}
+          onBulk={(levels) => onBuyValueCapMax(levels)}
+          ariaLabel="数值上限"
+        />
       </div>
 
       {/* 功法等级上限（由永劫商殿迁移而来，消耗坍缩点） */}
@@ -239,20 +257,15 @@ export const CollapseShop: React.FC = () => {
                 </div>
               </div>
 
-              <UpgradeButton
+              <UpgradeAmountButton
                 id={`btn-shop-cap-${id}`}
-                disabled={maxMode ? levelCapMaxTimes <= 0 : !canBuyLevelCap}
-                onPress={() => {
-                  if (maxMode) {
-                    onBuyLevelCapMax(id);
-                    return;
-                  }
-                  if (!canBuyLevelCap) return;
-                  onBuyLevelCap(id);
-                }}
-              >
-                {maxMode ? `${BigNum.fromNumber(levelCapMaxTimes).formatChinese(0)}次` : '1次'}
-              </UpgradeButton>
+                mode={amountMode}
+                bulkLevels={levelCapBulk?.levels ?? 0}
+                singleDisabled={!canBuyLevelCap}
+                onSingle={() => onBuyLevelCap(id)}
+                onBulk={(levels) => onBuyLevelCapMax(id, levels)}
+                ariaLabel="等级上限"
+              />
             </div>
           );
         })}

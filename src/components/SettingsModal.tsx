@@ -1,8 +1,8 @@
 import React from 'react';
-import { BookOpen, CircleUserRound, Database, User } from 'lucide-react';
+import { BookOpen, CircleUserRound, Database, RotateCcw, User } from 'lucide-react';
 import { useModals } from '../context/GameContext';
 
-/** 设置面板：仅保留四个入口，各自打开独立弹窗 */
+/** 设置面板：仅保留五个入口，各自打开独立弹窗 */
 export const SettingsModal: React.FC = () => {
   const modals = useModals();
 
@@ -43,6 +43,13 @@ export const SettingsModal: React.FC = () => {
       Icon: Database,
       onClick: modals.editData.open,
     },
+    {
+      id: 'reset-progress',
+      title: '重 修 道 途',
+      desc: '清空存档与全部进度（需二次确认）',
+      Icon: RotateCcw,
+      onClick: modals.resetConfirm.open,
+    },
   ];
 
   return (
@@ -74,7 +81,7 @@ export const SettingsModal: React.FC = () => {
           </button>
         </div>
 
-        {/* 四个入口 */}
+        {/* 五个入口 */}
         <div className="relative flex flex-col gap-2">
           {entries.map((e) => (
             <button

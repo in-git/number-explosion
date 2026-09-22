@@ -18,6 +18,7 @@ import { UserCenter } from './UserCenter';
 import { AuthorModal } from './AuthorModal';
 import { HelpModal } from './HelpModal';
 import { EditDataModal } from './EditDataModal';
+import { ResetConfirmModal } from './ResetConfirmModal';
 import { FirstEntryModal } from './FirstEntryModal';
 import { GameClearedModal } from './GameClearedModal';
 
@@ -129,7 +130,7 @@ export const GameModals: React.FC = () => {
         <TitleModal />
       </ModalShell>
 
-      {/* 设置 Modal（个人中心 / 作者 / 帮助 / 修改数据 四入口） */}
+      {/* 设置 Modal（个人中心 / 作者 / 帮助 / 修改数据 / 重修 五入口） */}
       <SettingsModal />
 
       {/* 个人中心 Modal：未登录时复用排行榜的登录注册面板 */}
@@ -142,10 +143,11 @@ export const GameModals: React.FC = () => {
         <UserCenter />
       </ModalShell>
 
-      {/* 作者 / 帮助 / 修改数据：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
+      {/* 作者 / 帮助 / 修改数据 / 重修确认：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
       <AuthorModal />
       <HelpModal />
       <EditDataModal />
+      <ResetConfirmModal />
 
       {/* 首次进入：渡劫警示（3 秒后方可关闭） */}
       <FirstEntryModal />

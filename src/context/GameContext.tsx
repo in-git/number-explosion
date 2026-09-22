@@ -37,23 +37,23 @@ export interface GameActions {
   handleUserClick: () => void;
   handleUnlockUpgrade: (id: UpgradeId, cost: BigNum) => void;
   handleUpgradeLevel: (id: UpgradeId, cost: BigNum) => void;
-  /** 数值殿：把某项功法一次升到当前可及的圆满等级（升级量 MAX），返回实际升级数 */
-  handleUpgradeMax: (id: UpgradeId) => number;
+  /** 数值殿：按本次次数上限连购（缺省不限），返回实际升级数 */
+  handleUpgradeMax: (id: UpgradeId, maxLevels?: number) => number;
   handleUnlockAchievements: () => void;
   handleUnlockTitles: () => void;
   handleGambleSettle: (type: SettleType, amount: BigNum) => void;
   handleGambleSettlePoints: (currency: PointsCurrency, type: SettleType, amount: number) => void;
   handleBuyLevelCap: (id: UpgradeId) => void;
-  /** 坍缩殿：功法等级上限一次连购到点数耗尽，返回实际购买次数 */
-  handleBuyLevelCapMax: (id: UpgradeId) => number;
+  /** 坍缩殿：功法等级上限连购（缺省不限次数），返回实际购买次数 */
+  handleBuyLevelCapMax: (id: UpgradeId, maxLevels?: number) => number;
   handleBuyRebirthPointLevel: () => void;
-  /** 坍缩殿：永劫爆炸一次连购到买不动，返回实际购买次数 */
-  handleBuyRebirthPointLevelMax: () => number;
-  /** 坍缩殿：数值上限一次连购到买不动，返回实际购买次数 */
-  handleBuyValueCapMax: () => number;
+  /** 坍缩殿：永劫爆炸连购（缺省不限次数），返回实际购买次数 */
+  handleBuyRebirthPointLevelMax: (maxLevels?: number) => number;
+  /** 坍缩殿：数值上限连购（缺省不限次数），返回实际购买次数 */
+  handleBuyValueCapMax: (maxLevels?: number) => number;
   handleBuyRebirthMergedUpgrade: (id: UpgradeId) => void;
-  /** 永劫殿：把某项属性一次升到当前可及的圆满等级（升级量 MAX），返回实际升级数 */
-  handleBuyRebirthMergedUpgradeMax: (id: UpgradeId) => number;
+  /** 永劫殿：按本次次数上限连购（缺省不限），返回实际升级数 */
+  handleBuyRebirthMergedUpgradeMax: (id: UpgradeId, maxLevels?: number) => number;
   handleUnlockCollapse: () => void;
   handleUnlockTribulation: () => void;
   handleTribulation: (outcome: TribulationOutcome) => void;
@@ -69,11 +69,11 @@ export interface GameActions {
   handleUnlockAfterlifeShop: () => void;
   handleExchangeAfterlifePoint: (amount: number | 'all') => void;
   handleBuyAfterlifeUpgrade: (id: UpgradeId) => void;
-  /** 往生殿：属性强化一次连购到买不动，返回实际购买次数 */
-  handleBuyAfterlifeUpgradeMax: (id: UpgradeId) => number;
+  /** 往生殿：属性强化连购（缺省不限次数），返回实际购买次数 */
+  handleBuyAfterlifeUpgradeMax: (id: UpgradeId, maxLevels?: number) => number;
   handleBuyRebirthCapUpgrade: () => void;
-  /** 往生殿：永劫点上限一次连购到买不动，返回实际购买次数 */
-  handleBuyRebirthCapUpgradeMax: () => number;
+  /** 往生殿：永劫点上限连购（缺省不限次数），返回实际购买次数 */
+  handleBuyRebirthCapUpgradeMax: (maxLevels?: number) => number;
   handleUnlockOneKeyUpgrade: () => void;
   handleLogin: (account: UserAccountData) => void;
   handleLogout: () => void;

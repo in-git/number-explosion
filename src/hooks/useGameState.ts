@@ -36,6 +36,9 @@ import {
   TRIBULATION_POINT_INTERVAL_MS,
   TRIBULATION_POINT_GAIN,
   planBulkBuy,
+  getValueCapBulkCost,
+  getRebirthCapBulkCost,
+  getRebirthBulkUpgradeCost,
   TRIBULATION_COST,
   TRIBULATION_PILL_COST,
   TRIBULATION_MAX_COUNT,
@@ -526,7 +529,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    * @returns 本次实际升的级数（0 = 未升级）
    */
   const handleUpgradeMax = useCallback(
-    (id: UpgradeId): number => {
+    (id: UpgradeId, maxLevels: number = Infinity): number => {
       const prev = stateRef.current;
       const up = prev.upgrades[id];
       if (!up || !up.unlocked) return 0;
@@ -538,7 +541,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         up,
         rebirthLevel,
         bigNumRef.current,
-        pointLevelLimit(prev)
+        Math.min(pointLevelLimit(prev), maxLevels)
       );
       if (levels <= 0) return 0;
 
@@ -875,22 +878,27 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       });
     }, []);
 
-  /** 坍缩商殿：功法等级上限 —— 每次固定 1 点，一次连购到点数耗尽（升级量 MAX） */
-  const handleBuyLevelCapMax = useCallback((id: UpgradeId): number => {
-    const prev = stateRef.current;
-    const times = Math.floor(Math.max(0, prev.collapsePoints));
-    if (times <= 0) return 0;
+  /** 坍缩商殿：功法等级上限 —— 每次固定 1 点，一次连购到点数耗尽（升级量） */
+  const handleBuyLevelCapMax = useCallback(
+    (id: UpgradeId, maxLevels: number = Infinity): number => {
+      const prev = stateRef.current;
+      // 每次固定 1 点，故可买光点数；再按本次次数上限收敛
+      const cap = Number.isFinite(maxLevels) ? Math.max(0, Math.floor(maxLevels)) : Infinity;
+      const times = Math.min(Math.floor(Math.max(0, prev.collapsePoints)), cap);
+      if (times <= 0) return 0;
 
-    setState((p) => ({
-      ...p,
-      collapsePoints: Math.max(0, p.collapsePoints - times),
-      upgrades: {
-        ...p.upgrades,
-        [id]: { ...p.upgrades[id], capBonus: (p.upgrades[id].capBonus || 0) + times },
-      },
-    }));
-    return times;
-  }, []);
+      setState((p) => ({
+        ...p,
+        collapsePoints: Math.max(0, p.collapsePoints - times),
+        upgrades: {
+          ...p.upgrades,
+          [id]: { ...p.upgrades[id], capBonus: (p.upgrades[id].capBonus || 0) + times },
+        },
+      }));
+      return times;
+    },
+    []
+  );
 
   /**
    * 永劫商殿：消耗永劫点数升级（所有属性均与数值殿独立，效果在计算时与数值殿累加）。
@@ -945,38 +953,44 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    * 规则与 getBulkRebirthUpgradeResult 同源（逐级贪心），故按钮展示的消耗即实际扣除值。
    * @returns 本次实际升的级数（0 = 未升级）
    */
-  const handleBuyRebirthMergedUpgradeMax = useCallback((id: UpgradeId): number => {
-    const prev = stateRef.current;
-    const level =
-      id === 'baseValue' ? prev.rebirthBaseValueLevel || 0 : prev.rebirthMergedLevels?.[id] || 0;
+  const handleBuyRebirthMergedUpgradeMax = useCallback(
+    (id: UpgradeId, maxLevels: number = Infinity): number => {
+      const prev = stateRef.current;
+      const level =
+        id === 'baseValue' ? prev.rebirthBaseValueLevel || 0 : prev.rebirthMergedLevels?.[id] || 0;
 
-    const { levels, cost } = getBulkRebirthUpgradeResult(
-      id,
-      level,
-      Math.max(0, prev.rebirthPoints || 0),
-      // 点数限制 + 两殿概率合计不超 100% 的限制
-      Math.min(
-        pointLevelLimit(prev),
-        getRebirthChanceHeadroom(calculateGameAttributes(prev), id)
-      )
-    );
-    if (levels <= 0) return 0;
+      const { levels, cost } = getBulkRebirthUpgradeResult(
+        id,
+        level,
+        Math.max(0, prev.rebirthPoints || 0),
+        // 本次次数上限 + 渡劫点限制 + 两殿概率合计不超 100% 的限制
+        Math.min(
+          maxLevels,
+          pointLevelLimit(prev),
+          getRebirthChanceHeadroom(calculateGameAttributes(prev), id)
+        ),
+        // 与永劫殿按钮展示同源：线性涨价走闭式累计消耗 + 二分
+        (count) => getRebirthBulkUpgradeCost(id, level, count)
+      );
+      if (levels <= 0) return 0;
 
-    setState((p) => ({
-      ...p,
-      rebirthPoints: Math.max(0, p.rebirthPoints - cost),
-      ...(id === 'baseValue'
-        ? { rebirthBaseValueLevel: (p.rebirthBaseValueLevel || 0) + levels }
-        : {
-            rebirthMergedLevels: {
-              ...p.rebirthMergedLevels,
-              [id]: (p.rebirthMergedLevels?.[id] || 0) + levels,
-            },
-          }),
-      ...payTribulationPointsTimes(p, levels),
-    }));
-    return levels;
-  }, []);
+      setState((p) => ({
+        ...p,
+        rebirthPoints: Math.max(0, p.rebirthPoints - cost),
+        ...(id === 'baseValue'
+          ? { rebirthBaseValueLevel: (p.rebirthBaseValueLevel || 0) + levels }
+          : {
+              rebirthMergedLevels: {
+                ...p.rebirthMergedLevels,
+                [id]: (p.rebirthMergedLevels?.[id] || 0) + levels,
+              },
+            }),
+        ...payTribulationPointsTimes(p, levels),
+      }));
+      return levels;
+    },
+    []
+  );
 
   /** 永劫商殿：消耗 5 点永劫值解锁坍缩 */
   const handleUnlockCollapse = useCallback(() => {
@@ -1108,38 +1122,49 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   }, []);
 
   /** 坍缩商殿：数值上限 —— 一次连购到买不动（升级量 MAX） */
-  const handleBuyValueCapMax = useCallback((): number => {
+  const handleBuyValueCapMax = useCallback((maxLevels: number = Infinity): number => {
     const prev = stateRef.current;
     const start = prev.valueCapLevel || 0;
-    const { times, spent } = planBulkBuy(start, Math.max(0, prev.collapsePoints), (lv) =>
-      getValueCapCost(lv + 1).toNumber()
+    const { levels, cost } = planBulkBuy(
+      start,
+      Math.max(0, prev.collapsePoints),
+      (lv) => getValueCapCost(lv + 1).toNumber(),
+      maxLevels,
+      // 与「数值上限」按钮展示同源：线性涨价走闭式累计消耗 + 二分
+      (count) => getValueCapBulkCost(start, count)
     );
-    if (times <= 0) return 0;
+    if (levels <= 0) return 0;
 
     setState((p) => ({
       ...p,
-      collapsePoints: Math.max(0, p.collapsePoints - spent),
-      valueCapLevel: (p.valueCapLevel || 0) + times,
+      collapsePoints: Math.max(0, p.collapsePoints - cost),
+      valueCapLevel: (p.valueCapLevel || 0) + levels,
     }));
-    return times;
+    return levels;
   }, []);
 
-  /** 坍缩商殿：永劫爆炸 —— 一次连购到买不动（升级量 MAX） */
-  const handleBuyRebirthPointLevelMax = useCallback((): number => {
-    const prev = stateRef.current;
-    const start = prev.rebirthPointLevel || 0;
-    const { times, spent } = planBulkBuy(start, Math.max(0, prev.collapsePoints), (lv) =>
-      getRebirthPointUpgradeCost(lv).toNumber()
-    );
-    if (times <= 0) return 0;
+  /** 坍缩商殿：永劫爆炸 —— 一次连购到买不动（升级量） */
+  const handleBuyRebirthPointLevelMax = useCallback(
+    (maxLevels: number = Infinity): number => {
+      const prev = stateRef.current;
+      const start = prev.rebirthPointLevel || 0;
+      const { levels, cost } = planBulkBuy(
+        start,
+        Math.max(0, prev.collapsePoints),
+        (lv) => getRebirthPointUpgradeCost(lv).toNumber(),
+        maxLevels
+      );
+      if (levels <= 0) return 0;
 
-    setState((p) => ({
-      ...p,
-      collapsePoints: Math.max(0, p.collapsePoints - spent),
-      rebirthPointLevel: (p.rebirthPointLevel || 0) + times,
-    }));
-    return times;
-  }, []);
+      setState((p) => ({
+        ...p,
+        collapsePoints: Math.max(0, p.collapsePoints - cost),
+        rebirthPointLevel: (p.rebirthPointLevel || 0) + levels,
+      }));
+      return levels;
+    },
+    []
+  );
 
   /** 排行·登顶：注册/登录成功，记录账号（须达「炼气」境） */
   const handleLogin = useCallback(
@@ -1290,29 +1315,35 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       });
     }, []);
 
-  /** 往生殿：属性强化 —— 一次连购到买不动（升级量 MAX） */
-  const handleBuyAfterlifeUpgradeMax = useCallback((id: UpgradeId): number => {
-    const prev = stateRef.current;
-    const levels: Record<UpgradeId, number> =
-      prev.afterlifeUpgradeLevels || INITIAL_STATE.afterlifeUpgradeLevels;
-    const start = levels[id] || 0;
-    const { times, spent } = planBulkBuy(start, Math.max(0, prev.afterlifePoints), (lv) =>
-      getAfterlifeUpgradeCost(lv)
-    );
-    if (times <= 0) return 0;
+  /** 往生殿：属性强化 —— 一次连购到买不动（升级量） */
+  const handleBuyAfterlifeUpgradeMax = useCallback(
+    (id: UpgradeId, maxLevels: number = Infinity): number => {
+      const prev = stateRef.current;
+      const levels: Record<UpgradeId, number> =
+        prev.afterlifeUpgradeLevels || INITIAL_STATE.afterlifeUpgradeLevels;
+      const start = levels[id] || 0;
+      const bulk = planBulkBuy(
+        start,
+        Math.max(0, prev.afterlifePoints),
+        (lv) => getAfterlifeUpgradeCost(lv),
+        maxLevels
+      );
+      if (bulk.levels <= 0) return 0;
 
-    setState((p) => ({
-      ...p,
-      afterlifePoints: Math.max(0, p.afterlifePoints - spent),
-      afterlifeUpgradeLevels: {
-        ...p.afterlifeUpgradeLevels,
-        [id]: (p.afterlifeUpgradeLevels?.[id] || 0) + times,
-      },
-    }));
-    return times;
-  }, []);
+      setState((p) => ({
+        ...p,
+        afterlifePoints: Math.max(0, p.afterlifePoints - bulk.cost),
+        afterlifeUpgradeLevels: {
+          ...p.afterlifeUpgradeLevels,
+          [id]: (p.afterlifeUpgradeLevels?.[id] || 0) + bulk.levels,
+        },
+      }));
+      return bulk.levels;
+    },
+    []
+  );
 
-  /** 往生殿：消耗往生点提升「永劫点上限」（每级 +100，消耗 1,2,3,4,5…） */
+  /** 往生殿：消耗往生点提升「永劫点上限」（每级提升量递增，消耗为斐波那契 1,1,2,3,5…） */
   const handleBuyRebirthCapUpgrade = useCallback(() => {
     let done = false;
     let newLevel = 0;
@@ -1330,22 +1361,30 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     });
   }, []);
 
-  /** 往生殿：永劫点上限 —— 一次连购到买不动（升级量 MAX） */
-  const handleBuyRebirthCapUpgradeMax = useCallback((): number => {
-    const prev = stateRef.current;
-    const start = prev.rebirthCapLevel || 0;
-    const { times, spent } = planBulkBuy(start, Math.max(0, prev.afterlifePoints), (lv) =>
-      getRebirthCapUpgradeCost(lv)
-    );
-    if (times <= 0) return 0;
+  /** 往生殿：永劫点上限 —— 一次连购到买不动（升级量） */
+  const handleBuyRebirthCapUpgradeMax = useCallback(
+    (maxLevels: number = Infinity): number => {
+      const prev = stateRef.current;
+      const start = prev.rebirthCapLevel || 0;
+      const { levels, cost } = planBulkBuy(
+        start,
+        Math.max(0, prev.afterlifePoints),
+        (lv) => getRebirthCapUpgradeCost(lv),
+        maxLevels,
+        // 与「永劫点上限」按钮展示同源：斐波那契涨价走闭式累计消耗 + 二分
+        (count) => getRebirthCapBulkCost(start, count)
+      );
+      if (levels <= 0) return 0;
 
-    setState((p) => ({
-      ...p,
-      afterlifePoints: Math.max(0, p.afterlifePoints - spent),
-      rebirthCapLevel: (p.rebirthCapLevel || 0) + times,
-    }));
-    return times;
-  }, []);
+      setState((p) => ({
+        ...p,
+        afterlifePoints: Math.max(0, p.afterlifePoints - cost),
+        rebirthCapLevel: (p.rebirthCapLevel || 0) + levels,
+      }));
+      return levels;
+    },
+    []
+  );
 
   /** 往生殿：消耗 10 点往生点解锁「升级量」开关（解锁后数值殿 / 永劫殿才显示该开关） */
   const handleUnlockOneKeyUpgrade = useCallback(() => {
@@ -1493,12 +1532,24 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   /** 关闭挂机收益弹窗 */
   const dismissOfflineReport = useCallback(() => setOfflineReport(null), []);
 
-  /** 重修道途：清空存档与全部进度 */
+  /**
+   * 重修道途：清空存档与全部进度。
+   * 各殿「升级量」开关、弹窗 / 展开 / 页签等界面状态分散在各组件内部，
+   * 仅重置 state 无法归零，故清档后直接重载页面，回到真正的全新开局。
+   * 注意：重载前必须把 ref 一并同步为初始态——卸载 / pagehide 的落盘兜底读的是 ref，
+   * 若不同步，旧进度会被重新写回存档，「重修」看起来要手动刷新才生效。
+   */
   const resetProgress = useCallback(() => {
-    clearGameState();
-    setState(INITIAL_STATE);
-    setCurrentBigNum(new BigNum(0, 0));
+    const freshValue = BigNum.fromData(INITIAL_STATE.currentValue);
+    stateRef.current = INITIAL_STATE;
+    bigNumRef.current = freshValue;
+    playTimeRef.current = INITIAL_STATE.playTimeMs || 0;
     notifiedUnlocks.current.clear();
+    setState(INITIAL_STATE);
+    setCurrentBigNum(freshValue);
+    // 清掉旧存档后重载：无存档时按全新开局初始化（含首次进入提示）
+    clearGameState();
+    window.location.reload();
   }, []);
 
   /** 设置：重置往生殿升级（各属性 / 永劫点上限等级归零，不返还已消耗的往生点） */

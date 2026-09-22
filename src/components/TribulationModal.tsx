@@ -264,14 +264,7 @@ const ResultModule: React.FC<ResultModuleProps> = ({ outcome, tribulationCount }
       label: '属性',
       value: outcome.success ? '尽数保留' : '尽归初始',
       valueClass: outcome.success ? 'text-[#9fdc7a]' : 'text-[#f07979]',
-    },
-    {
-      label: outcome.success ? '收益次方' : '历世之迹',
-      value: outcome.success
-        ? `原值^${tribulationCount}`
-        : `渡劫 ${tribulationCount}/${TRIBULATION_MAX_COUNT} 次`,
-      valueClass: outcome.success ? 'font-mono text-[#e8b56f]' : 'text-[#d897fa]',
-    },
+    }
   ];
 
   return (

@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { UpgradeId } from '../types';
 import { useGameActions, useGameData } from '../context/GameContext';
 import { REBIRTH_MERGED_UPGRADES, AUTO_UNLOCK_COST, RANKING_UNLOCK_COST } from '../config';
+import { useUpgradeAmountMode } from '../hooks/useUpgradeAmountMode';
+import { UpgradeAmountButton } from './UpgradeAmountButton';
+import { UpgradeAmountToggle } from './UpgradeAmountToggle';
 import {
   COLLAPSE_COST,
   getBulkRebirthUpgradeResult,
+  planByAmountMode,
   getRebirthMergedUpgradeCost,
   getRebirthBaseValueCost,
   getRebirthBaseValueBonus,
@@ -20,6 +24,7 @@ import {
   isChanceCapped,
   getAfterlifeUpgradeMultiplier,
   getRebirthChanceHeadroom,
+  getRebirthBulkUpgradeCost,
   UPGRADE_TRIBULATION_POINT_COST,
 } from '../utils/gameMath';
 import { BigNum } from '../utils/bigNumber';
@@ -127,12 +132,8 @@ export const RebirthShop: React.FC = () => {
     );
   const canUseRebirthReset = (state.rebirthResetPills || 0) > 0 && hasResettableLevel;
 
-  /**
-   * 升级量模式（「一键升级」按钮即其开关）：
-   * false = 每次升 1 级（默认）；true = 一次升到圆满。
-   * 下方每个升级按钮均按此模式结算。
-   */
-  const [maxMode, setMaxMode] = useState(false);
+  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个升级按钮按此结算 */
+  const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   // 各条目的展示由解锁状态决定（未解锁的解锁项常驻，解锁后隐藏）
   const canUnlockCollapse = !state.collapseUnlocked && state.rebirthPoints >= COLLAPSE_COST;
@@ -196,25 +197,14 @@ export const RebirthShop: React.FC = () => {
                 永劫重置丹 {state.rebirthResetPills || 0}
               </button>
             )}
-            {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，max = 一次升到圆满；下方按钮随之联动 */}
+            {/* 一键升级：升级量开关（1 → 一半 → max 循环）；下方按钮随之联动 */}
             {state.oneKeyUpgradeUnlocked && (
-              <button
+              <UpgradeAmountToggle
                 id="btn-rebirth-upgrade-all"
-                onClick={() => setMaxMode((v) => !v)}
-                aria-pressed={maxMode}
-                title={
-                  maxMode
-                    ? '升级量 max：每次升级直接升到圆满 · 点击切回 1'
-                    : '升级量 1：每次升级 1 级 · 点击切至 max'
-                }
-                className={`ml-auto px-1.5 py-px text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
-                  maxMode
-                    ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
-                    : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
-                }`}
-              >
-                {maxMode ? 'max' : '1'}
-              </button>
+                mode={amountMode}
+                onToggle={cycleAmount}
+                className="px-1.5 py-px text-[10px]"
+              />
             )}
           </div>
         </div>
@@ -247,21 +237,26 @@ export const RebirthShop: React.FC = () => {
             : id === 'baseValue'
               ? getRebirthBaseValueCost(level)
               : getRebirthMergedUpgradeCost(id, level);
-          // MAX 模式：本批「连升到圆满」可购买的级数与总消耗（永劫点数）
-          // 上限同时受渡劫点与「两殿概率合计不超 100%」约束
-          const bulk = maxMode
-            ? getBulkRebirthUpgradeResult(
-                id,
-                level,
-                state.rebirthPoints,
-                Math.min(pointLevelLimit, getRebirthChanceHeadroom(attrs, id))
-              )
-            : null;
+          // 一半 · max：本次实际会购买的级数与总消耗（永劫点数）
+          // 上限同时受本次次数、渡劫点与「两殿概率合计不超 100%」约束
+          const bulk =
+            amountMode === '1'
+              ? null
+              : planByAmountMode(amountMode, (maxLevels) =>
+                  getBulkRebirthUpgradeResult(
+                    id,
+                    level,
+                    state.rebirthPoints,
+                    Math.min(pointLevelLimit, maxLevels, getRebirthChanceHeadroom(attrs, id)),
+                    // 消耗线性递增：走闭式累计消耗 + 二分，避免大预算时逐级扫描卡死页面
+                    (count) => getRebirthBulkUpgradeCost(id, level, count)
+                  )
+                );
           const canBuy = bulk
             ? bulk.levels > 0
             : cost !== null && state.rebirthPoints >= cost.toNumber() && hasTribPoint;
-          // 效果预览级数：MAX 模式预览「本次升满后」的效果（一级都买不起时退回 1 级预览）
-          const previewLevels = maxMode ? Math.max(1, bulk?.levels ?? 0) : 1;
+          // 效果预览级数：连购模式预览「本次升满后」的效果（一级都买不起时退回 1 级预览）
+          const previewLevels = bulk ? Math.max(1, bulk.levels) : 1;
           return (
             <div
               key={id}
@@ -289,28 +284,16 @@ export const RebirthShop: React.FC = () => {
                   </div>
                 )}
               </div>
-              <UpgradeButton
+              <UpgradeAmountButton
                 id={`btn-rebirth-merged-${id}`}
-                disabled={!canBuy}
-                onPress={() => {
-                  if (!canBuy) return;
-                  // MAX 模式：一次升到当前可及的圆满等级
-                  if (maxMode) {
-                    onBuyMax(id);
-                    return;
-                  }
-                  if (cost === null) return;
-                  handleBuyRebirthMergedUpgrade(id);
-                }}
-                ariaLabel={maxMode ? '升到圆满' : '升级'}
-              >
-                {/* 展示本次可升级数（单位「次」）：×1 恒为 1 次，MAX 为实际能升的级数；已满级显示 max */}
-                {cost === null
-                  ? 'max'
-                  : maxMode
-                    ? `${BigNum.fromNumber(bulk?.levels ?? 0).formatChinese(0)}次`
-                    : '1次'}
-              </UpgradeButton>
+                mode={amountMode}
+                bulkLevels={bulk?.levels ?? 0}
+                maxed={cost === null}
+                singleDisabled={!canBuy}
+                onSingle={() => handleBuyRebirthMergedUpgrade(id)}
+                onBulk={(levels) => onBuyMax(id, levels)}
+                ariaLabel="升级"
+              />
             </div>
           );
         })}

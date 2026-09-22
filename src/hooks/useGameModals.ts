@@ -25,7 +25,7 @@ export interface GameModalsState {
   tribulationHall: Disclosure;
   /** 称号详情（当前称号 + 最近的几个修仙等级） */
   title: Disclosure;
-  /** 设置面板（个人中心 / 作者 / 帮助 / 修改数据 四个入口） */
+  /** 设置面板（个人中心 / 作者 / 帮助 / 修改数据 / 重修 五个入口） */
   settings: Disclosure;
   /** 个人中心（账号信息；未登录时复用登录注册面板） */
   userCenter: Disclosure;
@@ -35,6 +35,8 @@ export interface GameModalsState {
   help: Disclosure;
   /** 修改数据（数值 / 点数设定与重置） */
   editData: Disclosure;
+  /** 重修道途二次确认（清空存档与全部进度，不可恢复） */
+  resetConfirm: Disclosure;
   /** 首次进入：渡劫警示（3 秒后方可关闭） */
   firstEntry: Disclosure;
   /** 通关提示（数值达 1ssr 时弹一次，可随时关闭） */
@@ -60,6 +62,7 @@ export function useGameModals(): GameModalsState {
     author: useDisclosure(),
     help: useDisclosure(),
     editData: useDisclosure(),
+    resetConfirm: useDisclosure(),
     firstEntry: useDisclosure(),
     cleared: useDisclosure(),
   };

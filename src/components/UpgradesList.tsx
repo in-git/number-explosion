@@ -8,6 +8,7 @@ import {
   getUpgradeCost,
   getUpgradeMaxLevel,
   getBulkUpgradeResult,
+  planByAmountMode,
   isUpgradeMaxed,
   getBaseValueBonus,
   getAutoClickRate,
@@ -20,6 +21,9 @@ import {
   UPGRADE_TRIBULATION_POINT_COST,
 } from '../utils/gameMath';
 import { UPGRADE_ORDER, ACHIEVEMENTS_UNLOCK_COST, TITLE_UNLOCK_COST } from '../config';
+import { useUpgradeAmountMode } from '../hooks/useUpgradeAmountMode';
+import { UpgradeAmountButton } from './UpgradeAmountButton';
+import { UpgradeAmountToggle } from './UpgradeAmountToggle';
 import { UpgradeButton } from './UpgradeButton';
 
 interface UpgradeDesc {
@@ -120,12 +124,8 @@ export const UpgradesList: React.FC = () => {
   // 隐藏不可继续升级（已满级）的功法
   const [hideMaxed, setHideMaxed] = useState(false);
 
-  /**
-   * 升级量模式（「一键升级」按钮即其开关）：
-   * false = 每次升 1 级（默认）；true = 一次升到圆满。
-   * 下方每个升级按钮均按此模式结算。
-   */
-  const [maxMode, setMaxMode] = useState(false);
+  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个升级按钮按此结算 */
+  const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   // Filter upgrades: 点击量达标，或已解锁（解锁会消耗点击量，已解锁项须继续显示）
   const visibleUpgrades = UPGRADE_ORDER.filter((id) => {
@@ -204,17 +204,26 @@ export const UpgradesList: React.FC = () => {
     // 往生殿的倍数与优惠均已迁移至永劫殿，数值殿升级一律原价
     const currentCost = getUpgradeCost(id, upgradeState.level, maxLevel);
 
-    // MAX 模式：本批「连升到圆满」实际可升的级数（按钮即展示这个数）
-    const bulk = maxMode
-      ? getBulkUpgradeResult(id, upgradeState, rebirthLevel, currentValue, pointLevelLimit)
-      : null;
+    // 一半 · max 模式：本次实际会购买的级数（按钮即展示这个数；1 级模式不连购）
+    const bulk =
+      amountMode === '1'
+        ? null
+        : planByAmountMode(amountMode, (maxLevels) =>
+            getBulkUpgradeResult(
+              id,
+              upgradeState,
+              rebirthLevel,
+              currentValue,
+              Math.min(pointLevelLimit, maxLevels)
+            )
+          );
     const bulkLevels = bulk?.levels ?? 0;
-    // 效果预览：MAX 模式预览「本次升满后」的效果（一级都买不起时退回 1 级预览）
+    // 效果预览：连购模式预览「本次升满后」的效果（一级都买不起时退回 1 级预览）
     const desc = getUpgradeDesc(
       id,
       upgradeState.level,
       keptLevel,
-      maxMode ? Math.max(1, bulkLevels) : 1
+      bulk ? Math.max(1, bulkLevels) : 1
     );
 
     return {
@@ -227,7 +236,8 @@ export const UpgradesList: React.FC = () => {
       bulkLevels,
       isMaxed: isUpgradeMaxed(id, upgradeState, rebirthLevel),
       canAffordUnlock: state.clickCount >= meta.requiredClicks,
-      canAffordUpgrade: bulk ? bulk.levels > 0 : !!currentCost && currentValue.gte(currentCost) && hasTribPoint,
+      // 单次（1 模式）是否买得起；连购模式的可用性由 UpgradeAmountButton 按 bulkLevels 判断
+      canAffordSingle: !!currentCost && currentValue.gte(currentCost) && hasTribPoint,
     };
   });
 
@@ -248,12 +258,6 @@ export const UpgradesList: React.FC = () => {
           <span>
             当前数值
             <span className="ml-1 font-mono text-[#c9a86a]">{currentValue.formatChinese(2)}</span>
-          </span>
-          <span id="upgrade-shop-click-count">
-            点击量
-            <span className="ml-1 font-mono text-[#76d18c]">
-              {state.clickCount.toLocaleString('zh-CN')}
-            </span>
           </span>
           {state.tribulationSuccess && (
             <span>
@@ -306,25 +310,14 @@ export const UpgradesList: React.FC = () => {
               数值重置丹 {state.valueResetPills || 0}
             </button>
           )}
-          {/* 一键升级：现为「升级量」开关 —— 1 = 每次升 1 级，max = 一次升到圆满；下方按钮随之联动 */}
+          {/* 一键升级：升级量开关（1 → 一半 → max 循环）；下方按钮随之联动 */}
           {state.oneKeyUpgradeUnlocked && (
-            <button
+            <UpgradeAmountToggle
               id="btn-upgrade-all"
-              onClick={() => setMaxMode((v) => !v)}
-              aria-pressed={maxMode}
-              title={
-                maxMode
-                  ? '升级量 max：每次升级直接升到圆满 · 点击切回 1'
-                  : '升级量 1：每次升级 1 级 · 点击切至 max'
-              }
-              className={`ml-auto px-2 py-0.5 rounded border transition-colors flex-shrink-0 cursor-pointer ${
-                maxMode
-                  ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
-                  : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
-              }`}
-            >
-              {maxMode ? 'max' : '1'}
-            </button>
+              mode={amountMode}
+              onToggle={cycleAmount}
+              className="px-2 py-0.5"
+            />
           )}
         </div>
       </div>
@@ -411,29 +404,20 @@ export const UpgradesList: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 仅按此按钮升级；支持长按连升（含移动端）。
-                    按钮展示本次可升级数（单位「次」）：×1 恒为 1 次，MAX 为实际能升的级数 */}
-                {isMaxed || !currentCost ? (
-                  <UpgradeButton disabled>max</UpgradeButton>
-                ) : (
-                  <UpgradeButton
-                    id={`btn-upgrade-${id}`}
-                    disabled={!row.canAffordUpgrade}
-                    onPress={() => {
-                      if (!row.canAffordUpgrade) return;
-                      // MAX 模式：一次升到当前可及的圆满等级
-                      if (maxMode) {
-                        onUpgradeMax(id);
-                        return;
-                      }
-                      if (!currentCost) return;
-                      onUpgrade(id, currentCost);
-                    }}
-                    ariaLabel={maxMode ? '升到圆满' : '升级'}
-                  >
-                    {maxMode ? `${BigNum.fromNumber(row.bulkLevels).formatChinese(0)}次` : '1次'}
-                  </UpgradeButton>
-                )}
+                {/* 通用升级按钮：文案与结算数量由「升级量」模式决定；支持长按连升（含移动端） */}
+                <UpgradeAmountButton
+                  id={`btn-upgrade-${id}`}
+                  mode={amountMode}
+                  bulkLevels={row.bulkLevels}
+                  maxed={isMaxed || !currentCost}
+                  singleDisabled={!row.canAffordSingle}
+                  onSingle={() => {
+                    if (!currentCost) return;
+                    onUpgrade(id, currentCost);
+                  }}
+                  onBulk={(levels) => onUpgradeMax(id, levels)}
+                  ariaLabel="升级"
+                />
               </>
             );
 

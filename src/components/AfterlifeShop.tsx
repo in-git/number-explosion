@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { UpgradeId } from '../types';
 import { BigNum } from '../utils/bigNumber';
 import { useGameActions, useGameData, useModals } from '../context/GameContext';
+import { useUpgradeAmountMode } from '../hooks/useUpgradeAmountMode';
+import { UpgradeAmountButton } from './UpgradeAmountButton';
+import { UpgradeAmountToggle } from './UpgradeAmountToggle';
 import {
   UPGRADE_ORDER,
   AFTERLIFE_POINT_EXCHANGE_COST,
@@ -16,7 +19,9 @@ import {
   getRebirthCapUpgradeCost,
   getRebirthCapStep,
   getRebirthPointsCap,
+  getRebirthCapBulkCost,
   planBulkBuy,
+  planByAmountMode,
 } from '../utils/gameMath';
 import { UpgradeButton } from './UpgradeButton';
 
@@ -33,11 +38,8 @@ export const AfterlifeShop: React.FC = () => {
   } = useGameActions();
   const modals = useModals();
 
-  /**
-   * 升级量模式（与其他商殿一致）：false = 每次购买 1 次（默认）；true = 一次买到买不动。
-   * 下方每个购买按钮均按此模式结算。
-   */
-  const [maxMode, setMaxMode] = useState(false);
+  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个购买按钮按此结算 */
+  const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   /** 打开「天雷峰」：关闭往生殿，打开渡劫弹窗 */
   const onOpenTribulation = () => {
@@ -62,7 +64,7 @@ export const AfterlifeShop: React.FC = () => {
   const canExchange = state.collapsePoints >= exchangeStep;
   const canExchangeAll = exchangeAllCount > 0;
 
-  // 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点 1,2,3,4,5…
+  // 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点为斐波那契 1,1,2,3,5…
   const capLevel = state.rebirthCapLevel || 0;
   const currentRebirthCap = getRebirthPointsCap(capLevel);
   const nextRebirthCap = getRebirthPointsCap(capLevel + 1);
@@ -70,11 +72,28 @@ export const AfterlifeShop: React.FC = () => {
   const rebirthCapCost = getRebirthCapUpgradeCost(capLevel);
   const canBuyRebirthCap = state.afterlifePoints >= rebirthCapCost;
 
-  // MAX 模式下的可购买次数（仅该模式计算；与结算同源，故按钮显示即实际购买次数）
+  // 一半 · max：本次实际会购买的次数（与结算同源，故按钮显示即实际购买次数）
   const afterlifePointsNow = Math.max(0, state.afterlifePoints);
-  const capMaxTimes = maxMode
-    ? planBulkBuy(capLevel, afterlifePointsNow, (lv) => getRebirthCapUpgradeCost(lv)).times
-    : 0;
+  const capBulk =
+    amountMode === '1'
+      ? null
+      : planByAmountMode(amountMode, (maxLevels) =>
+          planBulkBuy(
+            capLevel,
+            afterlifePointsNow,
+            (lv) => getRebirthCapUpgradeCost(lv),
+            maxLevels,
+            // 消耗为斐波那契：走闭式累计消耗 + 二分，避免大预算时逐级扫描卡死页面
+            (count) => getRebirthCapBulkCost(capLevel, count)
+          )
+        );
+  // 兑换往生点：本次兑换次数（1 / 一半 / 全部）
+  const exchangeTimes =
+    amountMode === '1'
+      ? 1
+      : amountMode === 'half'
+        ? Math.max(1, Math.ceil(exchangeAllCount / 2))
+        : exchangeAllCount;
 
   // 一键升级：消耗 10 往生点解锁，解锁后数值殿 / 永劫殿才显示「升级量」开关
   const canUnlockOneKey = state.afterlifePoints >= ONE_KEY_UPGRADE_UNLOCK_COST;
@@ -100,25 +119,14 @@ export const AfterlifeShop: React.FC = () => {
             </span>
           </div>
 
-          {/* 一键升级：升级量开关 —— 1 = 每次购买 1 次，max = 一次买到买不动；下方按钮随之联动 */}
+          {/* 一键升级：升级量开关（1 → 一半 → max 循环）；下方按钮随之联动 */}
           {state.oneKeyUpgradeUnlocked && (
-            <button
+            <UpgradeAmountToggle
               id="btn-afterlife-upgrade-all"
-              onClick={() => setMaxMode((v) => !v)}
-              aria-pressed={maxMode}
-              title={
-                maxMode
-                  ? '升级量 max：每次购买直接买到买不动 · 点击切回 1 次'
-                  : '升级量 1：每次购买 1 次 · 点击切至 max'
-              }
-              className={`ml-auto px-2 py-0.5 text-[10px] font-serif rounded border transition-colors flex-shrink-0 cursor-pointer ${
-                maxMode
-                  ? 'text-[#ffd98a] border-[#8a653f] bg-[#3b3327] hover:text-[#ffe9b0]'
-                  : 'text-[#e8c46a] border-[#4a3f2c] bg-[#2a2620] hover:border-[#6b5e4c] hover:text-[#f5dd9a]'
-              }`}
-            >
-              {maxMode ? 'max' : '1'}
-            </button>
+              mode={amountMode}
+              onToggle={cycleAmount}
+              className="px-2 py-0.5 text-[10px]"
+            />
           )}
         </div>
       </div>
@@ -142,14 +150,17 @@ export const AfterlifeShop: React.FC = () => {
           </div>
         </div>
 
-        <UpgradeButton
+        <UpgradeAmountButton
           id="btn-afterlife-exchange"
-          disabled={maxMode ? !canExchangeAll : !canExchange}
-          onClick={() => onExchangeAfterlifePoint(maxMode ? 'all' : 1)}
+          mode={amountMode}
+          bulkLevels={exchangeTimes}
+          singleDisabled={!canExchange}
+          bulkDisabled={!canExchangeAll}
+          onSingle={() => onExchangeAfterlifePoint(1)}
+          onBulk={(times) => onExchangeAfterlifePoint(amountMode === 'max' ? 'all' : times)}
+          longPress={false}
           ariaLabel="兑换往生点"
-        >
-          {maxMode ? `${BigNum.fromNumber(exchangeAllCount).formatChinese(0)}次` : '1次'}
-        </UpgradeButton>
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -162,10 +173,18 @@ export const AfterlifeShop: React.FC = () => {
           const next = getAfterlifeNextUpgradeMultiplier(id, level);
           const cost = getAfterlifeUpgradeCost(level);
           const canBuy = state.afterlifePoints >= cost;
-          // MAX 模式：本批实际可购买次数
-          const maxTimes = maxMode
-            ? planBulkBuy(level, afterlifePointsNow, (lv) => getAfterlifeUpgradeCost(lv)).times
-            : 0;
+          // 一半 · max：本次实际会购买的次数
+          const bulk =
+            amountMode === '1'
+              ? null
+              : planByAmountMode(amountMode, (maxLevels) =>
+                  planBulkBuy(
+                    level,
+                    afterlifePointsNow,
+                    (lv) => getAfterlifeUpgradeCost(lv),
+                    maxLevels
+                  )
+                );
 
           return (
             <div
@@ -193,25 +212,21 @@ export const AfterlifeShop: React.FC = () => {
                 </div>
               </div>
 
-              <UpgradeButton
+              <UpgradeAmountButton
                 id={`btn-afterlife-${id}`}
-                disabled={maxMode ? maxTimes <= 0 : !canBuy}
-                onPress={() => {
-                  if (maxMode) {
-                    onBuyAfterlifeUpgradeMax(id);
-                    return;
-                  }
-                  if (canBuy) onBuyAfterlifeUpgrade(id);
-                }}
-              >
-                {maxMode ? `${BigNum.fromNumber(maxTimes).formatChinese(0)}次` : '1次'}
-              </UpgradeButton>
+                mode={amountMode}
+                bulkLevels={bulk?.levels ?? 0}
+                singleDisabled={!canBuy}
+                onSingle={() => onBuyAfterlifeUpgrade(id)}
+                onBulk={(levels) => onBuyAfterlifeUpgradeMax(id, levels)}
+                ariaLabel={label}
+              />
             </div>
           );
         })}
       </div>
 
-      {/* 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点 1,2,3,4,5… */}
+      {/* 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点为斐波那契 1,1,2,3,5… */}
       <div
         id="afterlife-item-rebirth-cap"
         className={`flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] transition-colors ${
@@ -239,19 +254,15 @@ export const AfterlifeShop: React.FC = () => {
           </div>
         </div>
 
-        <UpgradeButton
+        <UpgradeAmountButton
           id="btn-afterlife-rebirth-cap"
-          disabled={maxMode ? capMaxTimes <= 0 : !canBuyRebirthCap}
-          onPress={() => {
-            if (maxMode) {
-              onBuyRebirthCapUpgradeMax();
-              return;
-            }
-            if (canBuyRebirthCap) onBuyRebirthCapUpgrade();
-          }}
-        >
-          {maxMode ? `${BigNum.fromNumber(capMaxTimes).formatChinese(0)}次` : '1次'}
-        </UpgradeButton>
+          mode={amountMode}
+          bulkLevels={capBulk?.levels ?? 0}
+          singleDisabled={!canBuyRebirthCap}
+          onSingle={onBuyRebirthCapUpgrade}
+          onBulk={(levels) => onBuyRebirthCapUpgradeMax(levels)}
+          ariaLabel="永劫点上限"
+        />
       </div>
 
       {/* 渡劫：需先解锁；解锁后进入「天雷峰」（消耗 1 万往生点，成功渡劫点 +1，失败散尽一切）
