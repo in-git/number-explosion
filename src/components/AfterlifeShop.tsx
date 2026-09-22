@@ -38,7 +38,7 @@ export const AfterlifeShop: React.FC = () => {
   } = useGameActions();
   const modals = useModals();
 
-  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个购买按钮按此结算 */
+  /** 升级量模式（全局「一键升级」开关）：1（默认）/ 一半 / max；任意一殿切换，各殿按钮次数联动 */
   const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   /** 打开「天雷峰」：关闭往生殿，打开渡劫弹窗 */

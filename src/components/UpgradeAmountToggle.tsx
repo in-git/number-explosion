@@ -24,8 +24,9 @@ interface UpgradeAmountToggleProps {
 }
 
 /**
- * 「一键升级」升级量开关：1 → 一半 → max 循环，各殿共用。
- * 自带 ml-auto，始终贴在所在行的最右侧；下方购买按钮按当前模式结算。
+ * 「一键升级 / 一键购买」升级量开关：1 → 一半 → max 循环，全局共用。
+ * 任意一殿切换后，所有殿的购买按钮「次数」一并联动；下方按钮按当前模式结算。
+ * 自带 ml-auto，始终贴在所在行的最右侧。
  */
 export const UpgradeAmountToggle: React.FC<UpgradeAmountToggleProps> = ({
   id,

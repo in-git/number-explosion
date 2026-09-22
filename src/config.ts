@@ -315,7 +315,7 @@ export const REBIRTH_MERGED_UPGRADES: { id: UpgradeId; label: string }[] = [
 
 /** 排行榜单项：按门槛划分阶位称号 */
 export interface RankDef {
-  id: 'value' | 'wealth' | 'playTime' | 'rebirth';
+  id: 'value' | 'playTime' | 'rebirth';
   name: string;
   desc: string;
   /** 进度刻度：数值类跨度极大用对数，次数/时长用线性 */
@@ -340,7 +340,7 @@ const TIER_TITLES = [
   '真仙',
 ];
 
-/** 排行榜：数值 / 富豪 / 时长 / 永劫次数 */
+/** 排行榜：数值 / 时长 / 永劫次数 */
 export const RANKS: RankDef[] = [
   {
     id: 'value',
@@ -348,14 +348,6 @@ export const RANKS: RankDef[] = [
     desc: '历世最高数值',
     scale: 'log',
     tiers: [1e3, 1e4, 1e6, 1e9, 1e12, 1e15, 1e18, 1e21, 1e24, 1e28],
-    titles: TIER_TITLES,
-  },
-  {
-    id: 'wealth',
-    name: '富豪排行',
-    desc: '万物殿累计购置总额',
-    scale: 'log',
-    tiers: [1e3, 1e5, 1e7, 1e9, 1e12, 1e15, 1e18, 1e21, 1e24, 1e28],
     titles: TIER_TITLES,
   },
   {

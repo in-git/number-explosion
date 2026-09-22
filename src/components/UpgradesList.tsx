@@ -124,7 +124,7 @@ export const UpgradesList: React.FC = () => {
   // 隐藏不可继续升级（已满级）的功法
   const [hideMaxed, setHideMaxed] = useState(false);
 
-  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个升级按钮按此结算 */
+  /** 升级量模式（全局「一键升级」开关）：1（默认）/ 一半 / max；任意一殿切换，各殿按钮次数联动 */
   const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   // Filter upgrades: 点击量达标，或已解锁（解锁会消耗点击量，已解锁项须继续显示）
@@ -284,10 +284,16 @@ export const UpgradesList: React.FC = () => {
         </button>
       </div>
 
-      {/* 渡劫成功后单独一行提示：每次升级均须消耗 1 点渡劫点 */}
+      {/* 渡劫成功后单独一行提示：每次升级均须消耗 1 点渡劫点（并说明它同时限制了「一键升级」的次数上限） */}
       {state.tribulationSuccess && (
         <div className="-mt-0.5 text-[10px] font-serif text-[#8a7a63]">
-          每次升级都会消耗一个渡劫点
+          每次升级都会消耗一个渡劫点 · 现有渡劫点{' '}
+          <span className="font-mono text-[#e8c46a]">{state.tribulationPoints || 0}</span> 点，
+          一键升级每次最多升{' '}
+          <span className="font-mono text-[#e8c46a]">
+            {BigNum.fromNumber(pointLevelLimit).formatChinese(0)}
+          </span>{' '}
+          级
         </div>
       )}
 

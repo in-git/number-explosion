@@ -5,7 +5,7 @@ export interface BigNumData {
   e: number;
 }
 
-export type LeaderboardId = 'value' | 'wealth' | 'playTime' | 'rebirth' | 'clicks';
+export type LeaderboardId = 'value' | 'playTime' | 'rebirth' | 'clicks';
 
 export interface Region {
   id: string;

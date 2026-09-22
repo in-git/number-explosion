@@ -18,10 +18,9 @@ import { useDefaultRegion } from '../hooks/useDefaultRegion';
 import { leaderboardSocket } from '../utils/leaderboardSocket';
 import { canAscendRank } from '../utils/title';
 
-/** tabbar：数值排行 / 富豪排行 在前，其后时长、重生、连点 */
+/** tabbar：数值排行 在前，其后时长、重生、连点 */
 const BOARD_TABS: { id: LeaderboardId; label: string }[] = [
   { id: 'value', label: '数值排行' },
-  { id: 'wealth', label: '富豪排行' },
   { id: 'playTime', label: '时长排行' },
   { id: 'rebirth', label: '重生排行' },
   { id: 'clicks', label: '连点排行' },
@@ -40,7 +39,7 @@ const rankColor = (rank: number) =>
 /** 成绩格式化 */
 function formatScore(board: LeaderboardId, value: BigNumData): string {
   const n = BigNum.fromData(value);
-  if (board === 'value' || board === 'wealth') return n.formatChinese(2);
+  if (board === 'value') return n.formatChinese(2);
   if (board === 'playTime') return formatDuration(n.toNumber());
   return `${Math.floor(n.toNumber()).toLocaleString('zh-CN')} 次`;
 }
@@ -225,8 +224,8 @@ export const Ranking: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* tabbar：数值 / 富豪 / 时长 / 重生 / 连点 */}
-      <div className="grid grid-cols-5 gap-1.5">
+      {/* tabbar：数值 / 时长 / 重生 / 连点 */}
+      <div className="grid grid-cols-4 gap-1.5">
         {BOARD_TABS.map((t) => (
           <button
             key={t.id}

@@ -16,7 +16,6 @@ const BOARDS: Record<
   { score: string; value: 'big' | 'num'; m?: string; e?: string; num?: string }
 > = {
   value: { score: 'highest_value_score', value: 'big', m: 'highest_value_m', e: 'highest_value_e' },
-  wealth: { score: 'total_spent_score', value: 'big', m: 'total_spent_m', e: 'total_spent_e' },
   playTime: { score: 'play_time_ms', value: 'num', num: 'play_time_ms' },
   rebirth: { score: 'rebirth_count', value: 'num', num: 'rebirth_count' },
   clicks: { score: 'click_count', value: 'num', num: 'click_count' },

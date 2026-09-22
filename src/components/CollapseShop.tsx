@@ -38,7 +38,7 @@ export const CollapseShop: React.FC = () => {
     handleUnlockAfterlifeShop: onUnlockAfterlifeShop,
   } = useGameActions();
 
-  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个购买按钮按此结算 */
+  /** 升级量模式（全局「一键升级」开关）：1（默认）/ 一半 / max；任意一殿切换，各殿按钮次数联动 */
   const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   const level = state.valueCapLevel || 0;

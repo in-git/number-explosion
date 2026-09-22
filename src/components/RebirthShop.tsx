@@ -132,7 +132,7 @@ export const RebirthShop: React.FC = () => {
     );
   const canUseRebirthReset = (state.rebirthResetPills || 0) > 0 && hasResettableLevel;
 
-  /** 升级量模式（「一键升级」开关）：1（默认）/ 一半 / max；下方每个升级按钮按此结算 */
+  /** 升级量模式（全局「一键升级」开关）：1（默认）/ 一半 / max；任意一殿切换，各殿按钮次数联动 */
   const { mode: amountMode, cycle: cycleAmount } = useUpgradeAmountMode();
 
   // 各条目的展示由解锁状态决定（未解锁的解锁项常驻，解锁后隐藏）
@@ -172,6 +172,19 @@ export const RebirthShop: React.FC = () => {
           <span className="text-[10px] font-serif text-[#8a7a63]">长按升级</span>
         </div>
       </div>
+
+      {/* 渡劫成功后：每次升级另耗 1 点渡劫点，它同时决定了「一键升级」的次数上限 */}
+      {state.tribulationSuccess && (
+        <div className="-mt-0.5 text-[10px] font-serif text-[#8a7a63]">
+          每次升级另耗 1 点渡劫点 · 现有渡劫点{' '}
+          <span className="font-mono text-[#e8c46a]">{state.tribulationPoints || 0}</span> 点，
+          一键升级每次最多买{' '}
+          <span className="font-mono text-[#e8c46a]">
+            {BigNum.fromNumber(pointLevelLimit).formatChinese(0)}
+          </span>{' '}
+          级
+        </div>
+      )}
 
       {/* 工具行：一键升级 / 永劫重置丹（位于「数值升级」之上） */}
       {(state.oneKeyUpgradeUnlocked || state.tribulationSuccess) && (
@@ -342,7 +355,7 @@ export const RebirthShop: React.FC = () => {
                 <span className="font-serif font-bold text-xs sm:text-sm text-[#ded7cb] truncate">解锁排行</span>
                 <span className="text-[10px] font-mono px-1 py-px rounded bg-[#2a2620] border border-[#3e372c] text-[#8f8574] flex-shrink-0">未开启</span>
               </div>
-              <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">开启天榜 · 查看数值 / 富豪 / 时长 / 重生排行</div>
+              <div className="text-[10px] text-[#998e7e] font-serif mt-0.5">开启天榜 · 查看数值 / 时长 / 重生 / 连点排行</div>
             </div>
             <UpgradeButton id="btn-shop-unlock-ranking" disabled={!canUnlockRanking}>
               {RANKING_UNLOCK_COST} 点

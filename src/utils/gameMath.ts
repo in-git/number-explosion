@@ -609,6 +609,22 @@ export function isRebirthEffectCapped(id: UpgradeId, rebirthLevel: number): bool
 }
 
 /**
+ * 从 startLevel 起，受「永劫殿自身效果上限」约束还能买多少级；不会封顶的属性返回 Infinity。
+ * 逐级扫描靠 isRebirthEffectCapped 逐级收敛，二分路径不逐级走，
+ * 故必须先把上限显式算出来——否则「自动点击频率」这类有满级的属性会被当成可无限购买。
+ */
+function rebirthEffectCapLevels(id: UpgradeId, startLevel: number): number {
+  const from = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
+  // 非封顶类：任意等级都不会触发（用极大等级探测一次即可，避免无谓扫描）
+  if (!isRebirthEffectCapped(id, Number.MAX_SAFE_INTEGER)) return Infinity;
+  // 封顶类最多几十级（频率 20 / 连击概率 20 / 暴击概率 95），逐级判定开销可忽略
+  for (let lv = from; lv < from + 1000; lv++) {
+    if (isRebirthEffectCapped(id, lv)) return lv - from;
+  }
+  return Infinity;
+}
+
+/**
  * 某功法在「数值殿」当前的等级上限
  * - 自动点击: 不可升级，上限恒为 0
  * - 自动点击频率: 固定 20 级满级，不随等级上限特权扩展
@@ -869,8 +885,9 @@ export function getBulkRebirthUpgradeResult(
   const start = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
 
   if (totalCostOf) {
-    const cap = Number.isFinite(maxLevels) ? Math.max(0, Math.floor(maxLevels)) : Infinity;
-    return searchMaxCount(budget, totalCostOf, cap);
+    const limit = Number.isFinite(maxLevels) ? Math.max(0, Math.floor(maxLevels)) : Infinity;
+    // 效果封顶（频率 20 级满级 / 概率 100%）同样要约束次数，与逐级扫描口径一致
+    return searchMaxCount(budget, totalCostOf, Math.min(limit, rebirthEffectCapLevels(id, start)));
   }
 
   let cost = 0;
