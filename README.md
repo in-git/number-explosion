@@ -1,20 +1,31 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 数值爆炸
 
-# Run and deploy your AI Studio app
+一款中文大数挂机点击游戏：点一下、涨数值、看它变成「不可思议」。
 
-This contains everything you need to run your app locally.
+## 玩法
+- 点击中央数字即「行功」一次，数值随之增长。
+- 数值受「数值上限」约束，达上限后需先提升上限才能继续涨。
+- 数值一律用中文大数单位展示：万、亿、兆、京、垓、秭、穰、沟、涧、正、载、极、恒河沙……
+- 离线也会累积：不足 3 分钟不计，最多结算 1 天。
+- 通关条件：数值达到 1ssr（比 10 的 1000 次方还大；作为参照，宇宙中的原子大约只有 10 的 80 次方）。
 
-View your app in AI Studio: https://ai.studio/apps/b8fe87d3-81f9-4d73-8fec-42eb9d66c470
+## 成长路线
+数值殿 → 永劫殿 → 坍缩殿 → 往生殿 → 渡劫殿，逐层解锁、层层加码。
 
-## Run Locally
+## 新手建议
+- 前期别硬点：优先升「自动点击」，自动连点的价格很便宜。
+- 界面上会发光的都是核心功能，能解锁就解锁。
+- 「一键升级」是升级量开关（1 → 一半 → max），各殿互通：任意一殿切换，其余殿的购买次数同步联动。
+- 永劫点才是真正的核心。
+- 渡劫是分水岭：**别急着渡劫**。渡劫后升级会额外消耗渡劫点，不再能随心所欲地升；过早渡劫会导致无法通关。
+- 渡劫的回报同样暴力：价格从无限大重置为 0，且不再依赖永劫，失败加成也很可观。
+- 若被卡住，多半是升级路线没选对。
 
-**Prerequisites:**  Node.js
+## 常见问题
+- 前期卡住、升级很慢？先补「数值升级」与「自动点击」，再按各功法的点击次数门槛逐一解锁。
+- 数值不涨了？碰到「数值上限」了——去坍缩殿买上限，或先永劫一次。
+- 想从头再来？设置 → 重修道途（清空存档，不可恢复）。
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 链接
+- 开源地址：https://github.com/in-git/number-explosion
+- B 站：https://space.bilibili.com/3706965849016893?spm_id_from=333.1007.0.0

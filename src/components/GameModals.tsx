@@ -15,7 +15,6 @@ import { TribulationHall } from './TribulationHall';
 import { TitleModal } from './TitleModal';
 import { SettingsModal } from './SettingsModal';
 import { UserCenter } from './UserCenter';
-import { AuthorModal } from './AuthorModal';
 import { HelpModal } from './HelpModal';
 import { EditDataModal } from './EditDataModal';
 import { ResetConfirmModal } from './ResetConfirmModal';
@@ -130,7 +129,7 @@ export const GameModals: React.FC = () => {
         <TitleModal />
       </ModalShell>
 
-      {/* 设置 Modal（个人中心 / 作者 / 帮助 / 修改数据 / 重修 五入口） */}
+      {/* 设置 Modal（个人中心 / 帮助 / B 站 / 开源地址 四入口） */}
       <SettingsModal />
 
       {/* 个人中心 Modal：未登录时复用排行榜的登录注册面板 */}
@@ -143,11 +142,12 @@ export const GameModals: React.FC = () => {
         <UserCenter />
       </ModalShell>
 
-      {/* 作者 / 帮助 / 修改数据 / 重修确认：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
-      <AuthorModal />
+      {/* 帮助 / 重修确认：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
       <HelpModal />
-      <EditDataModal />
       <ResetConfirmModal />
+
+      {/* 修改数据：入口已从设置面板隐藏，弹窗保留（需要时把入口挂回 SettingsModal 即可） */}
+      <EditDataModal />
 
       {/* 首次进入：渡劫警示（3 秒后方可关闭） */}
       <FirstEntryModal />

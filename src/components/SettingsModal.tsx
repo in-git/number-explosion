@@ -1,8 +1,16 @@
 import React from 'react';
-import { BookOpen, CircleUserRound, Database, RotateCcw, User } from 'lucide-react';
+import { BookOpen, CircleUserRound, Github, Tv, User } from 'lucide-react';
 import { useModals } from '../context/GameContext';
 
-/** 设置面板：仅保留五个入口，各自打开独立弹窗 */
+/** 外链入口 */
+const GITHUB_URL = 'https://github.com/in-git/number-explosion';
+const BILIBILI_URL = 'https://space.bilibili.com/3706965849016893?spm_id_from=333.1007.0.0';
+
+/**
+ * 设置面板：入口一览。
+ * 注：「修改数据」的入口已隐藏（弹窗与开关仍保留在 useGameModals / GameModals 中，
+ * 需要调试时把那条例目挂回来即可）。
+ */
 export const SettingsModal: React.FC = () => {
   const modals = useModals();
 
@@ -13,7 +21,9 @@ export const SettingsModal: React.FC = () => {
     title: string;
     desc: string;
     Icon: typeof User;
-    onClick: () => void;
+    /** 二选一：onClick 打开弹窗，href 在新标签页打开外链 */
+    onClick?: () => void;
+    href?: string;
   }[] = [
     {
       id: 'personal-center',
@@ -23,34 +33,30 @@ export const SettingsModal: React.FC = () => {
       onClick: modals.userCenter.open,
     },
     {
-      id: 'author',
-      title: '作 者',
-      desc: '署名与作品信息',
-      Icon: User,
-      onClick: modals.author.open,
-    },
-    {
       id: 'help',
       title: '帮 助',
-      desc: '修真指引 · 玩法说明',
+      desc: '玩法指引 · 新手建议（同 README）',
       Icon: BookOpen,
       onClick: modals.help.open,
     },
     {
-      id: 'edit-data',
-      title: '修 改 数 据',
-      desc: '数值 / 点数设定与重置',
-      Icon: Database,
-      onClick: modals.editData.open,
+      id: 'bilibili',
+      title: 'B 站',
+      desc: '作者主页 · 动态与实况',
+      Icon: Tv,
+      href: BILIBILI_URL,
     },
     {
-      id: 'reset-progress',
-      title: '重 修 道 途',
-      desc: '清空存档与全部进度（需二次确认）',
-      Icon: RotateCcw,
-      onClick: modals.resetConfirm.open,
+      id: 'github',
+      title: '开 源 地 址',
+      desc: '源码托管 · 版本与反馈',
+      Icon: Github,
+      href: GITHUB_URL,
     },
   ];
+
+  const entryClass =
+    'flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border-2 border-[#332e27] bg-[#1a1816] hover:border-[#5b5142] active:translate-y-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)] cursor-pointer transition-all text-left';
 
   return (
     <div
@@ -66,7 +72,6 @@ export const SettingsModal: React.FC = () => {
         {/* 顶栏：标题 + 关闭 */}
         <div className="relative flex items-start justify-between gap-3 pb-3 mb-3 border-b border-[#362f25]">
           <div>
-        
             <h3 className="text-lg sm:text-xl font-bold font-serif text-[#ebdcc5] tracking-wider">
               设 置
             </h3>
@@ -81,24 +86,45 @@ export const SettingsModal: React.FC = () => {
           </button>
         </div>
 
-        {/* 五个入口 */}
+        {/* 入口列表：个人中心 / 帮助 / B 站 / 开源地址 */}
         <div className="relative flex flex-col gap-2">
-          {entries.map((e) => (
-            <button
-              key={e.id}
-              id={`btn-settings-${e.id}`}
-              onClick={e.onClick}
-              className="flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border-2 border-[#332e27] bg-[#1a1816] hover:border-[#5b5142] active:translate-y-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)] cursor-pointer transition-all text-left"
-            >
-              <div className="min-w-0">
-                <div className="text-sm font-serif font-bold tracking-[0.2em] text-[#ded7cb] whitespace-nowrap">
-                  {e.title}
+          {entries.map((e) => {
+            const inner = (
+              <>
+                <div className="min-w-0">
+                  <div className="text-sm font-serif font-bold tracking-[0.2em] text-[#ded7cb] whitespace-nowrap">
+                    {e.title}
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-serif text-[#8a7a63] truncate">
+                    {e.desc}
+                  </div>
                 </div>
-                <div className="mt-0.5 text-[10px] font-serif text-[#8a7a63] truncate">{e.desc}</div>
-              </div>
-              <e.Icon size={18} className="text-[#8c8273] flex-shrink-0" />
-            </button>
-          ))}
+                <e.Icon size={18} className="text-[#8c8273] flex-shrink-0" />
+              </>
+            );
+
+            return e.href ? (
+              <a
+                key={e.id}
+                id={`btn-settings-${e.id}`}
+                href={e.href}
+                target="_blank"
+                rel="noreferrer"
+                className={entryClass}
+              >
+                {inner}
+              </a>
+            ) : (
+              <button
+                key={e.id}
+                id={`btn-settings-${e.id}`}
+                onClick={e.onClick}
+                className={entryClass}
+              >
+                {inner}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

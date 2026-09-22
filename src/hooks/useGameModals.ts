@@ -25,15 +25,13 @@ export interface GameModalsState {
   tribulationHall: Disclosure;
   /** 称号详情（当前称号 + 最近的几个修仙等级） */
   title: Disclosure;
-  /** 设置面板（个人中心 / 作者 / 帮助 / 修改数据 / 重修 五个入口） */
+  /** 设置面板（个人中心 / 帮助 / B 站 / 开源地址 四个入口） */
   settings: Disclosure;
   /** 个人中心（账号信息；未登录时复用登录注册面板） */
   userCenter: Disclosure;
-  /** 作者（署名与作品信息） */
-  author: Disclosure;
-  /** 帮助文档（玩法指引） */
+  /** 帮助文档（内容取自 README） */
   help: Disclosure;
-  /** 修改数据（数值 / 点数设定与重置） */
+  /** 修改数据（数值 / 点数设定与重置）：入口已在设置面板隐藏，弹窗保留备调试 */
   editData: Disclosure;
   /** 重修道途二次确认（清空存档与全部进度，不可恢复） */
   resetConfirm: Disclosure;
@@ -59,7 +57,6 @@ export function useGameModals(): GameModalsState {
     title: useDisclosure(),
     settings: useDisclosure(),
     userCenter: useDisclosure(),
-    author: useDisclosure(),
     help: useDisclosure(),
     editData: useDisclosure(),
     resetConfirm: useDisclosure(),
