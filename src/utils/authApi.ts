@@ -149,5 +149,20 @@ export async function saveGameToServer(
   if (!res.ok) throw new Error(`存档上报失败: ${res.status}`);
 }
 
+/**
+ * 彻底注销云端账号：POST /api/user/delete（报文加密签名，token 校验归属）。
+ * 删除服务端的账号记录、云端存档与排行榜成绩，令牌随即失效。
+ * 供「重置游戏数据」调用：本地清除前尽力执行，失败由调用方决定是否继续。
+ */
+export async function deleteAccount(token: string): Promise<void> {
+  const env = await sealEnvelope({}, token);
+  const res = await fetch(`${API_BASE}/user/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ env }),
+  });
+  if (!res.ok) throw new Error(`账号注销失败: ${res.status}`);
+}
+
 /** 昵称默认值（注册时兜底，与后端一致） */
 export { DEFAULT_NICKNAME };

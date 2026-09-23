@@ -66,7 +66,7 @@ export interface OfflineGainReport {
   truncatedByCap: boolean;
 }
 
-/** 登录账号（排行榜登顶用） */
+/** 登录账号（排行榜登录用） */
 export interface UserAccountData {
   userId: string;
   userName: string;
@@ -146,7 +146,7 @@ export interface GameState {
    * - 其余属性：放大永劫殿对应属性的累计加成，倍数 2、3、4、5、6…（线性）
    */
   afterlifeUpgradeLevels: Record<UpgradeId, number>;
-  /** 登录账号与已选大区（登顶榜单用，null = 未登录） */
+  /** 登录账号与已选大区（榜单登录用，null = 未登录） */
   account: UserAccountData | null;
   /** 上次登录的账号密码与昵称（登录界面直接复用，不再重新生成） */
   lastCredentials: LoginCredentials | null;

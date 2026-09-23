@@ -49,7 +49,7 @@ import {
 import { resetToInitialState, resetUpgradeLevels } from '../utils/state';
 import { buildSaveSnapshot, clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { getServerNow, syncServerTime } from '../utils/serverTime';
-import { saveGameToServer } from '../utils/authApi';
+import { deleteAccount, saveGameToServer } from '../utils/authApi';
 import {
   ACHIEVEMENTS,
   AUTO_UNLOCK_COST,
@@ -1176,7 +1176,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     []
   );
 
-  /** 排行·登顶：注册/登录成功，记录账号（登录不设门槛） */
+  /** 排行·登录：注册/登录成功，记录账号（登录不设门槛） */
   const handleLogin = useCallback(
     (account: UserAccountData) => {
       setState((prev) => ({ ...prev, account }));
@@ -1185,7 +1185,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     [addToast]
   );
 
-  /** 排行·登顶：退出登录（保留历史账号密码，便于再次登录） */
+  /** 排行·登录：退出登录（保留历史账号密码，便于再次登录） */
   const handleLogout = useCallback(() => {
     let done = false;
     setState((prev) => {
@@ -1204,7 +1204,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     if (done) addToast('退出登录', '已退出当前账号 · 账号密码已留存');
   }, [addToast]);
 
-  /** 排行·登顶：入驻大区（信息已由接口层上报后台） */
+  /** 排行·登录：入驻大区（信息已由接口层上报后台） */
   const handleSelectRegion = useCallback(
     (regionId: string, regionName: string) => {
       setState((prev) =>
@@ -1552,6 +1552,22 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     window.location.reload();
   }, []);
 
+  /**
+   * 重置游戏数据：彻底清除本地与云端的一切数据。
+   * - 登录状态下先注销云端账号（POST /api/user/delete：账号 / 云存档 / 榜上成绩，令牌失效）；
+   *   删除失败不阻断本地清除——旧账号若仍在云端，登录后可再次执行清除；
+   * - 再复用 resetProgress 清空本地存档并重载页面。
+   */
+  const wipeAllData = useCallback(async () => {
+    const account = stateRef.current.account;
+    try {
+      if (account?.token) await deleteAccount(account.token);
+    } catch {
+      // 云端注销失败也继续本地清除
+    }
+    resetProgress();
+  }, [resetProgress]);
+
   /** 设置：重置往生殿升级（各属性 / 永劫点上限等级归零，不返还已消耗的往生点） */
   const resetAfterlifeUpgrades = useCallback(() => {
     const prev = stateRef.current;
@@ -1651,6 +1667,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     confirmRebirth,
     confirmCollapse,
     resetProgress,
+    wipeAllData,
     resetAfterlifeUpgrades,
     resetCollapseUpgrades,
     resetRebirthUpgrades,

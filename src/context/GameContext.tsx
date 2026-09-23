@@ -82,6 +82,8 @@ export interface GameActions {
   confirmCollapse: () => void;
   dismissOfflineReport: () => void;
   resetProgress: () => void;
+  /** 重置游戏数据：注销云端账号（若登录）+ 清空本地存档并重载 */
+  wipeAllData: () => Promise<void>;
   resetAfterlifeUpgrades: () => void;
   resetCollapseUpgrades: () => void;
   resetRebirthUpgrades: () => void;
@@ -173,6 +175,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     confirmRebirth,
     confirmCollapse,
     resetProgress,
+    wipeAllData,
     resetAfterlifeUpgrades,
     resetCollapseUpgrades,
     resetRebirthUpgrades,
@@ -247,6 +250,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       confirmCollapse,
       dismissOfflineReport,
       resetProgress,
+      wipeAllData,
       resetAfterlifeUpgrades,
       resetCollapseUpgrades,
       resetRebirthUpgrades,
@@ -296,6 +300,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       confirmCollapse,
       dismissOfflineReport,
       resetProgress,
+      wipeAllData,
       resetAfterlifeUpgrades,
       resetCollapseUpgrades,
       resetRebirthUpgrades,

@@ -1,8 +1,8 @@
 import { BigNum } from './bigNumber';
 import { BigNumData } from '../types';
 
-/** 榜单类型：数值 / 时长 / 重生次数 / 累计点击 */
-export type LeaderboardId = 'value' | 'playTime' | 'rebirth' | 'clicks';
+/** 榜单类型：数值 / 时长 / 累计点击 */
+export type LeaderboardId = 'value' | 'playTime' | 'clicks';
 
 /** 榜单玩家档案（点击榜单条目后展示） */
 export interface PlayerProfile {

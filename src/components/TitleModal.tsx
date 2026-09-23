@@ -57,7 +57,12 @@ export const TitleModal: React.FC = () => {
       {/* 时间线 */}
       <div className="flex flex-col">
         {ranks.map((r, idx) => (
-          <div key={`${idx}-${r.name}`} className="flex items-center gap-3">
+          <div
+            key={`${idx}-${r.name}`}
+            className="flex items-center gap-3"
+            // 仅当前阶段保留彩色；其余所有颜色（背景/圆点/边框/文本）统一用滤镜去色变灰
+            style={r.current ? undefined : { filter: 'grayscale(1)' }}
+          >
             {/* 节点列：上下半段连线 + 节点圆点 */}
             <div className="relative flex h-14 w-4 flex-shrink-0 items-center justify-center">
               {idx > 0 && (
@@ -82,12 +87,11 @@ export const TitleModal: React.FC = () => {
                     : 'bg-[#1a1816] border-[#2b2721]'
               }`}
             >
-              {/* 各档境界一律用自身色；未达成者仅压暗，不再整行褪色 */}
+              {/* 当前阶段保留专属色与高亮；非当前文本随整条被 grayscale 滤镜去色变灰 */}
               <span
                 className="font-serif font-bold text-sm truncate"
                 style={{
                   color: r.color,
-                  opacity: r.current ? 1 : r.achieved ? 0.9 : 0.6,
                   textShadow: r.current ? '0 0 8px rgba(0,0,0,0.9)' : undefined,
                 }}
               >

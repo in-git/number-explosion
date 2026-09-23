@@ -24,7 +24,6 @@ const BOARDS: Record<
 > = {
   value: { score: 'highest_value_score', value: 'big', m: 'highest_value_m', e: 'highest_value_e' },
   playTime: { score: 'play_time_ms', value: 'num', num: 'play_time_ms' },
-  rebirth: { score: 'rebirth_count', value: 'num', num: 'rebirth_count' },
   clicks: { score: 'click_count', value: 'num', num: 'click_count' },
 };
 
@@ -88,11 +87,23 @@ export function queryLeaderboard(board: LeaderboardId, userId: string | null): L
 
   // 登榜由后端控制：须达「炼气」境（最高数值 ≥ 1 亿）才出现在榜上。
   // 注册只创建账号，未达境界的玩家一律不占榜位；达标后自动上榜。
+  // 成绩独立在 user_stats 表，JOIN users 仅取昵称；不再 SELECT * 读取 password_hash / token
   const rows = db
     .prepare(
-      `SELECT * FROM users
-       WHERE highest_value_score >= ?
-       ORDER BY ${col.score} DESC, updated_at ASC
+      `SELECT
+         s.user_id                  AS id,
+         u.nickname                 AS nickname,
+         s.crit_chance,  s.crit_multiplier,
+         s.combo_chance, s.combo_multiplier,
+         s.rebirth_count, s.collapse_points,
+         s.play_time_ms,  s.click_count,
+         s.highest_value_m, s.highest_value_e,
+         s.total_spent_m,  s.total_spent_e,
+         s.game_cleared
+       FROM user_stats s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.highest_value_score >= ?
+       ORDER BY s.${col.score} DESC, s.updated_at ASC
        LIMIT ?`
     )
     .all(LEADERBOARD_MIN_SCORE, LEADERBOARD_LIMIT) as unknown as UserRow[];
@@ -102,13 +113,13 @@ export function queryLeaderboard(board: LeaderboardId, userId: string | null): L
   let selfRank: number | null = null;
   if (userId) {
     const me = db
-      .prepare(`SELECT highest_value_score AS score FROM users WHERE id = ?`)
+      .prepare(`SELECT highest_value_score AS score FROM user_stats WHERE user_id = ?`)
       .get(userId) as { score: number } | undefined;
     // 本人未达「炼气」境时不返回名次
     if (me && me.score >= LEADERBOARD_MIN_SCORE) {
       const better = db
         .prepare(
-          `SELECT COUNT(*) AS c FROM users WHERE highest_value_score >= ? AND ${col.score} > ?`
+          `SELECT COUNT(*) AS c FROM user_stats WHERE highest_value_score >= ? AND ${col.score} > ?`
         )
         .get(LEADERBOARD_MIN_SCORE, me.score) as { c: number };
       selfRank = Number(better.c) + 1;
@@ -142,15 +153,32 @@ function optionalNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** 写入/更新玩家成绩（regionId 为 null 时不改动原大区；属性为缺省时保留原值） */
+/**
+ * 写入/更新玩家成绩。
+ * 账号字段（昵称 / 大区）留在 users 表；榜单刻度列独立写入 user_stats 表。
+ * regionId 为 null 时不改动原大区；属性为缺省时保留原值。
+ */
 export function updateUserStats(patch: StatsPatch): void {
   const highest = readBigNumData(patch.highestValue);
   const spent = readBigNumData(patch.totalSpent);
 
+  // 账号侧字段
   db.prepare(
     `UPDATE users SET
        nickname = COALESCE(?, nickname),
        region_id = COALESCE(?, region_id),
+       updated_at = ?
+     WHERE id = ?`
+  ).run(
+    typeof patch.nickname === 'string' && patch.nickname.trim() ? patch.nickname.trim() : null,
+    typeof patch.regionId === 'string' ? patch.regionId : null,
+    Date.now(),
+    patch.userId
+  );
+
+  // 榜单成绩侧字段
+  db.prepare(
+    `UPDATE user_stats SET
        crit_chance = COALESCE(?, crit_chance),
        crit_multiplier = COALESCE(?, crit_multiplier),
        combo_chance = COALESCE(?, combo_chance),
@@ -167,10 +195,8 @@ export function updateUserStats(patch: StatsPatch): void {
        total_spent_score = ?,
        game_cleared = MAX(game_cleared, ?),
        updated_at = ?
-     WHERE id = ?`
+     WHERE user_id = ?`
   ).run(
-    typeof patch.nickname === 'string' && patch.nickname.trim() ? patch.nickname.trim() : null,
-    typeof patch.regionId === 'string' ? patch.regionId : null,
     optionalNum(patch.critChance),
     optionalNum(patch.critMultiplier),
     optionalNum(patch.comboChance),

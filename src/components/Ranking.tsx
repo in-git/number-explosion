@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { BigNumData } from '../types';
-import { useGameActions, useGameData } from '../context/GameContext';
-import { AuthPanel } from './AuthPanel';
+import { useGameData } from '../context/GameContext';
 import { formatDuration } from '../utils/serverTime';
 import {
   LeaderboardEntry,
@@ -12,13 +11,11 @@ import {
   SELF_USER_ID,
   fetchLeaderboard,
 } from '../utils/leaderboardApi';
-import { useDefaultRegion } from '../hooks/useDefaultRegion';
 
-/** tabbar：数值排行 在前，其后时长、重生、连点 */
+/** tabbar：数值排行 在前，其后时长、连点 */
 const BOARD_TABS: { id: LeaderboardId; label: string }[] = [
   { id: 'value', label: '数值排行' },
   { id: 'playTime', label: '时长排行' },
-  { id: 'rebirth', label: '重生排行' },
   { id: 'clicks', label: '连点排行' },
 ];
 
@@ -81,20 +78,12 @@ const ProfileCard: React.FC<{ name: string; profile: PlayerProfile }> = ({ name,
 /** 排行榜：数据全部来自后端接口（GET /api/leaderboard） */
 export const Ranking: React.FC = () => {
   const { state } = useGameData();
-  const {
-    handleLogin: onLogin,
-    handleLogout: onLogout,
-    handleSelectRegion: onRegionSelected,
-  } = useGameActions();
 
   const [board, setBoard] = useState<LeaderboardId>('value');
-  const [showAuth, setShowAuth] = useState(false);
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<LeaderboardEntry | null>(null);
-  // 进入排行即确定默认大区（最新大区），与个人中心共用同一 Hook
-  const defaultRegion = useDefaultRegion();
 
   /** 身份：登录 / 退出后 userId 变化，需要重新拉取（服务端据此标出本人名次） */
   const selfUserId = state.account?.userId ?? SELF_USER_ID;
@@ -149,24 +138,10 @@ export const Ranking: React.FC = () => {
     };
   }, [board, selfUserId]);
 
-  // 登录注册 / 选择大区流程
-  if (showAuth) {
-    return (
-      <AuthPanel
-        state={state}
-        defaultRegionId={defaultRegion?.id ?? null}
-        defaultRegionName={defaultRegion?.name ?? null}
-        onLogin={onLogin}
-        onRegionSelected={onRegionSelected}
-        onBack={() => setShowAuth(false)}
-      />
-    );
-  }
-
   return (
     <div className="flex flex-col gap-2">
-      {/* tabbar：数值 / 时长 / 重生 / 连点 */}
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* tabbar：数值 / 时长 / 连点 */}
+      <div className="grid grid-cols-3 gap-1.5">
         {BOARD_TABS.map((t) => (
           <button
             key={t.id}
@@ -251,27 +226,6 @@ export const Ranking: React.FC = () => {
             —— 榜上无名 · 静待来者 ——
           </div>
         )}
-      </div>
-
-      {/* 底部悬浮：登顶（须达「炼气」境） */}
-      <div className="sticky bottom-0 pt-2 -mx-1 px-1 pb-1">
-        <button
-          id="btn-rank-ascend"
-          onClick={() => {
-            if (state.account) {
-              onLogout();
-              return;
-            }
-            setShowAuth(true);
-          }}
-          className={`w-full py-3 rounded-xl border-2 text-sm font-serif font-bold tracking-[0.2em] text-[#f5ebd7] shadow-[0_6px_18px_rgba(0,0,0,0.7)] cursor-pointer active:translate-y-0.5 transition-all ${
-            state.account
-              ? 'border-[#5a2f2f] bg-[#3d1f1f] hover:bg-[#4d2828]'
-              : 'border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c]'
-          }`}
-        >
-          {state.account ? '退 出 登 录' : '登 顶'}
-        </button>
       </div>
     </div>
   );

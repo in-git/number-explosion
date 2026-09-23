@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, CircleUserRound, Github, Tv, User } from 'lucide-react';
+import { BookOpen, CircleUserRound, Github, Trash2, Tv, User } from 'lucide-react';
 import { useModals } from '../context/GameContext';
 
 /** 外链入口 */
@@ -24,6 +24,8 @@ export const SettingsModal: React.FC = () => {
     /** 二选一：onClick 打开弹窗，href 在新标签页打开外链 */
     onClick?: () => void;
     href?: string;
+    /** 高危项：红色警示样式（如「重置游戏数据」） */
+    danger?: boolean;
   }[] = [
     {
       id: 'personal-center',
@@ -53,10 +55,21 @@ export const SettingsModal: React.FC = () => {
       Icon: Github,
       href: GITHUB_URL,
     },
+    {
+      id: 'wipe-all',
+      title: '重 置 游 戏 数 据',
+      desc: '彻底清除本地与云端数据 · 不可恢复',
+      Icon: Trash2,
+      onClick: modals.wipeConfirm.open,
+      danger: true,
+    },
   ];
 
   const entryClass =
     'flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border-2 border-[#332e27] bg-[#1a1816] hover:border-[#5b5142] active:translate-y-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)] cursor-pointer transition-all text-left';
+  // 高危项（重置游戏数据）：红色警示，与常规入口拉开视觉距离
+  const dangerClass =
+    'flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border-2 border-[#5a2f2f] bg-[#1a1412] hover:border-[#8a4040] active:translate-y-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)] cursor-pointer transition-all text-left';
 
   return (
     <div
@@ -99,7 +112,10 @@ export const SettingsModal: React.FC = () => {
                     {e.desc}
                   </div>
                 </div>
-                <e.Icon size={18} className="text-[#8c8273] flex-shrink-0" />
+                <e.Icon
+                  size={18}
+                  className={`flex-shrink-0 ${e.danger ? 'text-[#b25454]' : 'text-[#8c8273]'}`}
+                />
               </>
             );
 
@@ -119,7 +135,7 @@ export const SettingsModal: React.FC = () => {
                 key={e.id}
                 id={`btn-settings-${e.id}`}
                 onClick={e.onClick}
-                className={entryClass}
+                className={e.danger ? dangerClass : entryClass}
               >
                 {inner}
               </button>

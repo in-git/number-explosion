@@ -40,6 +40,8 @@ export interface GameModalsState {
   firstEntry: Disclosure;
   /** 通关提示（数值达 1ssr 时弹一次，可随时关闭） */
   cleared: Disclosure;
+  /** 重置游戏数据（彻底清除本地 + 云端）确认弹窗 */
+  wipeConfirm: Disclosure;
 }
 
 export function useGameModals(): GameModalsState {
@@ -62,6 +64,7 @@ export function useGameModals(): GameModalsState {
   const resetConfirm = useDisclosure();
   const firstEntry = useDisclosure();
   const cleared = useDisclosure();
+  const wipeConfirm = useDisclosure();
 
   // 引用稳定：返回新对象会让 ModalsContext 的所有消费方（含依赖 modals 的 effect）每帧重跑
   return useMemo(
@@ -85,6 +88,7 @@ export function useGameModals(): GameModalsState {
       resetConfirm,
       firstEntry,
       cleared,
+      wipeConfirm,
     }),
     [
       upgradeShop,
@@ -106,6 +110,7 @@ export function useGameModals(): GameModalsState {
       resetConfirm,
       firstEntry,
       cleared,
+      wipeConfirm,
     ]
   );
 }

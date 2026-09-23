@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameActions, useGameData, useModals } from '../context/GameContext';
 import { useDefaultRegion } from '../hooks/useDefaultRegion';
 import { AuthPanel } from './AuthPanel';
+import { RegionPanel } from './RegionPanel';
 import { BigNum } from '../utils/bigNumber';
 import { formatDuration } from '../utils/serverTime';
 import { getTitle } from '../utils/title';
 import { TRIBULATION_MAX_COUNT } from '../utils/gameMath';
+import { fetchRegions, Region } from '../utils/authApi';
 
 const CARD = 'rounded-lg border border-[#3b3429] bg-[#211d18] px-3 py-2.5';
 const LABEL = 'text-[11px] font-serif text-[#8fa6bd] mb-1.5';
@@ -40,13 +42,45 @@ export const UserCenter: React.FC = () => {
   const modals = useModals();
   const defaultRegion = useDefaultRegion();
 
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [showRegionPanel, setShowRegionPanel] = useState(false);
   const account = state.account;
 
-  // 未登录：跳转登录注册（与排行榜同一套面板与流程）
+  // 拉取大区列表，供登录时手动选区
+  useEffect(() => {
+    let cancelled = false;
+    fetchRegions()
+      .then((list) => {
+        if (!cancelled) setRegions(list);
+      })
+      .catch(() => {
+        /* 拉取失败时回退到默认大区，不阻断登录 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 已登录但进入了「切换大区」子页：复用排行榜的大区选择面板
+  if (account && showRegionPanel) {
+    return (
+      <RegionPanel
+        state={state}
+        onRegionSelected={(rid, rname) => {
+          handleSelectRegion(rid, rname);
+          setShowRegionPanel(false);
+        }}
+        onBack={() => setShowRegionPanel(false)}
+      />
+    );
+  }
+
+  // 未登录：跳转登录注册（与排行榜同一套面板与流程），支持手动输入账号密码与选区
   if (!account) {
     return (
       <AuthPanel
         state={state}
+        regions={regions}
         defaultRegionId={defaultRegion?.id ?? null}
         defaultRegionName={defaultRegion?.name ?? null}
         onLogin={handleLogin}
@@ -97,6 +131,15 @@ export const UserCenter: React.FC = () => {
           账号密码本地留存 · 换设备凭此登录即可找回进度
         </div>
       </div>
+
+      {/* 切换大区：已登录也可重新选区 */}
+      <button
+        id="btn-usercenter-switch-region"
+        onClick={() => setShowRegionPanel(true)}
+        className="w-full py-2.5 rounded-lg border border-[#3b3429] bg-[#241f1a] hover:bg-[#2e2821] text-xs font-serif text-[#a69c8c] cursor-pointer active:translate-y-0.5 transition-all"
+      >
+        切 换 大 区
+      </button>
 
       {/* 历世之迹 */}
       <div className={CARD}>

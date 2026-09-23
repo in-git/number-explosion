@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db, SAVE_MAX_CHARS, upsertSave, userIdByToken } from '../db.js';
+import { db, deleteAccount, SAVE_MAX_CHARS, upsertSave, userIdByToken } from '../db.js';
 import type { SaveSyncPayload, UserSyncPayload } from '../types.js';
 import {
   isBoard,
@@ -76,5 +76,20 @@ userRouter.post('/save', (req, res) => {
   // 成绩同步：每次存档入库时由服务端从存档提取游玩成绩并更新榜单数据。
   // 登榜与否由查询条件（click_count > 0）决定，前端不做任何「登榜」操作。
   syncStatsFromSave(userId, body.save);
+  res.json({ ok: true });
+});
+
+/** 彻底注销账号：POST /api/user/delete（加密签名 + token 校验归属；删除账号 / 云存档，令牌随之失效） */
+userRouter.post('/delete', (req, res) => {
+  try {
+    openEnvelope((req.body ?? {}).env);
+  } catch (err) {
+    return res.status(403).json({ error: err instanceof EnvelopeError ? err.message : '报文校验失败' });
+  }
+
+  const userId = userIdByToken(((req.body.env as { token?: string })?.token) ?? '');
+  if (!userId) return res.status(401).json({ error: '令牌无效' });
+
+  deleteAccount(userId);
   res.json({ ok: true });
 });

@@ -18,6 +18,7 @@ import { UserCenter } from './UserCenter';
 import { HelpModal } from './HelpModal';
 import { EditDataModal } from './EditDataModal';
 import { ResetConfirmModal } from './ResetConfirmModal';
+import { WipeConfirmModal } from './WipeConfirmModal';
 import { FirstEntryModal } from './FirstEntryModal';
 import { GameClearedModal } from './GameClearedModal';
 
@@ -142,9 +143,10 @@ export const GameModals: React.FC = () => {
         <UserCenter />
       </ModalShell>
 
-      {/* 帮助 / 重修确认：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
+      {/* 帮助 / 重修确认 / 数据重置：各自独立弹窗，叠在设置之上，关闭后回到设置 */}
       <HelpModal />
       <ResetConfirmModal />
+      <WipeConfirmModal />
 
       {/* 修改数据：入口已从设置面板隐藏，弹窗保留（需要时把入口挂回 SettingsModal 即可） */}
       <EditDataModal />
