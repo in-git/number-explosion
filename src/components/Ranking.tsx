@@ -13,7 +13,6 @@ import {
   fetchLeaderboard,
 } from '../utils/leaderboardApi';
 import { useDefaultRegion } from '../hooks/useDefaultRegion';
-import { canAscendRank } from '../utils/title';
 
 /** tabbar：数值排行 在前，其后时长、重生、连点 */
 const BOARD_TABS: { id: LeaderboardId; label: string }[] = [
@@ -263,25 +262,16 @@ export const Ranking: React.FC = () => {
               onLogout();
               return;
             }
-            // 道行不足：下方已有门槛提示，此处不再重复提示
-            if (!canAscendRank(state)) return;
             setShowAuth(true);
           }}
           className={`w-full py-3 rounded-xl border-2 text-sm font-serif font-bold tracking-[0.2em] text-[#f5ebd7] shadow-[0_6px_18px_rgba(0,0,0,0.7)] cursor-pointer active:translate-y-0.5 transition-all ${
             state.account
               ? 'border-[#5a2f2f] bg-[#3d1f1f] hover:bg-[#4d2828]'
-              : canAscendRank(state)
-                ? 'border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c]'
-                : 'border-[#4a3a3a] bg-[#2b2020] opacity-70'
+              : 'border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c]'
           }`}
         >
           {state.account ? '退 出 登 录' : '登 顶'}
         </button>
-        {!state.account && !canAscendRank(state) && (
-          <div className="mt-1 text-center text-[10px] font-serif text-[#d99797]">
-            登顶需达「炼气」境 · 最高数值 ≥ 1亿
-          </div>
-        )}
       </div>
     </div>
   );

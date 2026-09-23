@@ -10,6 +10,13 @@ import { readBigNumData, scoreOf, toBigNumData } from '../utils/bignum.js';
 /** 榜单最多返回条数（与前端一致） */
 const LEADERBOARD_LIMIT = 6;
 
+/**
+ * 登榜门槛（log10 刻度）：须达第一个修仙境界「炼气」——最高数值 ≥ 1 亿（10^8）。
+ * 未达境界的玩家（含纯注册号）不出现在榜上，也不计名次。
+ * highest_value_score = e + log10(m)，≥ 8 即表示最高数值 ≥ 10^8。
+ */
+const LEADERBOARD_MIN_SCORE = 8;
+
 /** 榜单排序依据 */
 const BOARDS: Record<
   LeaderboardId,
@@ -79,29 +86,31 @@ function toEntry(row: UserRow, board: LeaderboardId, rank: number): LeaderboardE
 export function queryLeaderboard(board: LeaderboardId, userId: string | null): LeaderboardResponse {
   const col = BOARDS[board];
 
-  // 登榜由后端控制：仅「有过真实游玩成绩」（累计点击 > 0）的玩家出现在榜上。
-  // 注册只创建账号，纯注册号（成绩全 0）不占榜位；一旦玩家真正游玩并上报成绩，自动上榜。
+  // 登榜由后端控制：须达「炼气」境（最高数值 ≥ 1 亿）才出现在榜上。
+  // 注册只创建账号，未达境界的玩家一律不占榜位；达标后自动上榜。
   const rows = db
     .prepare(
       `SELECT * FROM users
-       WHERE click_count > 0
+       WHERE highest_value_score >= ?
        ORDER BY ${col.score} DESC, updated_at ASC
        LIMIT ?`
     )
-    .all(LEADERBOARD_LIMIT) as unknown as UserRow[];
+    .all(LEADERBOARD_MIN_SCORE, LEADERBOARD_LIMIT) as unknown as UserRow[];
 
   const entries = rows.map((row, i) => toEntry(row, board, i + 1));
 
   let selfRank: number | null = null;
   if (userId) {
     const me = db
-      .prepare(`SELECT click_count, ${col.score} AS score FROM users WHERE id = ?`)
-      .get(userId) as { click_count: number; score: number } | undefined;
-    // 本人尚未登榜（无游玩成绩）时不返回名次
-    if (me && me.click_count > 0) {
+      .prepare(`SELECT highest_value_score AS score FROM users WHERE id = ?`)
+      .get(userId) as { score: number } | undefined;
+    // 本人未达「炼气」境时不返回名次
+    if (me && me.score >= LEADERBOARD_MIN_SCORE) {
       const better = db
-        .prepare(`SELECT COUNT(*) AS c FROM users WHERE click_count > 0 AND ${col.score} > ?`)
-        .get(me.score) as { c: number };
+        .prepare(
+          `SELECT COUNT(*) AS c FROM users WHERE highest_value_score >= ? AND ${col.score} > ?`
+        )
+        .get(LEADERBOARD_MIN_SCORE, me.score) as { c: number };
       selfRank = Number(better.c) + 1;
     }
   }

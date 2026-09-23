@@ -47,7 +47,6 @@ import {
   TribulationOutcome,
 } from '../utils/gameMath';
 import { resetToInitialState, resetUpgradeLevels } from '../utils/state';
-import { canAscendRank } from '../utils/title';
 import { buildSaveSnapshot, clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { getServerNow, syncServerTime } from '../utils/serverTime';
 import { saveGameToServer } from '../utils/authApi';
@@ -1177,14 +1176,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     []
   );
 
-  /** 排行·登顶：注册/登录成功，记录账号（须达「炼气」境） */
+  /** 排行·登顶：注册/登录成功，记录账号（登录不设门槛） */
   const handleLogin = useCallback(
     (account: UserAccountData) => {
-      // 登顶门槛：最高数值须达 1 亿（炼气境）
-      if (!canAscendRank(stateRef.current)) {
-        addToast('登顶未成', '道行不足 · 需达「炼气」境（最高数值 1 亿）方可登顶');
-        return;
-      }
       setState((prev) => ({ ...prev, account }));
       addToast('天道留名', `账号「${account.userName}」已注册登录`);
     },
@@ -1210,14 +1204,9 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     if (done) addToast('退出登录', '已退出当前账号 · 账号密码已留存');
   }, [addToast]);
 
-  /** 排行·登顶：入驻大区（信息已由接口层上报后台，须达「炼气」境） */
+  /** 排行·登顶：入驻大区（信息已由接口层上报后台） */
   const handleSelectRegion = useCallback(
     (regionId: string, regionName: string) => {
-      // 登顶门槛：最高数值须达 1 亿（炼气境）
-      if (!canAscendRank(stateRef.current)) {
-        addToast('登顶未成', '道行不足 · 需达「炼气」境（最高数值 1 亿）方可登顶');
-        return;
-      }
       setState((prev) =>
         prev.account
           ? { ...prev, account: { ...prev.account, regionId, regionName } }

@@ -181,10 +181,3 @@ export function getTitle(state: GameState): TitleInfo {
     stageNum: infinite ? index - REALMS.length : 0,
   };
 }
-
-/** 排行·登顶门槛：须达到第一个境界「炼气」（最高数值 ≥ 1 亿） */
-export function canAscendRank(state: GameState): boolean {
-  const m = state.highestValue?.m ?? 0;
-  const e = state.highestValue?.e ?? 0;
-  return m > 0 && e >= FIRST_REALM_EXP;
-}

@@ -22,6 +22,7 @@ import {
   getRebirthCapBulkCost,
   planBulkBuy,
   planByAmountMode,
+  TRIBULATION_COST,
 } from '../utils/gameMath';
 import { UpgradeButton } from './UpgradeButton';
 
@@ -311,6 +312,7 @@ export const AfterlifeShop: React.FC = () => {
               </span>
             </div>
             <div className="text-[10px] text-[#998e7e] font-serif break-words mt-0.5">
+              渡劫条件：需要 {BigNum.fromNumber(TRIBULATION_COST).formatChinese(0)} 个往生点 ·
               成则飞升成仙，败则飞禽走兽
             </div>
           </div>
