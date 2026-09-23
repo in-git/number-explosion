@@ -11,7 +11,6 @@ import {
   PlayerProfile,
   SELF_USER_ID,
   fetchLeaderboard,
-  submitScore,
 } from '../utils/leaderboardApi';
 import { useDefaultRegion } from '../hooks/useDefaultRegion';
 import { canAscendRank } from '../utils/title';
@@ -95,32 +94,8 @@ export const Ranking: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<LeaderboardEntry | null>(null);
-  /** 上报成功后自增：仅作为「立即重新拉取一次」的信号 */
-  const [refreshTick, setRefreshTick] = useState(0);
   // 进入排行即确定默认大区（最新大区），与个人中心共用同一 Hook
   const defaultRegion = useDefaultRegion();
-
-  // 点入排行：已登录则上传一次个人数据，成功后立刻刷新一次（不必等下轮轮询）
-  useEffect(() => {
-    const account = state.account;
-    if (!account) return;
-    submitScore({
-      userId: account.userId,
-      userName: account.userName,
-      playTimeMs: state.playTimeMs || 0,
-      rebirthCount: state.rebirthCount || 0,
-      clickCount: state.totalClickCount || 0,
-      highestValue: state.highestValue,
-      gameCleared: state.gameCleared,
-      token: account.token,
-    })
-      .then(() => setRefreshTick((n) => n + 1))
-      .catch(() => {
-        /* 上报失败不影响浏览榜单 */
-      });
-    // 仅在进入排行时上报一次
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   /** 身份：登录 / 退出后 userId 变化，需要重新拉取（服务端据此标出本人名次） */
   const selfUserId = state.account?.userId ?? SELF_USER_ID;
@@ -173,7 +148,7 @@ export const Ranking: React.FC = () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [board, selfUserId, refreshTick]);
+  }, [board, selfUserId]);
 
   // 登录注册 / 选择大区流程
   if (showAuth) {

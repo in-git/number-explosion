@@ -5,6 +5,7 @@ import {
   isBoard,
   patchFromPayload,
   queryLeaderboard,
+  syncStatsFromSave,
   updateUserStats,
 } from '../services/leaderboard.js';
 import { EnvelopeError, openEnvelope } from '../utils/seal.js';
@@ -20,22 +21,8 @@ leaderboardRouter.get('/', (req, res) => {
   res.json(queryLeaderboard(board, userId));
 });
 
-/** 上报成绩：POST /api/leaderboard/score（报文须加密签名，且 token 须有效） */
-leaderboardRouter.post('/score', (req, res) => {
-  let payload: unknown;
-  try {
-    payload = openEnvelope((req.body ?? {}).env);
-  } catch (err) {
-    return res.status(403).json({ error: err instanceof EnvelopeError ? err.message : '报文校验失败' });
-  }
-
-  const userId = userIdByToken(((req.body.env as { token?: string })?.token) ?? '');
-  if (!userId) return res.status(401).json({ error: '令牌无效' });
-
-  updateUserStats(patchFromPayload({ ...(payload as Partial<UserSyncPayload>), userId }));
-
-  res.json({ ok: true });
-});
+// 成绩上报已并入云存档通道：POST /api/user/save 每次入库时由服务端从存档
+// 提取游玩成绩并更新榜单数据，不再提供独立的 /api/leaderboard/score。
 
 export const userRouter: Router = Router();
 
@@ -86,5 +73,8 @@ userRouter.post('/save', (req, res) => {
   }
 
   upsertSave(userId, data);
+  // 成绩同步：每次存档入库时由服务端从存档提取游玩成绩并更新榜单数据。
+  // 登榜与否由查询条件（click_count > 0）决定，前端不做任何「登榜」操作。
+  syncStatsFromSave(userId, body.save);
   res.json({ ok: true });
 });

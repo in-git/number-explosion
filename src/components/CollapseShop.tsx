@@ -171,7 +171,6 @@ export const CollapseShop: React.FC = () => {
           bulkDisabled={!canExchangeAll}
           onSingle={() => onExchangeRebirthToCollapse(1)}
           onBulk={(times) => onExchangeRebirthToCollapse(amountMode === 'max' ? 'all' : times)}
-          longPress={false}
           ariaLabel="点化坍缩"
         />
       </div>

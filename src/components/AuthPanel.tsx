@@ -33,8 +33,9 @@ interface AuthPanelProps {
 const CARD = 'rounded-lg border border-[#3b3429] bg-[#211d18] px-2.5 py-2.5';
 
 /**
- * 登录注册：账号密码自动生成，昵称必填（展示在排行榜上）
- * 注册登录成功后立即将用户数据上报至默认（最新）大区
+ * 登录注册：账号密码自动生成，昵称必填（展示在排行榜上）。
+ * 注册 / 登录只创建账号并默认入驻最新大区，不等于登榜；
+ * 登榜由服务端控制：有真实游玩成绩后自动出现在榜上。
  */
 export const AuthPanel: React.FC<AuthPanelProps> = ({
   state,
@@ -145,9 +146,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           className="w-full px-2 py-1.5 rounded bg-[#0f1216] border border-[#2c3440] text-sm text-[#e3ded4] font-serif outline-none focus:border-[#5b8db8]"
         />
         {nickname.trim() === '' && (
-          <div className="text-[10px] font-serif text-[#d99797] mt-1">
-            昵称不可为空，未填写将无法登顶榜单
-          </div>
+          <div className="text-[10px] font-serif text-[#d99797] mt-1">昵称不可为空</div>
         )}
       </div>
       <div className={CARD}>
@@ -173,7 +172,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           {defaultRegionName ?? (defaultRegionId ? defaultRegionId : '加载中…')}
         </div>
         <div className="text-[10px] font-serif text-[#7d7364] mt-0.5">
-          进入排行即默认加入最新大区 · 登录后自动上报数据
+          注册后默认加入最新大区 · 有游玩成绩后由服务端自动上榜
         </div>
       </div>
 
@@ -205,7 +204,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           disabled={loading || nickname.trim() === ''}
           className="flex-1 py-2.5 rounded-lg border-2 border-[#8a653f] bg-[#543b23] hover:bg-[#694a2c] text-xs font-serif font-bold text-[#f5ebd7] cursor-pointer active:translate-y-0.5 disabled:cursor-not-allowed"
         >
-          {loading ? '上报中…' : '登录并上榜'}
+          {loading ? '登录中…' : '登 录'}
         </button>
       </div>
     </div>

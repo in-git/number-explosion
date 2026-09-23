@@ -205,7 +205,18 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       cloudSavePendingRef.current = true;
 
-      const snapshot = buildSaveSnapshot(stateRef.current, bigNumRef.current.toData());
+      // 快照附带计算后的战斗属性：存档本体只有升级等级等原始参数，
+      // 后端从存档同步成绩时直接取用，避免在后端重算属性公式
+      const attrs = calculateGameAttributes(stateRef.current);
+      const snapshot = {
+        ...buildSaveSnapshot(stateRef.current, bigNumRef.current.toData()),
+        attrs: {
+          critChance: attrs.critChance,
+          critMultiplier: attrs.critMultiplier,
+          comboChance: attrs.comboChance,
+          comboMultiplier: attrs.comboMultiplier,
+        },
+      };
       // 账号密码 / 令牌不随存档上报（二者与账号绑定，登录时另行下发）
       if (snapshot.account) {
         snapshot.account = { ...snapshot.account, password: '', token: '' };

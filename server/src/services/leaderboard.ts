@@ -79,9 +79,12 @@ function toEntry(row: UserRow, board: LeaderboardId, rank: number): LeaderboardE
 export function queryLeaderboard(board: LeaderboardId, userId: string | null): LeaderboardResponse {
   const col = BOARDS[board];
 
+  // 登榜由后端控制：仅「有过真实游玩成绩」（累计点击 > 0）的玩家出现在榜上。
+  // 注册只创建账号，纯注册号（成绩全 0）不占榜位；一旦玩家真正游玩并上报成绩，自动上榜。
   const rows = db
     .prepare(
       `SELECT * FROM users
+       WHERE click_count > 0
        ORDER BY ${col.score} DESC, updated_at ASC
        LIMIT ?`
     )
@@ -91,12 +94,13 @@ export function queryLeaderboard(board: LeaderboardId, userId: string | null): L
 
   let selfRank: number | null = null;
   if (userId) {
-    const me = db.prepare(`SELECT ${col.score} AS score FROM users WHERE id = ?`).get(userId) as
-      | { score: number }
-      | undefined;
-    if (me) {
+    const me = db
+      .prepare(`SELECT click_count, ${col.score} AS score FROM users WHERE id = ?`)
+      .get(userId) as { click_count: number; score: number } | undefined;
+    // 本人尚未登榜（无游玩成绩）时不返回名次
+    if (me && me.click_count > 0) {
       const better = db
-        .prepare(`SELECT COUNT(*) AS c FROM users WHERE ${col.score} > ?`)
+        .prepare(`SELECT COUNT(*) AS c FROM users WHERE click_count > 0 AND ${col.score} > ?`)
         .get(me.score) as { c: number };
       selfRank = Number(better.c) + 1;
     }
@@ -122,7 +126,14 @@ export interface StatsPatch {
   gameCleared?: unknown;
 }
 
-/** 写入/更新玩家成绩（regionId 为 null 时不改动原大区） */
+/** 可选数值：缺省时传 null，SQL 侧用 COALESCE 保留原值（如存档同步不覆盖入驻时上报的属性） */
+function optionalNum(v: unknown): number | null {
+  if (v === undefined || v === null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 写入/更新玩家成绩（regionId 为 null 时不改动原大区；属性为缺省时保留原值） */
 export function updateUserStats(patch: StatsPatch): void {
   const highest = readBigNumData(patch.highestValue);
   const spent = readBigNumData(patch.totalSpent);
@@ -131,10 +142,10 @@ export function updateUserStats(patch: StatsPatch): void {
     `UPDATE users SET
        nickname = COALESCE(?, nickname),
        region_id = COALESCE(?, region_id),
-       crit_chance = ?,
-       crit_multiplier = ?,
-       combo_chance = ?,
-       combo_multiplier = ?,
+       crit_chance = COALESCE(?, crit_chance),
+       crit_multiplier = COALESCE(?, crit_multiplier),
+       combo_chance = COALESCE(?, combo_chance),
+       combo_multiplier = COALESCE(?, combo_multiplier),
        rebirth_count = ?,
        collapse_points = ?,
        play_time_ms = ?,
@@ -151,10 +162,10 @@ export function updateUserStats(patch: StatsPatch): void {
   ).run(
     typeof patch.nickname === 'string' && patch.nickname.trim() ? patch.nickname.trim() : null,
     typeof patch.regionId === 'string' ? patch.regionId : null,
-    Number(patch.critChance) || 0,
-    Number(patch.critMultiplier) || 1,
-    Number(patch.comboChance) || 0,
-    Number(patch.comboMultiplier) || 1,
+    optionalNum(patch.critChance),
+    optionalNum(patch.critMultiplier),
+    optionalNum(patch.comboChance),
+    optionalNum(patch.comboMultiplier),
     Math.max(0, Math.floor(Number(patch.rebirthCount) || 0)),
     Math.max(0, Math.floor(Number(patch.collapsePoints) || 0)),
     Math.max(0, Math.floor(Number(patch.playTimeMs) || 0)),
@@ -189,4 +200,40 @@ export function patchFromPayload(body: Partial<UserSyncPayload>): StatsPatch {
     totalSpent: body.totalSpent,
     gameCleared: body.gameCleared,
   };
+}
+
+/**
+ * 从云存档（GameState 快照 JSON）提取游玩成绩并更新榜单数据。
+ * 由 POST /api/user/save 在每次存档入库时调用：成绩同步与云存档共用同一条
+ * 30s 通道，前端不单独上报成绩；是否登榜由 queryLeaderboard 的
+ * 条件（click_count > 0）决定，前端不做任何「登榜」操作。
+ * - 昵称取存档账号信息，空值时不覆盖
+ * - 暴击/连击属性取快照的 attrs（前端随存档附带计算结果）；缺省时保留原值
+ */
+export function syncStatsFromSave(userId: string, save: unknown): void {
+  if (!save || typeof save !== 'object') return;
+  const s = save as Record<string, unknown>;
+  const account = s.account as Record<string, unknown> | null | undefined;
+  const attrs = s.attrs as Record<string, unknown> | null | undefined;
+
+  const attr = (key: string): number | undefined => {
+    const v = attrs?.[key];
+    return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+  };
+
+  updateUserStats({
+    userId,
+    nickname: typeof account?.nickname === 'string' ? account.nickname : null,
+    critChance: attr('critChance'),
+    critMultiplier: attr('critMultiplier'),
+    comboChance: attr('comboChance'),
+    comboMultiplier: attr('comboMultiplier'),
+    rebirthCount: Number(s.rebirthCount),
+    collapsePoints: Number(s.collapsePoints),
+    playTimeMs: Number(s.playTimeMs),
+    clickCount: Number(s.totalClickCount),
+    highestValue: s.highestValue,
+    totalSpent: s.totalSpent,
+    gameCleared: !!s.gameCleared,
+  });
 }

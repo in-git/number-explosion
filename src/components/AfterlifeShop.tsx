@@ -159,7 +159,6 @@ export const AfterlifeShop: React.FC = () => {
           bulkDisabled={!canExchangeAll}
           onSingle={() => onExchangeAfterlifePoint(1)}
           onBulk={(times) => onExchangeAfterlifePoint(amountMode === 'max' ? 'all' : times)}
-          longPress={false}
           ariaLabel="兑换往生点"
         />
       </div>

@@ -1,6 +1,5 @@
 import { BigNum } from './bigNumber';
 import { BigNumData } from '../types';
-import { sealEnvelope } from './crypto';
 
 /** 榜单类型：数值 / 时长 / 重生次数 / 累计点击 */
 export type LeaderboardId = 'value' | 'playTime' | 'rebirth' | 'clicks';
@@ -46,21 +45,6 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
 }
 
-/** 上报成绩（后端对接用） */
-export interface ScoreReport {
-  userId: string;
-  userName: string;
-  playTimeMs: number;
-  rebirthCount: number;
-  clickCount: number;
-  /** 数值排行：历世最高数值 */
-  highestValue: BigNumData;
-  /** 是否已通关（数值曾达 1ssr） */
-  gameCleared: boolean;
-  /** 服务端签发的令牌（用于加密签名与归属校验） */
-  token: string;
-}
-
 /** 榜单展示条数（后端返回已截断，前端保持一致展示说明） */
 export const LEADERBOARD_LIMIT = 6;
 
@@ -84,18 +68,6 @@ export async function fetchLeaderboard(
   );
   if (!res.ok) throw new Error(`榜单拉取失败: ${res.status}`);
   return (await res.json()) as LeaderboardResponse;
-}
-
-/** 上报本人成绩：POST /api/leaderboard/score（加密签名，token 校验归属） */
-export async function submitScore(report: ScoreReport): Promise<void> {
-  const env = await sealEnvelope(report, report.token);
-
-  const res = await fetch(`${API_BASE}/leaderboard/score`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ env }),
-  });
-  if (!res.ok) throw new Error(`成绩上报失败: ${res.status}`);
 }
 
 /** BigNumData 读取（榜单成绩展示用） */
