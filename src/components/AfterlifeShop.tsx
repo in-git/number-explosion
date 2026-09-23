@@ -65,7 +65,7 @@ export const AfterlifeShop: React.FC = () => {
   const canExchange = state.collapsePoints >= exchangeStep;
   const canExchangeAll = exchangeAllCount > 0;
 
-  // 永劫点上限：基础 100，每级提升量线性递增（+100、+110、+120…）；消耗往生点为斐波那契 1,1,2,3,5…
+  // 永劫点上限：基础 100，每级提升量斐波那契递增（+100、+200、+300、+500…）；消耗往生点为 2^n（1、2、4、8…）
   const capLevel = state.rebirthCapLevel || 0;
   const currentRebirthCap = getRebirthPointsCap(capLevel);
   const nextRebirthCap = getRebirthPointsCap(capLevel + 1);

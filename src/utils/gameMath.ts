@@ -745,41 +745,58 @@ export function getAfterlifeUpgradeCost(currentLevel: number): number {
 
 /** 往生殿「永劫点上限」：未升级时的基础上限 */
 export const REBIRTH_POINTS_BASE_CAP = 100;
-/** 往生殿「永劫点上限」：第 1 级的提升量 */
-export const REBIRTH_POINTS_CAP_STEP_BASE = 100;
-/** 往生殿「永劫点上限」：每级提升量的线性增量（第 n 级 = 100 + (n−1) × 10） */
-export const REBIRTH_POINTS_CAP_STEP_GROWTH = 10;
+
+/** 永劫点上限每级提升量：斐波那契数列（种子 100、200），即 100、200、300、500、800 … */
+function fibRebirthStep(level: number): number {
+  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (lv <= 0) return 0;
+  if (lv === 1) return 100;
+  if (lv === 2) return 200;
+  let a = 100; // F(1)
+  let b = 200; // F(2)
+  for (let i = 3; i <= lv; i++) {
+    const next = a + b;
+    if (!Number.isFinite(next)) return Infinity; // 超出 double 范围即溢出，与消费序列一致
+    a = b;
+    b = next;
+  }
+  return b;
+}
+
+/** 2^n，n 较大时溢出为 Infinity（与 fibonacciNumber 行为一致） */
+function pow2Number(n: number): number {
+  const k = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  if (k <= 0) return 1; // 2^0 = 1
+  if (k >= 1024) return Infinity;
+  return Math.pow(2, k);
+}
 
 /**
  * 往生殿：「永劫点上限」特权
  * - 只限制「每次永劫所得」的点数上限；永劫点的持有量没有上限
- * - 每级提升量线性递增：100、110、120、130、140、150 …
- * - 每级消耗（往生点）为斐波那契数列：1、1、2、3、5、8 …
+ * - 每级消耗（往生点）为 2^n（从 1 起）：1、2、4、8、16 …（第 1 级 1，此后每级翻倍）
+ * - 每级提升量（永劫点上限）为斐波那契（从 100 起）：100、200、300、500、800 …
  */
-/** 购买第 (currentLevel+1) 级所需往生点：斐波那契数列，即 1, 1, 2, 3, 5 … */
+/** 购买第 (currentLevel+1) 级所需往生点：2^currentLevel，即 1、2、4、8 … */
 export function getRebirthCapUpgradeCost(currentLevel: number): number {
   const lv = Number.isFinite(currentLevel) && currentLevel > 0 ? Math.floor(currentLevel) : 0;
-  return fibonacciNumber(lv + 1);
+  return pow2Number(lv);
 }
 
-/** 第 n 级的提升量（线性）：100、110、120、130 … */
+/** 第 n 级的提升量（斐波那契）：100、200、300、500 … */
 export function getRebirthCapStep(level: number): number {
-  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  if (lv <= 0) return 0;
-  return REBIRTH_POINTS_CAP_STEP_BASE + (lv - 1) * REBIRTH_POINTS_CAP_STEP_GROWTH;
+  return fibRebirthStep(level);
 }
 
 /**
  * 当前永劫点获取上限：基础 100 + Σ(每级提升量)
- * 即 100、200、310、430、560、700、850 …（每级增量分别为 100、110、120、130、140、150）
+ * 即 100、200、400、700、1200、2000 …（每级增量分别为 100、200、300、500、800）
+ * 斐波那契累积恒等式：Σ_{k=1}^{n} fib(k) = fib(n+2) − fib(2) = fib(n+2) − 200
  */
 export function getRebirthPointsCap(level: number): number {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  return (
-    REBIRTH_POINTS_BASE_CAP +
-    REBIRTH_POINTS_CAP_STEP_BASE * lv +
-    (REBIRTH_POINTS_CAP_STEP_GROWTH * lv * (lv - 1)) / 2
-  );
+  if (lv <= 0) return REBIRTH_POINTS_BASE_CAP;
+  return REBIRTH_POINTS_BASE_CAP + (fibRebirthStep(lv + 2) - 200);
 }
 
 /**
@@ -1005,13 +1022,13 @@ export function getValueCapBulkCost(startLevel: number, count: number): number {
 
 /**
  * 往生殿「永劫点上限」：从 startLevel 起连买 count 级的累计消耗（闭式）。
- * 消耗为斐波那契数列，故 Σ_{j=start+1}^{start+count} F_j = F(start+count+2) − F(start+2)。
+ * 消耗为 2^n，故 Σ_{j=0}^{count-1} 2^(startLevel+j) = 2^startLevel · (2^count − 1)。
  */
 export function getRebirthCapBulkCost(startLevel: number, count: number): number {
   const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
   const n = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
   if (n <= 0) return 0;
-  return fibonacciNumber(start + n + 2) - fibonacciNumber(start + 2);
+  return pow2Number(start) * (pow2Number(n) - 1);
 }
 
 /**
