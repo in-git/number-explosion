@@ -470,60 +470,34 @@ export function getTribulationExponent(tribulationTimes: number): number {
   return Math.min(TRIBULATION_MAX_COUNT, Math.max(1, times));
 }
 
-/** 数值上限基数：默认 100 万（同时作为斐波那契增益的单位，使 cap(L) = 单位 × F(L+2)） */
+/** 数值上限基数：默认 100 万（翻倍模型下 cap(L) = 基数 × 2^L） */
 export const VALUE_CAP_BASE = 1e6;
 
-/** 每级增益 = 斐波那契系数 × 该单位（100 万）；即增益序列：100万、100万、200万、300万、500万、800万 … */
-const VALUE_CAP_UNIT = 1e6;
-
 /**
- * 数值上限每级提升量的斐波那契系数：1, 1, 2, 3, 5, 8, 13 …（经典斐波那契，第 n 级 = F(n)）
+ * 数值上限：每升 1 级上限翻倍（2ⁿ 模型）。
+ *   cap(L)    = BASE × 2^L
+ *   cap(0)=100万、cap(1)=200万、cap(2)=400万、cap(3)=800万 …
+ * 每级增益 = 上一档上限（cap(L) − cap(L−1) = BASE × 2^(L−1)）：
+ *   升 Lv1 +100万、Lv2 +200万、Lv3 +400万、Lv4 +800万 …
  *
- * 溢出保护：斐波那契约 1470 级后即超出 Number 上限变成 Infinity，
- * 而 Infinity 经 BigNum 归一化会退化成 0 —— 那样「买了上限却不涨」。
- * 故一旦溢出就锁定在最后一个有限值，保证后续每级提升量恒为正。
- *
- * 该序列只与「级数」有关，故只推导一次并缓存：原先每次调用都从头重推，
- * 高等级下（如 Lv.1e8）单次就要几十万次加法，会让每帧渲染卡死。
+ * 2^times 用指数拆分计算：2^times = 10^(times·log10 2)，避免 times>1023 时 2^times 溢出 Number；
+ * 量级远低于 MAX_EXP(1e15)，无溢出风险，且为 O(1) 闭式，高等级也不卡顿。
  */
-const VALUE_CAP_FIB: number[] = (() => {
-  const seq = [1, 1]; // F(1)=1, F(2)=1
-  for (;;) {
-    const len = seq.length;
-    const next = seq[len - 1] + seq[len - 2];
-    // 到顶即停，沿用最后一个有限值
-    if (!Number.isFinite(next)) break;
-    seq.push(next);
-  }
-  return seq;
-})();
-
-/** 斐波那契系数前缀和（Σ F[0..i]）——系数可达 1e308，用 Number 累加会溢出成 Infinity，故走 BigNum */
-const VALUE_CAP_FIB_SUM: BigNum[] = (() => {
-  const out: BigNum[] = [];
-  let acc = new BigNum(0, 0);
-  for (const c of VALUE_CAP_FIB) {
-    acc = acc.add(new BigNum(c, 0));
-    out.push(acc);
-  }
-  return out;
-})();
-
-function getValueCapStepCoeff(level: number): number {
-  const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
-  if (lv <= 0) return 0;
-  return VALUE_CAP_FIB[Math.min(lv, VALUE_CAP_FIB.length) - 1];
+function getBaseTimesPow2(times: number): BigNum {
+  const total = times * Math.log10(2) + Math.log10(VALUE_CAP_BASE);
+  const e = Math.floor(total);
+  const m = Math.pow(10, total - e);
+  return new BigNum(m, e);
 }
 
 /**
- * 数值上限每级提升量（实际数值，纯斐波那契序列）：
- *   第 n 级 = F(n) × 单位(100万)
- *   即：100万、100万、200万、300万、500万、800万、1300万 …
- * 乘法走 BigNum（而非裸数相乘），避免系数极大时 单位 × F 溢出成 Infinity。
+ * 数值上限每级提升量（实际数值，翻倍序列）：第 n 级 = BASE × 2^(n−1)
+ *   即：100万、200万、400万、800万、1600万 …
  */
 export function getValueCapStep(level: number): BigNum {
-  const coeff = getValueCapStepCoeff(level);
-  return new BigNum(coeff, 0).mulScalar(VALUE_CAP_UNIT);
+  const n = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
+  if (n <= 0) return new BigNum(0, 0);
+  return getBaseTimesPow2(n - 1);
 }
 
 /** 每次永劫永久提升的数值上限（100 万，永久保留） */
@@ -538,21 +512,12 @@ export function getRebirthCapBonus(rebirthCount: number): BigNum {
 }
 
 /**
- * 仅按等级累计的数值上限（不含永劫加成）：
- *   基数 100万 + 单位 × Σ_{i=1}^{L} F(i)
- * 因 Σ_{i=1}^{L} F(i) = F(L+2) − 1，且 基数 = 单位，故
- *   cap(L) = 单位 × F(L+2)   —— 上限本身即斐波那契序列（×100万）
- * 用系数前缀和闭式求解（O(1)）——逐级累加在高等级下会退化成上亿次循环而卡死渲染。
+ * 仅按等级累计的数值上限（不含永劫加成）：cap(L) = BASE × 2^L
  */
 function getValueCapByLevel(lv: number): BigNum {
-  if (lv <= 0) return new BigNum(VALUE_CAP_BASE, 0);
-  const len = VALUE_CAP_FIB.length;
-  const lastCoeff = VALUE_CAP_FIB[len - 1];
-  const coeffSum =
-    lv <= len
-      ? VALUE_CAP_FIB_SUM[lv - 1]
-      : VALUE_CAP_FIB_SUM[len - 1].add(new BigNum(lastCoeff, 0).mulScalar(lv - len));
-  return new BigNum(VALUE_CAP_BASE, 0).add(coeffSum.mulScalar(VALUE_CAP_UNIT));
+  const L = Number.isFinite(lv) && lv > 0 ? Math.floor(lv) : 0;
+  if (L <= 0) return new BigNum(VALUE_CAP_BASE, 0);
+  return getBaseTimesPow2(L);
 }
 
 /**

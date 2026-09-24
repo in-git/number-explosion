@@ -229,7 +229,7 @@ export const CollapseShop: React.FC = () => {
         />
       </div>
 
-      {/* 数值上限：每级增益为斐波那契序列（100万、100万、200万、300万…），消耗为 2×等级（2、4、6…） */}
+      {/* 数值上限：每升 1 级上限翻倍（100万→200万→400万→800万…），消耗为 2×等级（2、4、6…） */}
       <div
         id="shop-item-value-cap"
         className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] select-none"
