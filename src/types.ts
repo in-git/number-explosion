@@ -189,6 +189,14 @@ export interface GameState {
   rebirthResetProgressMs: number;
   /** 渡劫殿：「永劫重置丹」是否正在炼制（点击炼制才开始，炼制中不可操作） */
   rebirthResetCrafting: boolean;
+  /** 渡劫殿：持有的「坍缩重置丹」数量（作用于坍缩殿，随存档持久化） */
+  collapseResetPills: number;
+  /** 渡劫殿：「坍缩重置丹」已炼成的炉数 */
+  collapseResetCraftCount: number;
+  /** 渡劫殿：「坍缩重置丹」当前这一炉已投入的时间（ms） */
+  collapseResetProgressMs: number;
+  /** 渡劫殿：「坍缩重置丹」是否正在炼制（点击炼制才开始，炼制中不可操作） */
+  collapseResetCrafting: boolean;
   /** 渡劫殿：持有的「渡劫点」数量（渡劫成功后每 10 秒 +15） */
   tribulationPoints: number;
   /** 渡劫殿：距离产出下 1 点「渡劫点」已累计的时间（ms） */
@@ -208,6 +216,12 @@ export interface GameState {
    * 永劫殿等级为永久道基，故本字段转世不清零。
    */
   rebirthResetLevels: Record<UpgradeId, number>;
+  /**
+   * 「坍缩重置丹」的账本：记录坍缩殿被重置掉的等级（数值上限 / 永劫爆炸），
+   * 效果照旧计入。使用后对应升级消耗从初始曲线重算（等级清零），
+   * 但已获得的效果仍按「当前等级 + 本字段等级」累计。
+   */
+  collapseResetLevels: { valueCap: number; rebirthExplosion: number };
   /** 坍缩商殿中「永劫点数 → 坍缩点数」的累计兑换次数（每次恒定 3 点永劫点数） */
   rebirthToCollapseCount: number;
 

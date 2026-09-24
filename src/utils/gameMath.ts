@@ -350,6 +350,8 @@ export const TRIBULATION_STRIKE_CHANCE = 0.5;
 export const VALUE_RESET_PILL_BASE_MS = 60 * 1000;
 /** 渡劫殿：炼制一炉「永劫重置丹」的耗时基数（ms）—— 三分钟 */
 export const REBIRTH_RESET_PILL_BASE_MS = 3 * 60 * 1000;
+/** 渡劫殿：炼制一炉「坍缩重置丹」的耗时基数（ms）—— 二十分钟 */
+export const COLLAPSE_RESET_PILL_BASE_MS = 20 * 60 * 1000;
 /** 渡劫殿：炼制进度推进节拍（ms），同时也是进度条的数据刷新间隔 */
 export const RESET_PILL_TICK_MS = 1_000;
 /** 渡劫殿：产出「渡劫点」的间隔（ms） */
@@ -376,10 +378,27 @@ export function getAutoRebirthIntervalMs(settledTimes: number): number {
 
 /**
  * 渡劫殿：炼制一炉重置丹的耗时（恒定，不随炼制次数累加）。
- * 数值重置丹 1 分钟；永劫重置丹 3 分钟。
+ * 数值重置丹 1 分钟；永劫重置丹 3 分钟；坍缩重置丹 20 分钟。
  */
-export function getResetPillDurationMs(pill: 'value' | 'rebirth'): number {
-  return pill === 'rebirth' ? REBIRTH_RESET_PILL_BASE_MS : VALUE_RESET_PILL_BASE_MS;
+export function getResetPillDurationMs(pill: 'value' | 'rebirth' | 'collapse'): number {
+  if (pill === 'rebirth') return REBIRTH_RESET_PILL_BASE_MS;
+  if (pill === 'collapse') return COLLAPSE_RESET_PILL_BASE_MS;
+  return VALUE_RESET_PILL_BASE_MS;
+}
+
+/**
+ * 坍缩重置丹账本：有效「数值上限」等级 = 当前等级 + 账本保留等级。
+ * 坍缩殿被重置后，当前等级清零、消耗从初始曲线重算，但效果按有效等级照旧计入。
+ */
+export function getEffectiveValueCapLevel(state: GameState): number {
+  return (state.valueCapLevel || 0) + ((state.collapseResetLevels?.valueCap) || 0);
+}
+
+/**
+ * 坍缩重置丹账本：有效「永劫爆炸」等级 = 当前等级 + 账本保留等级。
+ */
+export function getEffectiveRebirthPointLevel(state: GameState): number {
+  return (state.rebirthPointLevel || 0) + ((state.collapseResetLevels?.rebirthExplosion) || 0);
 }
 
 /** 渡劫（渡劫次数 +1）所需的往生点：恒定 1000 */
@@ -807,7 +826,7 @@ export function getRebirthPointsCap(level: number): number {
 export function getAutoRebirthPoints(value: BigNum, state: GameState): number {
   const gain =
     getRebirthPointsFromValue(value) +
-    getExtraRebirthPoints(state.rebirthPointLevel || 0, value);
+    getExtraRebirthPoints(getEffectiveRebirthPointLevel(state), value);
   const cap = getRebirthPointsCap(state.rebirthCapLevel || 0);
   return Math.max(0, Math.min(gain, cap));
 }
@@ -1174,11 +1193,14 @@ export function calculateGameAttributes(state: GameState) {
   }
 
   // 4. 连击概率: 数值殿每级 +5% + 永劫殿每级 +5%，上限 100%
+  //    数值殿部分须用「有效等级」（当前等级 + 数值重置丹保留等级），用丹后效果不丢
   const rbComboChanceLevel = getEffectiveRebirthLevel(state, 'comboChance');
+  const shopComboChanceLevel = comboChanceUp.unlocked
+    ? getEffectiveUpgradeLevel(state, 'comboChance')
+    : 0;
   let comboChance = Math.min(
     1.0,
-    (comboChanceUp.unlocked ? comboChanceUp.level * COMBO_CHANCE_STEP : 0) +
-      rbComboChanceLevel * COMBO_CHANCE_STEP
+    shopComboChanceLevel * COMBO_CHANCE_STEP + rbComboChanceLevel * COMBO_CHANCE_STEP
   );
 
   // 5. 连击倍数: 基础 100% + 数值殿每级 +30% + 永劫殿每级 +30% × 往生殿强化倍数
@@ -1187,9 +1209,12 @@ export function calculateGameAttributes(state: GameState) {
     'comboMultiplier',
     state.afterlifeUpgradeLevels?.comboMultiplier || 0
   );
+  const shopComboMultLevel = comboMultUp.unlocked
+    ? getEffectiveUpgradeLevel(state, 'comboMultiplier')
+    : 0;
   let comboMultiplier =
     1.0 +
-    (comboMultUp.unlocked ? comboMultUp.level * MULTIPLIER_STEP : 0) +
+    shopComboMultLevel * MULTIPLIER_STEP +
     rbComboMultLevel * MULTIPLIER_STEP * afterlifeComboMult;
 
   // 6. 暴击倍数: 默认 5% + 成就奖励 + 数值殿每级 +30% + 永劫殿每级 +30% × 往生殿强化倍数
@@ -1199,18 +1224,24 @@ export function calculateGameAttributes(state: GameState) {
     'critMultiplier',
     state.afterlifeUpgradeLevels?.critMultiplier || 0
   );
+  const shopCritMultLevel = critMultUp.unlocked
+    ? getEffectiveUpgradeLevel(state, 'critMultiplier')
+    : 0;
   let critMultiplier =
     CRIT_MULT_BASE +
     achievementCritBonus +
-    (critMultUp.unlocked ? critMultUp.level * MULTIPLIER_STEP : 0) +
+    shopCritMultLevel * MULTIPLIER_STEP +
     rbCritMultLevel * MULTIPLIER_STEP * afterlifeCritMult;
 
   // 7. 暴击概率: 基础暴击率 + 数值殿每级 +1% + 永劫殿每级 +1%，上限 100%
   const rbCritChanceLevel = getEffectiveRebirthLevel(state, 'critChance');
+  const shopCritChanceLevel = critChanceUp.unlocked
+    ? getEffectiveUpgradeLevel(state, 'critChance')
+    : 0;
   let critChance = Math.min(
     1.0,
     state.baseCritRate +
-      (critChanceUp.unlocked ? critChanceUp.level * CRIT_CHANCE_STEP : 0) +
+      shopCritChanceLevel * CRIT_CHANCE_STEP +
       rbCritChanceLevel * CRIT_CHANCE_STEP
   );
 
@@ -1228,7 +1259,7 @@ export function calculateGameAttributes(state: GameState) {
   const rebirthStartValue = getRebirthStartValue(state);
 
   // 13. 「永劫爆炸」带来的额外永劫点数（每 100 万数值 +0.2 × 等级）
-  const rebirthPointBonus = getRebirthPointBonusPerMillion(state.rebirthPointLevel || 0);
+  const rebirthPointBonus = getRebirthPointBonusPerMillion(getEffectiveRebirthPointLevel(state));
 
   // 14. 渡劫次数（成败均计，上限 9）：单次收益取原值的 N 次方
   //     0 次（尚未成功）时指数按 1 计，即次方不参与计算，避免 原值 ^ 0 = 1 打崩数值

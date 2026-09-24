@@ -1,7 +1,7 @@
 import React from 'react';
 import { BigNum } from '../utils/bigNumber';
 import { REBIRTH_THRESHOLD } from '../config';
-import { getExtraRebirthPoints, getRebirthPointsCap, getRebirthPointsFromValue } from '../utils/gameMath';
+import { getExtraRebirthPoints, getEffectiveRebirthPointLevel, getRebirthPointsCap, getRebirthPointsFromValue } from '../utils/gameMath';
 import { useGameActions, useGameData, useModals } from '../context/GameContext';
 
 export const RebirthModal: React.FC = () => {
@@ -17,7 +17,7 @@ export const RebirthModal: React.FC = () => {
   };
 
   /** 「永劫爆炸」加成：每 100 万数值额外 +0.2 × 等级 */
-  const rebirthPointBonus = getExtraRebirthPoints(state.rebirthPointLevel || 0, currentValue);
+  const rebirthPointBonus = getExtraRebirthPoints(getEffectiveRebirthPointLevel(state), currentValue);
   /** 当前已持有的永劫点数（用于计算获取上限） */
   const currentRebirthPoints = state.rebirthPoints || 0;
   /** 当前永劫点获取上限（由往生殿「永劫点上限」等级决定） */

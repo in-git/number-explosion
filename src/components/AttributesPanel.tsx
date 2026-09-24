@@ -5,6 +5,7 @@ import { BigNum } from '../utils/bigNumber';
 import {
   calculateGameAttributes,
   getValueCap,
+  getEffectiveValueCapLevel,
   getRebirthPointsCap,
   TRIBULATION_MAX_COUNT,
 } from '../utils/gameMath';
@@ -80,7 +81,7 @@ export const AttributesPanel: React.FC<AttributesPanelProps> = ({ state }) => {
     {
       id: 'attr-value-cap',
       label: '数值上限',
-      value: getValueCap(state.valueCapLevel || 0, state.rebirthCount || 0).formatChinese(2),
+      value: getValueCap(getEffectiveValueCapLevel(state), state.rebirthCount || 0).formatChinese(2),
       detail: '坍缩殿提升上限 · 每次永劫 +100万 · 达到上限后数值不再增长',
     },
     {

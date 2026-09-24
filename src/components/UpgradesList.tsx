@@ -80,9 +80,12 @@ function getUpgradeDesc(
     };
   }
 
+  // 数值重置丹保留的等级须并入「当前等级」一并展示（用丹后效果不丢）
+  const effective = level + keptLevel;
+
   if (id === 'comboChance') {
-    const cur = Math.min(1.0, level * COMBO_CHANCE_STEP);
-    const next = Math.min(1.0, (level + gain) * COMBO_CHANCE_STEP);
+    const cur = Math.min(1.0, effective * COMBO_CHANCE_STEP);
+    const next = Math.min(1.0, (effective + gain) * COMBO_CHANCE_STEP);
     return {
       currentDesc: pctText(cur),
       nextDesc: cur >= 1.0 ? '上限 100%' : pctText(next),
@@ -93,14 +96,14 @@ function getUpgradeDesc(
   if (id === 'comboMultiplier' || id === 'critMultiplier') {
     const base = id === 'critMultiplier' ? CRIT_MULT_BASE : 1.0;
     return {
-      currentDesc: pctText(base + level * MULTIPLIER_STEP),
-      nextDesc: pctText(base + (level + gain) * MULTIPLIER_STEP),
+      currentDesc: pctText(base + effective * MULTIPLIER_STEP),
+      nextDesc: pctText(base + (effective + gain) * MULTIPLIER_STEP),
     };
   }
 
   // 暴击概率: 基础5%，每级 +1%（0.01），上限100%
-  const cur = Math.min(1.0, CRIT_CHANCE_BASE + level * CRIT_CHANCE_STEP);
-  const next = Math.min(1.0, CRIT_CHANCE_BASE + (level + gain) * CRIT_CHANCE_STEP);
+  const cur = Math.min(1.0, CRIT_CHANCE_BASE + effective * CRIT_CHANCE_STEP);
+  const next = Math.min(1.0, CRIT_CHANCE_BASE + (effective + gain) * CRIT_CHANCE_STEP);
   return {
     currentDesc: pctText(cur),
     nextDesc: cur >= 1.0 ? '上限 100%' : pctText(next),

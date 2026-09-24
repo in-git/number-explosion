@@ -27,6 +27,12 @@ interface AuthPanelProps {
   /** 返回按钮文案（默认「返回」） */
   backLabel?: string;
   /**
+   * 未登录时由上层提供的默认账号/密码（个人中心生成），无历史记录时自动预填，
+   * 用户可直接点「登录/注册」一键创建账号。
+   */
+  defaultAccount?: string;
+  defaultPassword?: string;
+  /**
    * 注册/登录成功后的回调；缺省时沿用 onBack 回到来源页。
    * 个人中心传入空实现即可原地停留，直接展示账号信息。
    */
@@ -53,6 +59,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   onRegionSelected,
   onBack,
   backLabel = '返回',
+  defaultAccount,
+  defaultPassword,
   onSuccess,
 }) => {
   const history = state.lastCredentials;
@@ -63,9 +71,10 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     defaultRegionId ?? (regionsProp?.length ? regionsProp[regionsProp.length - 1].id : '')
   );
 
-  // 账号密码：有历史记录则预填，便于老玩家一键登录；否则留空手动输入
-  const [account, setAccount] = useState(history?.userName ?? '');
-  const [password, setPassword] = useState(history?.password ?? '');
+  // 账号密码：优先用历史记录（老玩家一键登录）；无历史时落到上层提供的默认账号密码；
+  // 两者皆无才留空手动输入
+  const [account, setAccount] = useState(history?.userName ?? defaultAccount ?? '');
+  const [password, setPassword] = useState(history?.password ?? defaultPassword ?? '');
   const [showPassword, setShowPassword] = useState(false);
   const [nickname, setNickname] = useState(
     state.account?.nickname || history?.nickname || DEFAULT_NICKNAME

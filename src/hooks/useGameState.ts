@@ -44,6 +44,8 @@ import {
   TRIBULATION_MAX_COUNT,
   RESET_PILL_TICK_MS,
   getResetPillDurationMs,
+  getEffectiveValueCapLevel,
+  getEffectiveRebirthPointLevel,
   TribulationOutcome,
 } from '../utils/gameMath';
 import { resetToInitialState, resetUpgradeLevels } from '../utils/state';
@@ -236,7 +238,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
   /** 提交数值：任何途径获得的数值都不得突破「数值上限」，同时刷新最高数值纪录 */
   const commitValue = useCallback((val: BigNum) => {
     const cap = getValueCap(
-      stateRef.current.valueCapLevel || 0,
+      getEffectiveValueCapLevel(stateRef.current),
       stateRef.current.rebirthCount || 0
     );
     const next = val.gt(cap) ? cap : val;
@@ -690,37 +692,66 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
    */
   useEffect(() => {
     /** 推进一种丹；无需更新时返回 null */
-    const advance = (kind: 'value' | 'rebirth'): Partial<GameState> | null => {
+    const advance = (kind: 'value' | 'rebirth' | 'collapse'): Partial<GameState> | null => {
       const prev = stateRef.current;
       const isValue = kind === 'value';
-      if (!(isValue ? prev.valueResetCrafting : prev.rebirthResetCrafting)) return null;
+      const isRebirth = kind === 'rebirth';
+      const crafting = isValue
+        ? prev.valueResetCrafting
+        : isRebirth
+          ? prev.rebirthResetCrafting
+          : prev.collapseResetCrafting;
+      if (!crafting) return null;
 
       const craftCount = Math.max(
         0,
-        (isValue ? prev.valueResetCraftCount : prev.rebirthResetCraftCount) || 0
+        isValue
+          ? prev.valueResetCraftCount
+          : isRebirth
+            ? prev.rebirthResetCraftCount
+            : prev.collapseResetCraftCount || 0
       );
       const progressMs =
-        Math.max(0, (isValue ? prev.valueResetProgressMs : prev.rebirthResetProgressMs) || 0) +
-        RESET_PILL_TICK_MS;
+        Math.max(
+          0,
+          isValue
+            ? prev.valueResetProgressMs
+            : isRebirth
+              ? prev.rebirthResetProgressMs
+              : prev.collapseResetProgressMs || 0
+        ) + RESET_PILL_TICK_MS;
 
       // 炼成一炉：产出 1 颗后停炉
       if (progressMs >= getResetPillDurationMs(kind)) {
-        return isValue
-          ? {
-              valueResetProgressMs: 0,
-              valueResetCraftCount: craftCount + 1,
-              valueResetPills: Math.max(0, prev.valueResetPills || 0) + 1,
-              valueResetCrafting: false,
-            }
-          : {
-              rebirthResetProgressMs: 0,
-              rebirthResetCraftCount: craftCount + 1,
-              rebirthResetPills: Math.max(0, prev.rebirthResetPills || 0) + 1,
-              rebirthResetCrafting: false,
-            };
+        if (isValue) {
+          return {
+            valueResetProgressMs: 0,
+            valueResetCraftCount: craftCount + 1,
+            valueResetPills: Math.max(0, prev.valueResetPills || 0) + 1,
+            valueResetCrafting: false,
+          };
+        }
+        if (isRebirth) {
+          return {
+            rebirthResetProgressMs: 0,
+            rebirthResetCraftCount: craftCount + 1,
+            rebirthResetPills: Math.max(0, prev.rebirthResetPills || 0) + 1,
+            rebirthResetCrafting: false,
+          };
+        }
+        return {
+          collapseResetProgressMs: 0,
+          collapseResetCraftCount: craftCount + 1,
+          collapseResetPills: Math.max(0, prev.collapseResetPills || 0) + 1,
+          collapseResetCrafting: false,
+        };
       }
 
-      return isValue ? { valueResetProgressMs: progressMs } : { rebirthResetProgressMs: progressMs };
+      return isValue
+        ? { valueResetProgressMs: progressMs }
+        : isRebirth
+          ? { rebirthResetProgressMs: progressMs }
+          : { collapseResetProgressMs: progressMs };
     };
 
     const timer = window.setInterval(() => {
@@ -729,10 +760,12 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       const valueNext = advance('value');
       const rebirthNext = advance('rebirth');
+      const collapseNext = advance('collapse');
 
       const next: Partial<GameState> = {
         ...(valueNext || {}),
         ...(rebirthNext || {}),
+        ...(collapseNext || {}),
       };
 
       // 渡劫点：每 TRIBULATION_POINT_INTERVAL_MS 结算一次，每周期产出 TRIBULATION_POINT_GAIN 点
@@ -776,6 +809,14 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     setState((prev) => {
       if (!prev.tribulationSuccess || prev.rebirthResetCrafting) return prev;
       return { ...prev, rebirthResetCrafting: true, rebirthResetProgressMs: 0 };
+    });
+  }, []);
+
+  /** 渡劫殿：点击「炼制」即开炉 —— 坍缩重置丹（炼制中不可再次操作） */
+  const handleCraftCollapseResetPill = useCallback(() => {
+    setState((prev) => {
+      if (!prev.tribulationSuccess || prev.collapseResetCrafting) return prev;
+      return { ...prev, collapseResetCrafting: true, collapseResetProgressMs: 0 };
     });
   }, []);
 
@@ -847,6 +888,33 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         rebirthBaseValueLevel,
         rebirthMergedLevels: merged,
         rebirthResetLevels: kept,
+      };
+    });
+  }, []);
+
+  /**
+   * 坍缩殿：使用一颗「坍缩重置丹」，一次性重置坍缩商殿的等级型升级
+   * （数值上限 / 永劫爆炸）。二者消耗从初始曲线重算（等级清零），已获得的效果全部保留：
+   * 清零的等级各自记入 collapseResetLevels，效果仍按「当前等级 + 保留等级」累计。
+   */
+  const handleUseCollapseResetPill = useCallback(() => {
+    setState((prev) => {
+      const pills = Math.max(0, prev.collapseResetPills || 0);
+      // 须持有丹药，且至少有一项等级可重置（全为 0 时消耗无意义）
+      if (pills < 1) return prev;
+      const kept = {
+        valueCap: (prev.collapseResetLevels?.valueCap || 0) + (prev.valueCapLevel || 0),
+        rebirthExplosion:
+          (prev.collapseResetLevels?.rebirthExplosion || 0) + (prev.rebirthPointLevel || 0),
+      };
+      // 两项都为 0 时无需消耗丹药
+      if (kept.valueCap <= 0 && kept.rebirthExplosion <= 0) return prev;
+      return {
+        ...prev,
+        collapseResetPills: pills - 1,
+        valueCapLevel: 0,
+        rebirthPointLevel: 0,
+        collapseResetLevels: kept,
       };
     });
   }, []);
@@ -1457,7 +1525,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     // 数值 ÷ 100 万（300 万即 3 点）+「永劫爆炸」升级的额外点数
     const gain =
       getRebirthPointsFromValue(bigNumRef.current) +
-      getExtraRebirthPoints(stateRef.current.rebirthPointLevel || 0, bigNumRef.current);
+      getExtraRebirthPoints(getEffectiveRebirthPointLevel(stateRef.current), bigNumRef.current);
     // 获取上限：(数值 + 加成) ÷ 100 万 超过上限时，所得即为上限
     const cap = getRebirthPointsCap(stateRef.current.rebirthCapLevel || 0);
     const actualGain = Math.min(gain, cap);
@@ -1599,6 +1667,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       upgrades,
       valueCapLevel: 0,
       rebirthPointLevel: 0,
+      collapseResetLevels: { valueCap: 0, rebirthExplosion: 0 },
       currentValue: clamped.toData(),
     });
     addToast('重置坍缩殿', '坍缩殿升级等级已归零 · 不返还已消耗的坍缩点');
@@ -1648,8 +1717,10 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     handleBuyTribulationPill,
     handleCraftValueResetPill,
     handleCraftRebirthResetPill,
+    handleCraftCollapseResetPill,
     handleUseValueResetPill,
     handleUseRebirthResetPill,
+    handleUseCollapseResetPill,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
     handleUnlockRanking,

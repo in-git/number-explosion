@@ -62,6 +62,8 @@ export interface GameActions {
   handleCraftRebirthResetPill: () => void;
   handleUseValueResetPill: () => void;
   handleUseRebirthResetPill: () => void;
+  handleCraftCollapseResetPill: () => void;
+  handleUseCollapseResetPill: () => void;
   handleBuyValueCap: () => void;
   handleExchangeRebirthToCollapse: (amount: number | 'all') => void;
   handleUnlockRanking: () => void;
@@ -158,6 +160,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleCraftRebirthResetPill,
     handleUseValueResetPill,
     handleUseRebirthResetPill,
+    handleCraftCollapseResetPill,
+    handleUseCollapseResetPill,
     handleBuyValueCap,
     handleExchangeRebirthToCollapse,
     handleUnlockRanking,
@@ -232,6 +236,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleCraftRebirthResetPill,
       handleUseValueResetPill,
       handleUseRebirthResetPill,
+      handleCraftCollapseResetPill,
+      handleUseCollapseResetPill,
       handleBuyValueCap,
       handleExchangeRebirthToCollapse,
       handleUnlockRanking,
@@ -282,6 +288,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleCraftRebirthResetPill,
       handleUseValueResetPill,
       handleUseRebirthResetPill,
+      handleCraftCollapseResetPill,
+      handleUseCollapseResetPill,
       handleBuyValueCap,
       handleExchangeRebirthToCollapse,
       handleUnlockRanking,

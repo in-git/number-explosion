@@ -477,6 +477,11 @@ export const INITIAL_STATE: GameState = {
   rebirthResetCraftCount: 0,
   rebirthResetProgressMs: 0,
   rebirthResetCrafting: false,
+  /** 渡劫殿：坍缩重置丹的存量与炼制进度（每炉 20 分钟） */
+  collapseResetPills: 0,
+  collapseResetCraftCount: 0,
+  collapseResetProgressMs: 0,
+  collapseResetCrafting: false,
   /** 渡劫殿：渡劫点存量与产出进度；自动永劫结算的累计时间（默认 0） */
   tribulationPoints: 0,
   tribulationPointProgressMs: 0,
@@ -502,6 +507,8 @@ export const INITIAL_STATE: GameState = {
     comboMultiplier: 0,
     critChance: 0,
   },
+  /** 坍缩重置丹账本（被重置掉的等级，效果保留） */
+  collapseResetLevels: { valueCap: 0, rebirthExplosion: 0 },
   /** 永劫点数兑换坍缩点数的累计次数 */
   rebirthToCollapseCount: 0,
   notifiedUnlocks: [],

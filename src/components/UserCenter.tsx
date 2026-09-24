@@ -7,7 +7,7 @@ import { BigNum } from '../utils/bigNumber';
 import { formatDuration } from '../utils/serverTime';
 import { getTitle } from '../utils/title';
 import { TRIBULATION_MAX_COUNT } from '../utils/gameMath';
-import { fetchRegions, Region } from '../utils/authApi';
+import { fetchRegions, Region, generateCredentials } from '../utils/authApi';
 
 const CARD = 'rounded-lg border border-[#3b3429] bg-[#211d18] px-3 py-2.5';
 const LABEL = 'text-[11px] font-serif text-[#8fa6bd] mb-1.5';
@@ -45,6 +45,8 @@ export const UserCenter: React.FC = () => {
   const [regions, setRegions] = useState<Region[]>([]);
   const [showRegionPanel, setShowRegionPanel] = useState(false);
   const account = state.account;
+  // 未登录时稳定生成一套默认账号/密码（本次会话内固定），用户可直接登录/注册
+  const [defaultCreds] = useState(() => generateCredentials());
 
   // 拉取大区列表，供登录时手动选区
   useEffect(() => {
@@ -78,19 +80,35 @@ export const UserCenter: React.FC = () => {
   // 未登录：跳转登录注册（与排行榜同一套面板与流程），支持手动输入账号密码与选区
   if (!account) {
     return (
-      <AuthPanel
-        state={state}
-        regions={regions}
-        defaultRegionId={defaultRegion?.id ?? null}
-        defaultRegionName={defaultRegion?.name ?? null}
-        onLogin={handleLogin}
-        onRegionSelected={handleSelectRegion}
-        onBack={modals.userCenter.close}
-        backLabel="返 回"
-        onSuccess={() => {
-          /* 留在个人中心：登录成功后 state.account 更新，视图自动切换为账号信息 */
-        }}
-      />
+      <div className="flex flex-col gap-2.5">
+        {/* 默认账号密码：未注册时直接提供，便于一键登录/注册 */}
+        <div className={CARD}>
+          <div className="text-[11px] font-serif text-[#8fa6bd] mb-1.5">默认账号密码</div>
+          <div className="flex flex-col gap-1.5">
+            <InfoRow label="账号" value={defaultCreds.userName} />
+            <InfoRow label="密码" value={defaultCreds.password} />
+          </div>
+          <div className="mt-1.5 font-serif text-[10px] text-[#7d7364]">
+            已为你生成默认账号 · 可直接点击下方「登录/注册」创建；账号密码本地留存，换设备凭此找回进度
+          </div>
+        </div>
+
+        <AuthPanel
+          state={state}
+          regions={regions}
+          defaultRegionId={defaultRegion?.id ?? null}
+          defaultRegionName={defaultRegion?.name ?? null}
+          defaultAccount={defaultCreds.userName}
+          defaultPassword={defaultCreds.password}
+          onLogin={handleLogin}
+          onRegionSelected={handleSelectRegion}
+          onBack={modals.userCenter.close}
+          backLabel="返 回"
+          onSuccess={() => {
+            /* 留在个人中心：登录成功后 state.account 更新，视图自动切换为账号信息 */
+          }}
+        />
+      </div>
     );
   }
 

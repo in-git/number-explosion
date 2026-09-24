@@ -198,6 +198,17 @@ export function loadGameState(): GameState {
         ? Math.max(0, parsed.rebirthResetProgressMs)
         : 0,
       rebirthResetCrafting: !!parsed.rebirthResetCrafting,
+      // 渡劫殿：坍缩重置丹存量 / 已炼炉数 / 当前炉进度（默认 0）
+      collapseResetPills: Number.isFinite(parsed.collapseResetPills)
+        ? Math.max(0, Math.floor(parsed.collapseResetPills))
+        : 0,
+      collapseResetCraftCount: Number.isFinite(parsed.collapseResetCraftCount)
+        ? Math.max(0, Math.floor(parsed.collapseResetCraftCount))
+        : 0,
+      collapseResetProgressMs: Number.isFinite(parsed.collapseResetProgressMs)
+        ? Math.max(0, parsed.collapseResetProgressMs)
+        : 0,
+      collapseResetCrafting: !!parsed.collapseResetCrafting,
       // 渡劫殿：渡劫点存量 / 产出进度 / 自动永劫结算进度（默认 0）
       tribulationPoints: Number.isFinite(parsed.tribulationPoints)
         ? Math.max(0, Math.floor(parsed.tribulationPoints))
@@ -235,6 +246,15 @@ export function loadGameState(): GameState {
         },
         {} as Record<UpgradeId, number>
       ),
+      // 坍缩重置丹账本：记录被重置掉的等级（效果保留），默认全为 0
+      collapseResetLevels: {
+        valueCap: Number.isFinite(parsed.collapseResetLevels?.valueCap)
+          ? Math.max(0, Math.floor(parsed.collapseResetLevels.valueCap))
+          : 0,
+        rebirthExplosion: Number.isFinite(parsed.collapseResetLevels?.rebirthExplosion)
+          ? Math.max(0, Math.floor(parsed.collapseResetLevels.rebirthExplosion))
+          : 0,
+      },
       // 旧存档迁移：无明确来源记录时，将当前等级保留为永劫殿独立等级（永久道基）
       rebirthMergedLevels: (Object.keys(INITIAL_STATE.rebirthMergedLevels) as UpgradeId[]).reduce(
         (acc, id) => {

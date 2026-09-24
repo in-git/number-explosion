@@ -14,6 +14,8 @@ import {
   getRebirthPointUpgradeCost,
   getRebirthPointBonusPerMillion,
   getRebirthToCollapseCost,
+  getEffectiveValueCapLevel,
+  getEffectiveRebirthPointLevel,
   planBulkBuy,
   planByAmountMode,
   COLLAPSE_COST,
@@ -36,6 +38,7 @@ export const CollapseShop: React.FC = () => {
     handleBuyLevelCapMax: onBuyLevelCapMax,
     handleExchangeRebirthToCollapse: onExchangeRebirthToCollapse,
     handleUnlockAfterlifeShop: onUnlockAfterlifeShop,
+    handleUseCollapseResetPill: onUseCollapseResetPill,
   } = useGameActions();
 
   /** 升级量模式（全局「一键升级」开关）：1（默认）/ 一半 / max；任意一殿切换，各殿按钮次数联动 */
@@ -43,8 +46,10 @@ export const CollapseShop: React.FC = () => {
 
   const level = state.valueCapLevel || 0;
   const rebirths = state.rebirthCount || 0;
-  const currentCap = getValueCap(level, rebirths);
-  const nextCap = getValueCap(level + 1, rebirths);
+  // 坍缩重置丹账本：有效等级 = 当前等级 + 保留等级（重置后效果照旧计入）
+  const effectiveLevel = getEffectiveValueCapLevel(state);
+  const currentCap = getValueCap(effectiveLevel, rebirths);
+  const nextCap = getValueCap(effectiveLevel + 1, rebirths);
   const valueCapCost = getValueCapCost(level + 1);
   const canBuy = state.collapsePoints >= valueCapCost.toNumber();
   // 功法等级上限：每次固定 1 点坍缩点数（与「数值上限」的消耗无关）
@@ -70,6 +75,11 @@ export const CollapseShop: React.FC = () => {
 
   // 往生殿：消耗坍缩点（非永劫点）解锁
   const canUnlockAfterlifeShop = state.collapsePoints >= AFTERLIFE_SHOP_UNLOCK_COST;
+
+  // 坍缩重置丹（渡劫成功后可用）：持丹且「数值上限」或「永劫爆炸」当前有等级可重置
+  const hasCollapseResettableLevel =
+    (state.valueCapLevel || 0) > 0 || (state.rebirthPointLevel || 0) > 0;
+  const canUseCollapseReset = (state.collapseResetPills || 0) > 0 && hasCollapseResettableLevel;
 
   // 一半 · max：本次实际会购买的次数（与结算同源，故按钮显示即实际购买次数）
   const collapsePointsNow = Math.max(0, state.collapsePoints);
@@ -140,6 +150,22 @@ export const CollapseShop: React.FC = () => {
             onToggle={cycleAmount}
             className="px-2 py-0.5 text-[10px]"
           />
+        )}
+
+        {/* 坍缩重置丹：消耗 1 颗，重置「数值上限 / 永劫爆炸」——消耗从初始曲线重算，已有效果全部保留 */}
+        {state.tribulationSuccess && (
+          <button
+            id="btn-use-collapse-reset"
+            onClick={() => onUseCollapseResetPill()}
+            disabled={!canUseCollapseReset}
+            className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 ${
+              canUseCollapseReset
+                ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'
+                : 'text-[#5b5548] border-[#2b2721] cursor-default'
+            }`}
+          >
+            坍缩重置丹 {state.collapseResetPills || 0}
+          </button>
         )}
       </div>
 

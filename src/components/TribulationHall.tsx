@@ -105,8 +105,8 @@ const CycleCard: React.FC<{
 interface PillItemProps {
   /** 按钮 id */
   id: string;
-  /** 丹种：数值重置丹（1 天起）/ 永劫重置丹（2 天起） */
-  pill: 'value' | 'rebirth';
+  /** 丹种：数值重置丹（1 分钟）/ 永劫重置丹（3 分钟）/ 坍缩重置丹（20 分钟） */
+  pill: 'value' | 'rebirth' | 'collapse';
   /** 丹名 */
   name: string;
   /** 存量 */
@@ -212,14 +212,15 @@ const PillItem: React.FC<PillItemProps> = ({
 
 /**
  * 渡劫殿：渡劫成功（飞升成仙）后开启。
- * 炼制两种重置丹（数值重置丹 / 永劫重置丹）：点击「炼制」即开炉，炼制中不可操作；
- * 耗时恒定不累加：数值重置丹每炉 1 分钟，永劫重置丹每炉 3 分钟。
+ * 炼制重置丹（数值重置丹 / 永劫重置丹 / 坍缩重置丹）：点击「炼制」即开炉，炼制中不可操作；
+ * 耗时恒定不累加：数值重置丹每炉 1 分钟，永劫重置丹每炉 3 分钟，坍缩重置丹每炉 20 分钟。
  */
 export const TribulationHall: React.FC = () => {
   const { state, currentBigNum: currentValue } = useGameData();
   const {
     handleCraftValueResetPill: onCraftValue,
     handleCraftRebirthResetPill: onCraftRebirth,
+    handleCraftCollapseResetPill: onCraftCollapse,
   } = useGameActions();
 
   // 渡劫点：每 10s 产出 15 点；自动永劫结算周期：30s 起，每产出一次 +5s，180s 封顶
@@ -263,6 +264,16 @@ export const TribulationHall: React.FC = () => {
         progressMs={Math.max(0, state.rebirthResetProgressMs || 0)}
         crafting={!!state.rebirthResetCrafting}
         onCraft={onCraftRebirth}
+      />
+      <PillItem
+        id="btn-craft-collapse-reset"
+        pill="collapse"
+        name="坍 缩 重 置 丹"
+        pills={Math.max(0, state.collapseResetPills || 0)}
+        craftCount={Math.max(0, state.collapseResetCraftCount || 0)}
+        progressMs={Math.max(0, state.collapseResetProgressMs || 0)}
+        crafting={!!state.collapseResetCrafting}
+        onCraft={onCraftCollapse}
       />
     </div>
   );

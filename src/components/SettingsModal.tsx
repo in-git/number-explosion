@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, CircleUserRound, Github, Trash2, Tv, User } from 'lucide-react';
+import { BookOpen, CircleUserRound, Github, Trash2, Tv, User, Wrench } from 'lucide-react';
 import { useModals } from '../context/GameContext';
 
 /** 外链入口 */
@@ -47,6 +47,13 @@ export const SettingsModal: React.FC = () => {
       desc: '有问题可在B站私信',
       Icon: Tv,
       href: BILIBILI_URL,
+    },
+    {
+      id: 'edit-data',
+      title: '修 改 数 据',
+      desc: '逆天改命 · 数值与点数',
+      Icon: Wrench,
+      onClick: modals.editData.open,
     },
     {
       id: 'github',
