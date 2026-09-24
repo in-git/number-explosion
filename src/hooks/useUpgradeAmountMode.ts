@@ -33,3 +33,12 @@ export function useUpgradeAmountMode(): { mode: UpgradeAmountMode; cycle: () => 
 
   return { mode, cycle };
 }
+
+/**
+ * 复位升级量模式为「1」：商殿重置 / 重修道途后调用，
+ * 让「一键升级 / 一键购买」回到最保守的 1 次，避免停留在 half / max。
+ */
+export function resetAmountMode(): void {
+  amountMode = '1';
+  listeners.forEach((listener) => listener());
+}

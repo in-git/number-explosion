@@ -49,6 +49,7 @@ import {
   TribulationOutcome,
 } from '../utils/gameMath';
 import { resetToInitialState, resetUpgradeLevels } from '../utils/state';
+import { resetAmountMode } from '../hooks/useUpgradeAmountMode';
 import { buildSaveSnapshot, clearGameState, loadGameState, saveGameState } from '../utils/storage';
 import { getServerNow, syncServerTime } from '../utils/serverTime';
 import { deleteAccount, saveGameToServer } from '../utils/authApi';
@@ -299,6 +300,49 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       if (elapsedMs < OFFLINE_MIN_MS) return;
 
       const cappedMs = Math.min(elapsedMs, OFFLINE_MAX_MS);
+
+      // 渡劫殿：离线推进重置丹炼制（坍缩 / 永劫）。
+      // 与前台语义一致——一炉炼成后停炉，故离线最多补完当前这一炉。
+      const prev = stateRef.current;
+      const pillPatch: Partial<GameState> = {};
+      const produced: string[] = [];
+      (['rebirth', 'collapse'] as const).forEach((kind) => {
+        const isRebirth = kind === 'rebirth';
+        const crafting = isRebirth ? prev.rebirthResetCrafting : prev.collapseResetCrafting;
+        if (!crafting) return;
+
+        const duration = getResetPillDurationMs(kind);
+        const progress = Math.max(
+          0,
+          isRebirth ? prev.rebirthResetProgressMs : prev.collapseResetProgressMs || 0
+        );
+        const total = progress + cappedMs;
+
+        if (total >= duration) {
+          // 炼成一炉：产出 1 颗后停炉（与前台一致）
+          if (isRebirth) {
+            pillPatch.rebirthResetProgressMs = 0;
+            pillPatch.rebirthResetCraftCount = (prev.rebirthResetCraftCount || 0) + 1;
+            pillPatch.rebirthResetPills = Math.max(0, prev.rebirthResetPills || 0) + 1;
+            pillPatch.rebirthResetCrafting = false;
+          } else {
+            pillPatch.collapseResetProgressMs = 0;
+            pillPatch.collapseResetCraftCount = (prev.collapseResetCraftCount || 0) + 1;
+            pillPatch.collapseResetPills = Math.max(0, prev.collapseResetPills || 0) + 1;
+            pillPatch.collapseResetCrafting = false;
+          }
+          produced.push(isRebirth ? '永劫重置丹 ×1' : '坍缩重置丹 ×1');
+        } else {
+          // 未炼满一炉：推进进度，继续炼制
+          if (isRebirth) pillPatch.rebirthResetProgressMs = total;
+          else pillPatch.collapseResetProgressMs = total;
+        }
+      });
+      if (Object.keys(pillPatch).length > 0) {
+        setState((p) => ({ ...p, ...pillPatch }));
+        if (produced.length > 0) addToast('离线炼丹', `挂机期间产出：${produced.join('、')}`);
+      }
+
       const gain = getOfflineGain(stateRef.current, cappedMs / 1000);
       if (gain.m === 0) return;
 
@@ -317,7 +361,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
 
       checkUnlockTriggers(stateRef.current.clickCount, after);
     },
-    [checkUnlockTriggers, commitValue]
+    [checkUnlockTriggers, commitValue, addToast]
   );
 
   /**
@@ -1642,6 +1686,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       afterlifeUpgradeLevels: { ...INITIAL_STATE.afterlifeUpgradeLevels },
       rebirthCapLevel: 0,
     });
+    resetAmountMode();
     addToast('重置往生殿', '往生殿升级等级已归零 · 不返还已消耗的往生点');
   }, [addToast]);
 
@@ -1668,6 +1713,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       collapseResetLevels: { valueCap: 0, rebirthExplosion: 0 },
       currentValue: clamped.toData(),
     });
+    resetAmountMode();
     addToast('重置坍缩殿', '坍缩殿升级等级已归零 · 不返还已消耗的坍缩点');
   }, [addToast]);
 
@@ -1679,6 +1725,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
       rebirthMergedLevels: { ...INITIAL_STATE.rebirthMergedLevels },
       rebirthBaseValueLevel: 0,
     });
+    resetAmountMode();
     addToast('重置永劫殿', '永劫殿升级等级已归零 · 不返还已消耗的永劫点数');
   }, [addToast]);
 
