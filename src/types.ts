@@ -203,7 +203,7 @@ export interface GameState {
   tribulationPointProgressMs: number;
   /** 渡劫殿：距离下一次自动结算「永劫点」已累计的时间（ms） */
   autoRebirthProgressMs: number;
-  /** 渡劫殿：已自动结算「永劫点」的次数（决定下一次的间隔：30s 起，每 +1 次再 +5s，180s 封顶） */
+  /** 渡劫殿：已自动结算「永劫点」的次数（仅作记录；自动结算间隔固定 30s，不随次数变化） */
   autoRebirthCount: number;
   /**
    * 「数值重置丹」的账本：按功法记录数值殿中被重置掉的等级。

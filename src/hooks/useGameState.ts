@@ -776,16 +776,14 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
         (prev.tribulationPoints || 0) + tpCycles * TRIBULATION_POINT_GAIN;
       next.tribulationPointProgressMs = tpMs - tpCycles * TRIBULATION_POINT_INTERVAL_MS;
 
-      // 自动永劫结算：间隔 30s 起、每产出一次 +5s、180s 封顶；仅加算点数，不清除任何数据
-      const arInterval = getAutoRebirthIntervalMs(prev.autoRebirthCount || 0);
+      // 自动永劫结算：固定间隔 30s 产出一次（间隔不累加）；仅加算点数，不清除任何数据
+      const arInterval = getAutoRebirthIntervalMs();
       const arMs = Math.max(0, prev.autoRebirthProgressMs || 0) + RESET_PILL_TICK_MS;
       if (arMs >= arInterval) {
         // 静默入账：仅加算点数，不弹提示
         next.rebirthPoints =
           (prev.rebirthPoints || 0) + getAutoRebirthPoints(bigNumRef.current, prev);
         next.autoRebirthProgressMs = arMs - arInterval;
-        // 结算次数 +1：下一次的间隔随之 +5s（至 180s 封顶）
-        next.autoRebirthCount = (prev.autoRebirthCount || 0) + 1;
       } else {
         next.autoRebirthProgressMs = arMs;
       }
@@ -1165,7 +1163,7 @@ export function useGameState({ addToast, addFloatingText }: UseGameStateDeps) {
     }
   }, [addToast]);
 
-  /** 坍缩商殿：消耗按等差数列递增（差值 1）的坍缩点数，提升数值上限 */
+  /** 坍缩商殿：消耗按等差数列递增（2×等级，差值 2）的坍缩点数，提升数值上限 */
   const handleBuyValueCap = useCallback(() => {
     // 级数与扣费一律以 setState 内的最新 state 为准：
     // 若先读 stateRef 再算 nextLevel，连点时两次点击会算出同一个级数，

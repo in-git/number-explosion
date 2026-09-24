@@ -70,16 +70,13 @@ const effectText = (
   switch (id) {
     case 'baseValue': {
       // 独立公式：每级固定 +2（线性增长），并受往生殿「数值升级」基础倍数放大。
-      // 注意 getRebirthBaseValueGain 与等级无关（恒为 +2×倍数），
-      // 故 gain 级的增量须取「升 gain 级前后累计加成之差」，不能只按 1 级算。
-      const gainTotal = getRebirthBaseValueBonus(level + gain, afterlifeLevel).sub(
-        getRebirthBaseValueBonus(level, afterlifeLevel)
-      );
-      const cur = attrs.baseValue.formatChinese(1);
-      const next = attrs.baseValue.add(gainTotal).formatChinese(1);
+      // 显示永劫殿「基础数值」自身的累计加成（前后对比），与数值殿口径一致，
+      // 避免直接累加进总基础数值后增量被巨量数值吞没、前后看起来没变化。
+      const cur = getRebirthBaseValueBonus(level, afterlifeLevel);
+      const next = getRebirthBaseValueBonus(level + gain, afterlifeLevel);
       return (
         <>
-          基础 <Num>{cur}</Num> → 基础 <Num>{next}</Num>
+          基础 <Num>+{cur.formatChinese(1)}</Num> → 基础 <Num>+{next.formatChinese(1)}</Num>
         </>
       );
     }

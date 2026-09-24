@@ -158,7 +158,7 @@ export const CollapseShop: React.FC = () => {
             id="btn-use-collapse-reset"
             onClick={() => onUseCollapseResetPill()}
             disabled={!canUseCollapseReset}
-            className={`px-2 py-0.5 rounded border transition-colors flex-shrink-0 ${
+            className={`px-1.5 py-px text-[10px] rounded border transition-colors flex-shrink-0 ${
               canUseCollapseReset
                 ? 'text-[#e8b56f] border-[#4a3f2c] bg-[#2a2620] cursor-pointer hover:border-[#6b5e4c] hover:text-[#ffd98a]'
                 : 'text-[#5b5548] border-[#2b2721] cursor-default'
@@ -229,7 +229,7 @@ export const CollapseShop: React.FC = () => {
         />
       </div>
 
-      {/* 数值上限：消耗按斐波那契递增的坍缩点数，每级提升量亦按斐波那契式递增；仅按右侧按钮触发 */}
+      {/* 数值上限：每级增益为斐波那契序列（100万、100万、200万、300万…），消耗为 2×等级（2、4、6…） */}
       <div
         id="shop-item-value-cap"
         className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#211f1c] border border-[#383229] select-none"
@@ -243,6 +243,9 @@ export const CollapseShop: React.FC = () => {
           </div>
           <div className="text-[10px] text-[#998e7e] font-serif  mt-0.5">
             {currentCap.formatChinese(2)} → {nextCap.formatChinese(2)}
+            <span className="text-[#e8c46a]">
+              （升1级 +{getValueCapStep(effectiveLevel + 1).formatChinese(2)}）
+            </span>
           </div>
         </div>
 

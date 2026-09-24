@@ -111,8 +111,6 @@ interface PillItemProps {
   name: string;
   /** 存量 */
   pills: number;
-  /** 已炼成的炉数（决定本炉耗时） */
-  craftCount: number;
   /** 本炉已投入的时间（ms） */
   progressMs: number;
   /** 是否正在炼制 */
@@ -126,7 +124,6 @@ const PillItem: React.FC<PillItemProps> = ({
   pill,
   name,
   pills,
-  craftCount,
   progressMs,
   crafting,
   onCraft,
@@ -203,7 +200,7 @@ const PillItem: React.FC<PillItemProps> = ({
 
       {/* 炼制信息：置于卡片最下方 */}
       <div className={`font-mono text-[10px] ${infoColor}`}>
-        {pills} 颗 · 第 {craftCount + 1} 炉 {durText(duration)}
+        {pills} 颗 · {durText(duration)}
         {crafting ? ` · 剩余 ${remain}` : ''}
       </div>
     </div>
@@ -223,10 +220,10 @@ export const TribulationHall: React.FC = () => {
     handleCraftCollapseResetPill: onCraftCollapse,
   } = useGameActions();
 
-  // 渡劫点：每 10s 产出 15 点；自动永劫结算周期：30s 起，每产出一次 +5s，180s 封顶
+  // 渡劫点：每 10s 产出 15 点；自动永劫结算：固定 30s 一次，间隔不累加
   const tribulationPoints = Math.max(0, state.tribulationPoints || 0);
   const nextRebirthPoints = getAutoRebirthPoints(currentValue, state);
-  const autoRebirthIntervalMs = getAutoRebirthIntervalMs(state.autoRebirthCount || 0);
+  const autoRebirthIntervalMs = getAutoRebirthIntervalMs();
 
   return (
     <div className="flex flex-col gap-2">
@@ -250,7 +247,6 @@ export const TribulationHall: React.FC = () => {
         pill="value"
         name="数 值 重 置 丹"
         pills={Math.max(0, state.valueResetPills || 0)}
-        craftCount={Math.max(0, state.valueResetCraftCount || 0)}
         progressMs={Math.max(0, state.valueResetProgressMs || 0)}
         crafting={!!state.valueResetCrafting}
         onCraft={onCraftValue}
@@ -260,7 +256,6 @@ export const TribulationHall: React.FC = () => {
         pill="rebirth"
         name="永 劫 重 置 丹"
         pills={Math.max(0, state.rebirthResetPills || 0)}
-        craftCount={Math.max(0, state.rebirthResetCraftCount || 0)}
         progressMs={Math.max(0, state.rebirthResetProgressMs || 0)}
         crafting={!!state.rebirthResetCrafting}
         onCraft={onCraftRebirth}
@@ -270,7 +265,6 @@ export const TribulationHall: React.FC = () => {
         pill="collapse"
         name="坍 缩 重 置 丹"
         pills={Math.max(0, state.collapseResetPills || 0)}
-        craftCount={Math.max(0, state.collapseResetCraftCount || 0)}
         progressMs={Math.max(0, state.collapseResetProgressMs || 0)}
         crafting={!!state.collapseResetCrafting}
         onCraft={onCraftCollapse}

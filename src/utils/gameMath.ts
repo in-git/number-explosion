@@ -358,22 +358,14 @@ export const RESET_PILL_TICK_MS = 1_000;
 export const TRIBULATION_POINT_INTERVAL_MS = 10_000;
 /** 渡劫殿：每个产出周期获得的「渡劫点」数量（每 10 秒 15 点） */
 export const TRIBULATION_POINT_GAIN = 15;
-/** 渡劫殿：自动结算「永劫点」的起始间隔（ms） */
+/** 渡劫殿：自动结算「永劫点」的固定间隔（ms）——每 30 秒产出一次，间隔不累加 */
 export const AUTO_REBIRTH_BASE_INTERVAL_MS = 30_000;
-/** 渡劫殿：每结算一次「永劫点」，下一次的间隔增量（ms） */
-export const AUTO_REBIRTH_INTERVAL_STEP_MS = 5_000;
-/** 渡劫殿：自动结算「永劫点」的间隔上限（ms）——最多三分钟产出一次 */
-export const AUTO_REBIRTH_INTERVAL_MAX_MS = 180_000;
 
 /**
- * 渡劫殿：自动结算「永劫点」的间隔。
- * 起始 30s，每产出一次 +5s，180s（3 分钟）封顶。
- * @param settledTimes 已自动结算的次数
+ * 渡劫殿：自动结算「永劫点」的间隔，固定 30 秒一次，不随结算次数累加。
  */
-export function getAutoRebirthIntervalMs(settledTimes: number): number {
-  const n = Number.isFinite(settledTimes) && settledTimes > 0 ? Math.floor(settledTimes) : 0;
-  const ms = AUTO_REBIRTH_BASE_INTERVAL_MS + n * AUTO_REBIRTH_INTERVAL_STEP_MS;
-  return Math.min(ms, AUTO_REBIRTH_INTERVAL_MAX_MS);
+export function getAutoRebirthIntervalMs(): number {
+  return AUTO_REBIRTH_BASE_INTERVAL_MS;
 }
 
 /**
@@ -478,13 +470,14 @@ export function getTribulationExponent(tribulationTimes: number): number {
   return Math.min(TRIBULATION_MAX_COUNT, Math.max(1, times));
 }
 
-/** 数值上限基数：默认 100 万 */
+/** 数值上限基数：默认 100 万（同时作为斐波那契增益的单位，使 cap(L) = 单位 × F(L+2)） */
 export const VALUE_CAP_BASE = 1e6;
 
+/** 每级增益 = 斐波那契系数 × 该单位（100 万）；即增益序列：100万、100万、200万、300万、500万、800万 … */
+const VALUE_CAP_UNIT = 1e6;
+
 /**
- * 数值上限每级提升量系数（单位：万）
- * 序列：0, 1, 2, 3, 5, 8, 13 ...（第 1、2 级为 0、1；第 3 级起 = 前两级之和，呈斐波那契增长）
- * 第 n 级的提升量 = (100 + 50 × 系数) 万
+ * 数值上限每级提升量的斐波那契系数：1, 1, 2, 3, 5, 8, 13 …（经典斐波那契，第 n 级 = F(n)）
  *
  * 溢出保护：斐波那契约 1470 级后即超出 Number 上限变成 Infinity，
  * 而 Infinity 经 BigNum 归一化会退化成 0 —— 那样「买了上限却不涨」。
@@ -493,8 +486,8 @@ export const VALUE_CAP_BASE = 1e6;
  * 该序列只与「级数」有关，故只推导一次并缓存：原先每次调用都从头重推，
  * 高等级下（如 Lv.1e8）单次就要几十万次加法，会让每帧渲染卡死。
  */
-const VALUE_CAP_COEFF: number[] = (() => {
-  const seq = [0, 1, 2]; // 第 1、2、3 级系数
+const VALUE_CAP_FIB: number[] = (() => {
+  const seq = [1, 1]; // F(1)=1, F(2)=1
   for (;;) {
     const len = seq.length;
     const next = seq[len - 1] + seq[len - 2];
@@ -505,11 +498,11 @@ const VALUE_CAP_COEFF: number[] = (() => {
   return seq;
 })();
 
-/** 系数前缀和（Σ 系数[0..i]）——系数可达 1e308，用 Number 累加会溢出成 Infinity，故走 BigNum */
-const VALUE_CAP_COEFF_SUM: BigNum[] = (() => {
+/** 斐波那契系数前缀和（Σ F[0..i]）——系数可达 1e308，用 Number 累加会溢出成 Infinity，故走 BigNum */
+const VALUE_CAP_FIB_SUM: BigNum[] = (() => {
   const out: BigNum[] = [];
   let acc = new BigNum(0, 0);
-  for (const c of VALUE_CAP_COEFF) {
+  for (const c of VALUE_CAP_FIB) {
     acc = acc.add(new BigNum(c, 0));
     out.push(acc);
   }
@@ -519,18 +512,18 @@ const VALUE_CAP_COEFF_SUM: BigNum[] = (() => {
 function getValueCapStepCoeff(level: number): number {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
   if (lv <= 0) return 0;
-  return VALUE_CAP_COEFF[Math.min(lv, VALUE_CAP_COEFF.length) - 1];
+  return VALUE_CAP_FIB[Math.min(lv, VALUE_CAP_FIB.length) - 1];
 }
 
 /**
- * 数值上限每级提升量（实际数值）：
- *   第 n 级 = (100 + 50 × 系数_n) 万
- *   即：100 万、150 万、200 万、250 万、350 万、550 万 ...
- * 乘法走 BigNum（而非裸数相乘），避免系数极大时 5e5 × 系数 溢出成 Infinity。
+ * 数值上限每级提升量（实际数值，纯斐波那契序列）：
+ *   第 n 级 = F(n) × 单位(100万)
+ *   即：100万、100万、200万、300万、500万、800万、1300万 …
+ * 乘法走 BigNum（而非裸数相乘），避免系数极大时 单位 × F 溢出成 Infinity。
  */
 export function getValueCapStep(level: number): BigNum {
   const coeff = getValueCapStepCoeff(level);
-  return new BigNum(VALUE_CAP_BASE).add(new BigNum(coeff, 0).mulScalar(5e5));
+  return new BigNum(coeff, 0).mulScalar(VALUE_CAP_UNIT);
 }
 
 /** 每次永劫永久提升的数值上限（100 万，永久保留） */
@@ -546,25 +539,25 @@ export function getRebirthCapBonus(rebirthCount: number): BigNum {
 
 /**
  * 仅按等级累计的数值上限（不含永劫加成）：
- * 100 万 + Σ(每级提升量) = 100万 + 等级 × 100万 + 5e5 × Σ(系数)
+ *   基数 100万 + 单位 × Σ_{i=1}^{L} F(i)
+ * 因 Σ_{i=1}^{L} F(i) = F(L+2) − 1，且 基数 = 单位，故
+ *   cap(L) = 单位 × F(L+2)   —— 上限本身即斐波那契序列（×100万）
  * 用系数前缀和闭式求解（O(1)）——逐级累加在高等级下会退化成上亿次循环而卡死渲染。
  */
 function getValueCapByLevel(lv: number): BigNum {
   if (lv <= 0) return new BigNum(VALUE_CAP_BASE, 0);
-  const len = VALUE_CAP_COEFF.length;
-  const lastCoeff = VALUE_CAP_COEFF[len - 1];
+  const len = VALUE_CAP_FIB.length;
+  const lastCoeff = VALUE_CAP_FIB[len - 1];
   const coeffSum =
     lv <= len
-      ? VALUE_CAP_COEFF_SUM[lv - 1]
-      : VALUE_CAP_COEFF_SUM[len - 1].add(new BigNum(lastCoeff, 0).mulScalar(lv - len));
-  return new BigNum(VALUE_CAP_BASE, 0)
-    .add(coeffSum.mulScalar(5e5))
-    .add(new BigNum(lv, 0).mulScalar(VALUE_CAP_BASE));
+      ? VALUE_CAP_FIB_SUM[lv - 1]
+      : VALUE_CAP_FIB_SUM[len - 1].add(new BigNum(lastCoeff, 0).mulScalar(lv - len));
+  return new BigNum(VALUE_CAP_BASE, 0).add(coeffSum.mulScalar(VALUE_CAP_UNIT));
 }
 
 /**
- * 数值上限：默认 100 万 + 坍缩殿每级提升量（斐波那契式递增）+ 永劫加成（每次永劫 +100 万）
- * = 100万 + Σ(每级提升量) + 永劫次数 × 100万
+ * 数值上限：默认 100 万 + 坍缩殿每级斐波那契增益 + 永劫加成（每次永劫 +100 万）
+ * = 100万 + 单位 × ΣF + 永劫次数 × 100万
  */
 export function getValueCap(level: number, rebirthCount: number = 0): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 0;
@@ -572,12 +565,12 @@ export function getValueCap(level: number, rebirthCount: number = 0): BigNum {
 }
 
 /**
- * 购买第 level 级（level 从 1 起）数值上限所需的坍缩点数：线性 +1
- *   即：1、2、3、4、5 ...
+ * 购买第 level 级（level 从 1 起）数值上限所需的坍缩点数：2 × level
+ *   即：2、4、6、8、10 …
  */
 export function getValueCapCost(level: number): BigNum {
   const lv = Number.isFinite(level) && level > 0 ? Math.floor(level) : 1;
-  return new BigNum(lv, 0);
+  return new BigNum(lv * 2, 0);
 }
 
 /**
@@ -1032,11 +1025,12 @@ export function planBulkBuy(
 
 /**
  * 数值上限：从 startLevel 起连买 count 级的累计消耗（闭式）。
- * 第 k 次购买消耗 getValueCapCost(startLevel + k + 1) = startLevel + k + 1，即公差为 1 的等差数列。
+ * 第 k 次购买消耗 getValueCapCost(startLevel + k) = 2 × (startLevel + k)，
+ * 即首项 2×(startLevel+1)、公差为 2 的等差数列。
  */
 export function getValueCapBulkCost(startLevel: number, count: number): number {
   const start = Number.isFinite(startLevel) && startLevel > 0 ? Math.floor(startLevel) : 0;
-  return arithmeticSeriesSum(start + 1, 1, count);
+  return arithmeticSeriesSum(2 * (start + 1), 2, count);
 }
 
 /**
